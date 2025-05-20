@@ -1,0 +1,186 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { CartItem, User, Product } from '../types'; // Ensure Product is imported
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+
+interface CartContextType {
+  items: CartItem[];
+  addToCart: (product: Product, quantity?: number) => void; // Use Product type
+  removeFromCart: (partnumber: string) => void;
+  updateQuantity: (partnumber: string, quantity: number) => void;
+  clearCart: () => void;
+  totalItems: number;
+  totalPrice: number;
+  placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string) => Promise<string>;
+}
+
+const CartContext = createContext<CartContextType>({
+  items: [],
+  addToCart: () => {},
+  removeFromCart: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  totalItems: 0,
+  totalPrice: 0,
+  placeOrder: async () => '',
+});
+
+export const useCart = () => useContext(CartContext);
+
+let nextOrderNumber = 750000; // This will be updated by useEffect
+
+export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [items, setItems] = useState<CartItem[]>([]);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const initializeOrderNumber = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('web_orders')
+          .select('order_number')
+          .order('order_number', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116: "The result contains 0 rows"
+          console.error('Error fetching max order number:', error);
+        } else if (data) {
+          nextOrderNumber = data.order_number + 1;
+        } else {
+          // Table is empty, keep default or set a specific start
+          nextOrderNumber = 750000; 
+        }
+      } catch (e) {
+        console.error('Exception fetching max order number:', e);
+        // Fallback in case of any other error
+        nextOrderNumber = 750000;
+      }
+    };
+
+    initializeOrderNumber();
+
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      try {
+        setItems(JSON.parse(savedCart));
+      } catch (e) {
+        localStorage.removeItem('cart');
+      }
+    }
+  }, []);
+  
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(items));
+  }, [items]);
+
+  const addToCart = (product: Product, quantity: number = 1) => {
+    setItems(prevItems => {
+      const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
+      if (existingItem) {
+        return prevItems.map(item => 
+          item.partnumber === product.partnumber 
+            ? { ...item, quantity: item.quantity + quantity } 
+            : item
+        );
+      } else {
+        const newItem: CartItem = {
+          ...product,
+          inventory: product.inventory ?? null, 
+          price: product.price ?? 0, 
+          quantity
+        };
+        return [...prevItems, newItem];
+      }
+    });
+  };
+
+  const removeFromCart = (partnumber: string) => {
+    setItems(prevItems => prevItems.filter(item => item.partnumber !== partnumber));
+  };
+
+  const updateQuantity = (partnumber: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(partnumber);
+      return;
+    }
+    setItems(prevItems => 
+      prevItems.map(item => 
+        item.partnumber === partnumber ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const clearCart = () => {
+    setItems([]);
+    localStorage.removeItem('cart');
+  };
+
+  const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string): Promise<string> => {
+    const orderNumberGenerated = `WB${nextOrderNumber++}`;
+    const orderNumberForDb = parseInt(orderNumberGenerated.slice(2));
+    
+    if (!user || !user.accountNumber) {
+      console.error('Place Order: User or account number is not available.');
+      throw new Error('User not authenticated or account number missing.');
+    }
+    
+    const accountNumberInt = parseInt(user.accountNumber, 10);
+    if (isNaN(accountNumberInt)) {
+      console.error('Place Order: Invalid account number format in user object:', user.accountNumber);
+      throw new Error('Invalid user account number format.');
+    }
+
+    const orderPayload = {
+      order_number: orderNumberForDb,
+      account_number: accountNumberInt,
+      order_comments: `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`,
+      order_items: items.map(item => ({ 
+        partnumber: item.partnumber, 
+        description: item.description,
+        quantity: item.quantity, 
+        price: item.price || 0, 
+        extended_price: (item.price || 0) * item.quantity
+      })), // Re-enabled order_items
+      total_price: totalPrice, 
+      status: 'Pending Confirmation' // Re-enabled status
+    };
+    console.log('Placing order with payload:', orderPayload);
+
+    const { data: insertedOrder, error: insertError } = await supabase
+      .from('web_orders')
+      .insert(orderPayload)
+      .select() 
+      .single(); 
+
+    if (insertError || !insertedOrder) {
+      console.error('Supabase insert error:', insertError);
+      throw new Error(insertError?.message || 'Failed to save order to database.');
+    }
+
+    console.log('Order saved successfully:', insertedOrder);
+    // Email sending logic will be added later, once build is stable
+    console.log(`Order ${orderNumberGenerated} placed. Email to ${customerEmail} and CC pcapece@aol.com would be sent here.`);
+
+    clearCart();
+    return orderNumberGenerated;
+  };
+
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
+  const totalPrice = items.reduce((total, item) => total + ((item.price || 0) * item.quantity), 0);
+
+  return (
+    <CartContext.Provider value={{
+      items,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      totalItems,
+      totalPrice,
+      placeOrder
+    }}>
+      {children}
+    </CartContext.Provider>
+  );
+};
