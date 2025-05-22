@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { KeyRound, User } from 'lucide-react';
+import { KeyRound, User as UserIcon } from 'lucide-react'; // Renamed User to UserIcon to avoid conflict
+import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavigate
+import PasswordChangeModal from './PasswordChangeModal'; // Import the modal
+import { supabase } from '../lib/supabase'; // Import supabase client
+import { User } from '../types'; // Import User type
 
 // Import images from /src/images/
 import p1 from '../images/p1.jpg';
@@ -18,17 +22,64 @@ const Login: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, error } = useAuth();
+  const { login, error, user, isAuthenticated, fetchUserAccount } = useAuth(); // Added user, isAuthenticated, fetchUserAccount
+  const navigate = useNavigate();
+
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [currentAccountData, setCurrentAccountData] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // This effect will run after login and user state is updated
+      // Check for password condition if not already handled by handleSubmit
+      // However, the primary check should be in handleSubmit right after login success
+    }
+  }, [isAuthenticated, user, navigate]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      await login(accountNumber, password);
-    } finally {
+      const loginSuccess = await login(accountNumber, password);
+      if (loginSuccess) {
+        // Fetch full account details to get acctName and zip for the check
+        // user from useAuth might not be updated immediately or might not have all fields
+        const fetchedAccount = await fetchUserAccount(accountNumber);
+
+        if (fetchedAccount && fetchedAccount.acctName && fetchedAccount.zip) {
+          const firstLetter = fetchedAccount.acctName.charAt(0).toLowerCase();
+          const zip = fetchedAccount.zip.toLowerCase();
+          const defaultPassword = firstLetter + zip;
+
+          if (password.toLowerCase() === defaultPassword) {
+            setCurrentAccountData(fetchedAccount);
+            setIsPasswordModalOpen(true);
+            // Don't navigate to dashboard yet, user needs to change password
+          } else {
+            navigate('/dashboard'); // Navigate to dashboard if password is not default
+          }
+        } else {
+          // If account details can't be fetched, or are incomplete, proceed to dashboard
+          // Or handle as an error - for now, proceeding.
+          console.warn("Could not verify default password due to missing account details. Proceeding to dashboard.");
+          navigate('/dashboard');
+        }
+      }
+    } catch (err) {
+      // error state from useAuth() should cover most login errors
+      console.error("Login submit error", err)
+    } 
+    finally {
       setIsLoading(false);
     }
+  };
+  
+  const handleModalClose = () => {
+    setIsPasswordModalOpen(false);
+    // Optionally, force logout or navigate to login if password change is mandatory
+    // For now, just closing the modal. User might still be "logged in" but should ideally be forced to re-login.
   };
 
   return (
@@ -54,7 +105,7 @@ const Login: React.FC = () => {
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User size={18} className="text-gray-400" />
+                <UserIcon size={18} className="text-gray-400" />
               </div>
               <input
                 type="text"
@@ -95,6 +146,12 @@ const Login: React.FC = () => {
             <p className="text-red-600 text-[22px] font-semibold">
               FOR WHOLESALE ACCOUNTS ONLY
             </p>
+            <Link 
+              to="/new-account-application" 
+              className="block mt-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Click here to apply for a new account
+            </Link>
           </div>
 
           {/* Added Distributor Brands Section */}
@@ -134,6 +191,14 @@ const Login: React.FC = () => {
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        {currentAccountData && (
+          <PasswordChangeModal
+            isOpen={isPasswordModalOpen}
+            onClose={handleModalClose}
+            accountData={currentAccountData}
+          />
+        )}
       </div>
     </div>
   );

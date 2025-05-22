@@ -3,8 +3,13 @@ import { ProductGroup } from '../types';
 import { ChevronDown, ChevronRight, Drum, Guitar, Piano, Book, Cable, Mic, Briefcase, Settings, Music2 as MusicStand, Music as Maracas, Blinds, Music4, HardDrive } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+export interface CategorySelection {
+  id: string;
+  namePath: string[]; // Path of names from root to selected category
+  level: number;
+}
 interface CategoryTreeProps {
-  onSelectCategory: (categoryId: string) => void;
+  onSelectCategory: (selection: CategorySelection | null) => void; // Updated to pass object or null for deselection
   selectedCategoryId: string | null;
 }
 
@@ -58,12 +63,28 @@ const getCategoryIcon = (categoryName: string) => {
 const CategoryTreeItem: React.FC<{
   category: ProductGroup;
   level: number;
-  onSelectCategory: (categoryId: string) => void;
+  onSelectCategory: (selection: CategorySelection) => void; // Updated
   selectedCategoryId: string | null;
-}> = ({ category, level, onSelectCategory, selectedCategoryId }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  currentNamePath: string[]; // Added to pass down the path
+}> = ({ category, level, onSelectCategory, selectedCategoryId, currentNamePath }) => {
+  // Initial expansion: expand level 1 if a category is selected, otherwise start collapsed.
+  const [isExpanded, setIsExpanded] = useState(selectedCategoryId !== null && level === 1); // Default L1 expanded if a category selection exists
   const hasChildren = category.children && category.children.length > 0;
   const isSelected = selectedCategoryId === category.id;
+
+  useEffect(() => {
+    // If a specific category is selected, ensure its ancestors are expanded.
+    // This does not force collapse when selectedCategoryId is null.
+    if (selectedCategoryId !== null) {
+      if (category.id && selectedCategoryId.startsWith(category.id) && category.id !== selectedCategoryId) {
+        setIsExpanded(true); // Expand ancestors if a specific category is selected.
+      }
+    }
+    // When selectedCategoryId is null (All Products), this effect does not alter isExpanded.
+    // The initial state (useState) will make items start collapsed if selectedCategoryId is null.
+    // User's manual expansions will be preserved if they switch to "All Products" and then back to a category,
+    // unless the item is an ancestor of the new selection (then it's forced open) or it's L1 (initial state).
+  }, [selectedCategoryId, category.id, level]); // level added back just in case, though it's const for the instance.
   
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,7 +92,8 @@ const CategoryTreeItem: React.FC<{
   };
   
   const handleSelect = () => {
-    onSelectCategory(category.id);
+    const newNamePath = [...currentNamePath, category.name];
+    onSelectCategory({ id: category.id, namePath: newNamePath, level: category.level });
   };
   
   return (
@@ -105,6 +127,7 @@ const CategoryTreeItem: React.FC<{
               level={level + 1}
               onSelectCategory={onSelectCategory}
               selectedCategoryId={selectedCategoryId}
+              currentNamePath={[...currentNamePath, category.name]} // Pass updated path
             />
           ))}
         </div>
@@ -222,20 +245,28 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc(100vh-12rem)] overflow-y-auto w-[120%]">
-      <div className="p-3 border-b border-gray-200 bg-gray-50">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full overflow-y-auto w-full flex flex-col"> {/* Changed height and width, added flex flex-col */}
+      <div className="p-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10"> {/* Made header sticky */}
         <h3 className="font-medium text-gray-700">Product Categories</h3>
       </div>
-      <div className="p-2">
+      <div className="p-2 flex-grow overflow-y-auto"> {/* Made content area scrollable and grow */}
         {categories.map(category => (
           <CategoryTreeItem
             key={category.id}
             category={category}
-            level={1}
+            level={1} // Top level items
             onSelectCategory={onSelectCategory}
             selectedCategoryId={selectedCategoryId}
+            currentNamePath={[]} // Initial path is empty for root items
           />
         ))}
+         <div 
+          className="flex items-center py-2 px-3 cursor-pointer hover:bg-gray-100 mt-2 border-t pt-3"
+          onClick={() => onSelectCategory(null)} // Call with null to deselect
+        >
+          <span className="mr-2 w-5"></span> {/* Spacer */}
+          <span className="text-base text-gray-600 italic">Show All Products</span>
+        </div>
       </div>
     </div>
   );

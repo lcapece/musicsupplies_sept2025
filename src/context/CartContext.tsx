@@ -30,10 +30,34 @@ export const useCart = () => useContext(CartContext);
 let nextOrderNumber = 750000; // This will be updated by useEffect
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const { user } = useAuth();
+  const [items, setItems] = useState<CartItem[]>(() => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      try {
+        const parsedItems = JSON.parse(savedCart);
+        // Ensure that what we parsed is actually an array before returning it.
+        if (Array.isArray(parsedItems)) {
+          // Further check if items in array are valid CartItems (simplified check here)
+          if (parsedItems.every(item => typeof item.partnumber === 'string' && typeof item.quantity === 'number')) {
+            return parsedItems;
+          }
+        }
+        // If not an array or items are not valid, treat as corrupted/invalid.
+        localStorage.removeItem('cart');
+        return [];
+      } catch (e) {
+        // If JSON.parse fails
+        localStorage.removeItem('cart');
+        return [];
+      }
+    }
+    // If no savedCart
+    return [];
+  });
+  const { user, activeDiscount } = useAuth(); // Destructure activeDiscount
 
   useEffect(() => {
+    // This useEffect is now only for initializing the order number
     const initializeOrderNumber = async () => {
       try {
         const { data, error } = await supabase
@@ -59,15 +83,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     initializeOrderNumber();
-
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart));
-      } catch (e) {
-        localStorage.removeItem('cart');
-      }
-    }
+    // Initial loading of cart from localStorage is moved to useState initializer
   }, []);
   
   useEffect(() => {
@@ -141,9 +157,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         quantity: item.quantity, 
         price: item.price || 0, 
         extended_price: (item.price || 0) * item.quantity
-      })), // Re-enabled order_items
-      total_price: totalPrice, 
-      status: 'Pending Confirmation' // Re-enabled status
+      })),
+      subtotal: totalPrice, // Renamed from total_price
+      discount_percentage: activeDiscount?.percentage || 0,
+      discount_amount: activeDiscount?.percentage ? (totalPrice * activeDiscount.percentage / 100) : 0,
+      grand_total: activeDiscount?.percentage 
+                   ? (totalPrice - (totalPrice * activeDiscount.percentage / 100)) 
+                   : totalPrice,
+      status: 'Pending Confirmation'
     };
     console.log('Placing order with payload:', orderPayload);
 

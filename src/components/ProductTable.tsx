@@ -1,24 +1,34 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from 'lucide-react'; // Added ArrowDown, ArrowUp
 
 interface ProductTableProps {
   products: Product[];
   title?: string;
+  requestSort: (key: keyof Product) => void;
+  sortConfig: { key: keyof Product | null; direction: 'ascending' | 'descending' };
 }
 
-const ProductTable: React.FC<ProductTableProps> = ({ products = [], title = 'Products' }) => {
+const ProductTable: React.FC<ProductTableProps> = ({ 
+  products = [], 
+  title = 'Products',
+  requestSort,
+  sortConfig 
+}) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
   const handleAddToCart = (product: Product) => {
     if (product.inventory && product.inventory > 0) {
+      // Pass the necessary fields to satisfy the Product type for CartItem
+      // CartContext's addToCart will handle quantity
       addToCart({
         partnumber: product.partnumber,
         description: product.description,
-        price: product.price || 0
+        price: product.price, // Pass null if it's null, context can handle default
+        inventory: product.inventory // Ensure inventory is passed
       });
     }
   };
@@ -26,8 +36,8 @@ const ProductTable: React.FC<ProductTableProps> = ({ products = [], title = 'Pro
   const getInventoryDisplay = (inventory: number | null) => {
     if (inventory === null || inventory <= 0) {
       return <span className="text-red-600 font-medium">Out of Stock</span>;
-    } else if (inventory <= 2) {
-      return <span className="bg-yellow-100 px-2 py-1 rounded text-yellow-800 font-medium">Low Stock</span>;
+    } else if (inventory <= 2) { // Covers 1 and 2
+      return <span className="bg-yellow-100 px-2 py-1 rounded text-yellow-800 font-medium">Low - Call</span>;
     } else {
       return <span className="text-green-600 font-medium">{inventory}</span>;
     }
@@ -65,17 +75,41 @@ const ProductTable: React.FC<ProductTableProps> = ({ products = [], title = 'Pro
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Part Number
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => requestSort('partnumber')}
+                  >
+                    Part Number 
+                    {sortConfig.key === 'partnumber' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => requestSort('description')}
+                  >
                     Description
+                    {sortConfig.key === 'description' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th 
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => requestSort('price')}
+                  >
                     Price
+                    {sortConfig.key === 'price' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th 
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => requestSort('inventory')}
+                  >
                     Inventory
+                    {sortConfig.key === 'inventory' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions

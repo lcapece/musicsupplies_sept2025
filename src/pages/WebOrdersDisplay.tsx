@@ -226,7 +226,7 @@ const WebOrdersDisplay: React.FC = () => {
     // setSelectedOrderForInvoice(order);
     // setIsInvoicePopupOpen(true);
     try {
-        const response = await fetch('/src/invoices/invoice.html');
+        const response = await fetch('/invoices/invoice.html'); // Adjusted path assuming it's moved to public/invoices/
         if (!response.ok) {
             throw new Error(`Failed to fetch invoice template: ${response.statusText}`);
         }
@@ -241,7 +241,7 @@ const WebOrdersDisplay: React.FC = () => {
             // Optional: Inject CSS if not linked properly in invoice.html or if dynamic styling is needed
             const styleLink = popupWindow.document.createElement('link');
             styleLink.rel = 'stylesheet';
-            styleLink.href = '/src/invoices/invoice.css'; // Adjust path if necessary
+            styleLink.href = '/invoices/invoice.css'; // Adjust path if necessary, assuming CSS is also moved
             popupWindow.document.head.appendChild(styleLink);
         } else {
             alert('Popup blocked. Please allow popups for this site.');

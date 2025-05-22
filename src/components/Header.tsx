@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { ShoppingCart, LogOut, DownloadCloud } from 'lucide-react';
+import { ShoppingCart, LogOut, DownloadCloud, FileText, Tag } from 'lucide-react'; // Added FileText and Tag for new icons
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom'; // Import Link for navigation
 import { supabase } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import ShoppingCartComponent from './ShoppingCart';
 import ProductImportModal, { ImportStepStatus } from './ProductImportModal'; // Import new modal
+import DiscountFormModal from './DiscountFormModal'; // Import DiscountFormModal
 
 interface HeaderProps {
   onViewChange: (view: 'products' | 'orders' | 'weborders') => void;
@@ -18,6 +20,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
   const [isImporting, setIsImporting] = useState(false);
   // const [importMessage, setImportMessage] = useState<string | null>(null); // Replaced by modal
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false); // Added for discount modal
   const [importSteps, setImportSteps] = useState<ImportStepStatus[]>([]);
 
 // Moved interface to module scope
@@ -191,14 +194,30 @@ interface SupabaseFunctionError {
           
           <div className="flex items-center space-x-4">
             {user?.accountNumber === '999' && (
-              <button
-                onClick={handleGetProducts}
-                disabled={isImporting}
+              <>
+                <button
+                  onClick={handleGetProducts}
+                  disabled={isImporting}
                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
               >
                 <DownloadCloud className="h-5 w-5 mr-2" />
                 {isImporting ? 'Importing...' : 'Get Products'}
               </button>
+              <Link
+                to="/admin/account-applications"
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                New Acct Applications
+              </Link>
+                <button
+                  onClick={() => setIsDiscountModalOpen(true)}
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700"
+                >
+                  <Tag className="h-5 w-5 mr-2" />
+                  Discount
+                </button>
+              </>
             )}
             <button
               onClick={handleLogout}
@@ -207,20 +226,25 @@ interface SupabaseFunctionError {
               <LogOut className="h-5 w-5 mr-2" />
               Logout
             </button>
-            
-            <button
-              className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 relative"
-              onClick={() => setIsCartOpen(true)}
-            >
-              <ShoppingCart className="h-6 w-6" />
-              {totalItems > 0 && (
-                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
-                  {totalItems}
-                </span>
-              )}
-            </button>
+            {/* Shopping cart button is moved outside the main header flow to be fixed */}
           </div>
         </div>
+      </div>
+
+      {/* Fixed Shopping Cart Button */}
+      <div className="fixed top-5 right-5 z-50">
+        <button
+          className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 relative"
+          onClick={() => setIsCartOpen(true)}
+          aria-label="Open shopping cart"
+        >
+          <ShoppingCart className="h-6 w-6" />
+          {totalItems > 0 && (
+            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">
+              {totalItems}
+            </span>
+          )}
+        </button>
       </div>
       
       <ShoppingCartComponent isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
@@ -230,6 +254,7 @@ interface SupabaseFunctionError {
         statusMessages={importSteps}
         title="Product Import from Dropbox"
       />
+      <DiscountFormModal isOpen={isDiscountModalOpen} onClose={() => setIsDiscountModalOpen(false)} />
     </header>
   );
 };
