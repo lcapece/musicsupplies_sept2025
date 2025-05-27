@@ -11,6 +11,7 @@ export interface Product {
   description: string;
   price: number | null;
   inventory: number | null;
+  image?: string; // Add optional image property
 }
 
 export interface CartItem extends Product {
@@ -49,4 +50,10 @@ export interface ProductGroup {
   name: string;
   parentId: string | null;
   children?: ProductGroup[];
+}
+
+export interface OrderConfirmationDetails {
+  webOrderNumber: string;
+  items: CartItem[];
+  total: number;
 }

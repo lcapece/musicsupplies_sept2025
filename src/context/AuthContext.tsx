@@ -2,11 +2,11 @@
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 
-interface ActiveDiscountInfo {
+interface ActiveDiscountInfo { // This might be deprecated or repurposed if only max discount is used
   message: string;
   startDate: string;
   endDate: string;
-  percentage: number | null; // Added discount percentage
+  percentage: number | null;
 }
 
 interface AuthContextType {
@@ -14,15 +14,16 @@ interface AuthContextType {
   login: (accountNumber: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
-  isLoading: boolean; // Added isLoading
+  isLoading: boolean; 
   error: string | null;
-  fetchUserAccount: (accountNumber: string) => Promise<User | null>; // Added fetchUserAccount
-  activeDiscount: ActiveDiscountInfo | null;
-  showActiveDiscountModal: boolean;
-  clearActiveDiscount: () => void;
+  fetchUserAccount: (accountNumber: string) => Promise<User | null>; 
+  maxDiscountRate: number | null; // New: for the MAX(discount) value (e.g., 0.01 for 1%)
+  // activeDiscount: ActiveDiscountInfo | null; // Potentially remove if maxDiscountRate replaces its calculation role
+  // showActiveDiscountModal: boolean; // Potentially remove
+  // clearActiveDiscount: () => void; // Potentially remove
   showPasswordChangeModal: boolean; 
   openPasswordChangeModal: () => void; 
-  handlePasswordModalClose: (wasSuccess: boolean) => void; // Renamed and takes a boolean
+  handlePasswordModalClose: (wasSuccess: boolean) => void; 
   showDiscountFormModal: boolean; 
   openDiscountFormModal: () => void; 
   closeDiscountFormModal: () => void; 
@@ -36,9 +37,10 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true, 
   error: null,
   fetchUserAccount: async () => null, 
-  activeDiscount: null,
-  showActiveDiscountModal: false,
-  clearActiveDiscount: () => {},
+  maxDiscountRate: null, // New
+  // activeDiscount: null,
+  // showActiveDiscountModal: false,
+  // clearActiveDiscount: () => {},
   showPasswordChangeModal: false,
   openPasswordChangeModal: () => {},
   handlePasswordModalClose: () => {}, // Default empty fn
@@ -53,28 +55,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Added isLoading state
-  const [activeDiscount, setActiveDiscount] = useState<ActiveDiscountInfo | null>(null);
-  const [showActiveDiscountModal, setShowActiveDiscountModal] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); 
+  // const [activeDiscount, setActiveDiscount] = useState<ActiveDiscountInfo | null>(null); // Old discount state
+  // const [showActiveDiscountModal, setShowActiveDiscountModal] = useState<boolean>(false); // Old discount modal state
+  const [maxDiscountRate, setMaxDiscountRate] = useState<number | null>(null); // New state for max discount rate
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState<boolean>(false);
   const [showDiscountFormModal, setShowDiscountFormModal] = useState<boolean>(false);
 
   useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+    const checkUserAndFetchMaxDiscount = async () => {
+      try {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        }
+      } catch (e) {
+        localStorage.removeItem('user');
+        setUser(null);
+        setIsAuthenticated(false);
       }
-    } catch (e) {
-      // If parsing fails or any error, ensure user is cleared
-      localStorage.removeItem('user');
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false); // Set loading to false after checking local storage
-    }
+
+      // Fetch max discount rate on initial load
+      try {
+        const { data: discounts, error: discountError } = await supabase
+          .from('lcmd_discount')
+          .select('discount');
+
+        if (discountError) {
+          console.error('[AuthContext] Error fetching all discounts for MAX calculation:', discountError);
+          setMaxDiscountRate(null);
+        } else if (discounts && discounts.length > 0) {
+          const validDiscounts = discounts.map(d => d.discount).filter(d => typeof d === 'number' && d > 0);
+          if (validDiscounts.length > 0) {
+            setMaxDiscountRate(Math.max(...validDiscounts));
+            console.log('[AuthContext] Max discount rate set to:', Math.max(...validDiscounts));
+          } else {
+            setMaxDiscountRate(null);
+            console.log('[AuthContext] No positive discount rates found to calculate MAX.');
+          }
+        } else {
+          setMaxDiscountRate(null);
+          console.log('[AuthContext] No discount records found for MAX calculation.');
+        }
+      } catch (err) {
+        console.error('[AuthContext] Exception fetching max discount rate:', err);
+        setMaxDiscountRate(null);
+      } finally {
+        setIsLoading(false); 
+      }
+    };
+    checkUserAndFetchMaxDiscount();
   }, []);
 
   const login = async (accountNumber: string, password: string): Promise<boolean> => {
@@ -159,45 +191,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       //   // setShowDiscountFormModal(true); 
       // }
 
-      // Check for active discounts (this displays a notification, not the form)
-      try {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-        const { data: discountData, error: discountError } = await supabase
-          .from('lcmd_discount')
-          .select('promo_message, start_date, end_date, discount') // Selects the 'discount' column
-          // Removed date filters: .lte('start_date', today) and .gte('end_date', today)
-          .order('created_at', { ascending: false }) // Get the most recently created discount
-          .limit(1)
-          .single();
-
-        if (discountError && discountError.code !== 'PGRST116') { // PGRST116: "The result contains 0 rows"
-          console.error('[AuthContext] Error fetching latest discount from Supabase:', discountError);
-          setActiveDiscount(null); 
-        } else if (discountData) {
-          console.log('[AuthContext] Found latest discount data:', discountData);
-          const percentage = discountData.discount ? discountData.discount * 100 : null;
-          // The condition to display/use the discount is still if its percentage is positive.
-          // The user is now responsible for ensuring the latest discount in the table is the one they want active.
-          if (percentage !== null && percentage > 0) {
-            setActiveDiscount({
-              message: discountData.promo_message,
-              startDate: discountData.start_date, // Still store these for info, though not used for filtering
-              endDate: discountData.end_date,
-              percentage: percentage,
-            });
-            setShowActiveDiscountModal(true); 
-          } else {
-            console.log('[AuthContext] Latest discount data found, but its percentage is null or not positive. Percentage calculated:', percentage);
-            setActiveDiscount(null); 
-          }
-        } else {
-          console.log('[AuthContext] No discount records found in lcmd_discount table, or PGRST116 error.');
-          setActiveDiscount(null);
-        }
-      } catch (discountCheckError) {
-        console.error('[AuthContext] Exception during discount check logic:', discountCheckError);
-        setActiveDiscount(null); 
-      }
+      // The maxDiscountRate is already fetched on app load. No need to fetch again on login.
+      // The old activeDiscount logic (based on date ranges or latest created_at) is removed
+      // as per the new requirement to use MAX(discount) globally.
+      // If a promo message modal is still desired, it would need a separate mechanism
+      // or use the details from the record that provided the MAX(discount).
+      // For now, removing the old activeDiscount modal logic.
 
       return true;
 
@@ -212,16 +211,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('user');
-    setActiveDiscount(null); // Clear discount on logout
-    setShowActiveDiscountModal(false);
-    // Optionally, set isLoading to false if it's relevant for logout screen transitions
-    // setIsLoading(false); 
+    // setMaxDiscountRate(null); // Or keep it if it's app-wide and not user-specific
+    // setShowActiveDiscountModal(false); // Old logic
   };
 
-  const clearActiveDiscount = () => {
-    setActiveDiscount(null);
-    setShowActiveDiscountModal(false);
-  };
+  // const clearActiveDiscount = () => { // Old logic
+  //   setActiveDiscount(null);
+  //   setShowActiveDiscountModal(false);
+  // };
 
   const openPasswordChangeModal = () => setShowPasswordChangeModal(true);
 
@@ -305,12 +302,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading, 
       error, 
       fetchUserAccount,
-      activeDiscount,
-      showActiveDiscountModal,
-      clearActiveDiscount,
+      maxDiscountRate, // New
+      // activeDiscount, // Old
+      // showActiveDiscountModal, // Old
+      // clearActiveDiscount, // Old
       showPasswordChangeModal,
       openPasswordChangeModal,
-      handlePasswordModalClose, // Updated name
+      handlePasswordModalClose, 
       showDiscountFormModal,
       openDiscountFormModal,
       closeDiscountFormModal

@@ -54,7 +54,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // If no savedCart
     return [];
   });
-  const { user, activeDiscount } = useAuth(); // Destructure activeDiscount
+  const { user, maxDiscountRate } = useAuth(); // Changed from activeDiscount to maxDiscountRate
 
   useEffect(() => {
     // This useEffect is now only for initializing the order number
@@ -147,10 +147,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Invalid user account number format.');
     }
 
+    
+    let calculatedDiscountAmount = 0;
+    let calculatedGrandTotal = totalPrice;
+    let calculatedDiscountPercentage = 0;
+    let orderComments = `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`;
+
+    if (maxDiscountRate && maxDiscountRate > 0 && items.length > 0) {
+      calculatedDiscountAmount = totalPrice * maxDiscountRate;
+      calculatedGrandTotal = totalPrice - calculatedDiscountAmount;
+      calculatedDiscountPercentage = maxDiscountRate * 100;
+      orderComments += ` | Customer Discount Applied: ${calculatedDiscountPercentage.toFixed(2)}% ($${calculatedDiscountAmount.toFixed(2)})`;
+    }
+
     const orderPayload = {
       order_number: orderNumberForDb,
       account_number: accountNumberInt,
-      order_comments: `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`,
+      order_comments: orderComments,
       order_items: items.map(item => ({ 
         partnumber: item.partnumber, 
         description: item.description,
@@ -158,12 +171,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         price: item.price || 0, 
         extended_price: (item.price || 0) * item.quantity
       })),
-      subtotal: totalPrice, // Renamed from total_price
-      discount_percentage: activeDiscount?.percentage || 0,
-      discount_amount: activeDiscount?.percentage ? (totalPrice * activeDiscount.percentage / 100) : 0,
-      grand_total: activeDiscount?.percentage 
-                   ? (totalPrice - (totalPrice * activeDiscount.percentage / 100)) 
-                   : totalPrice,
+      subtotal: totalPrice,
+      discount_percentage: calculatedDiscountPercentage,
+      discount_amount: calculatedDiscountAmount,
+      grand_total: calculatedGrandTotal,
       status: 'Pending Confirmation'
     };
     console.log('Placing order with payload:', orderPayload);

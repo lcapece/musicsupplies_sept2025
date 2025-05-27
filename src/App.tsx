@@ -47,11 +47,11 @@ const AdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 function AppContent() {
   const { 
     user, // Get user for accountData
-    activeDiscount, 
-    showActiveDiscountModal, 
-    clearActiveDiscount,
+    // activeDiscount,  // Removed as part of new discount logic
+    // showActiveDiscountModal, // Removed
+    // clearActiveDiscount, // Removed
     showPasswordChangeModal,
-    handlePasswordModalClose, // Corrected name
+    handlePasswordModalClose, 
     showDiscountFormModal,
     closeDiscountFormModal 
   } = useAuth();
@@ -103,8 +103,8 @@ function AppContent() {
         />
       )}
 
-      {/* Active Discount Display Modal (existing) */}
-      {showActiveDiscountModal && activeDiscount && (
+      {/* Active Discount Display Modal (existing) - Temporarily removed due to AuthContext changes */}
+      {/* {showActiveDiscountModal && activeDiscount && (
         <ActiveDiscountDisplayModal
           isOpen={showActiveDiscountModal}
           onClose={clearActiveDiscount}
@@ -112,7 +112,7 @@ function AppContent() {
           startDate={activeDiscount.startDate}
           endDate={activeDiscount.endDate}
         />
-      )}
+      )} */}
     </>
   );
 }
