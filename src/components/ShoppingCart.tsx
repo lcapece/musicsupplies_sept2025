@@ -181,13 +181,12 @@ Order Confirmation...`; // Truncated
       } catch (emailError) {
         console.error('Error preparing to send email:', emailError);
       }
-      
-      setTimeout(() => { // Restored timeout logic
-        setOrderPlaced(false);
-        setIsCheckingOut(false);
-        clearCart(); // Clear cart after order
-        onClose(); 
-      }, 3000); 
+      // setTimeout(() => { // Removed timeout logic
+      //   setOrderPlaced(false);
+      //   setIsCheckingOut(false);
+      //   clearCart(); // Clear cart after order
+      //   onClose(); 
+      // }, 3000); 
     } catch (error) {
       console.error('Failed to place order:', error);
       alert('Failed to place order. Please try again.');
@@ -258,7 +257,18 @@ Order Confirmation...`; // Truncated
                     <h3 className="text-2xl font-semibold text-green-600">Order Placed Successfully!</h3>
                     <p className="mt-2 text-lg text-gray-700">Your order number is: <strong>{orderNumber}</strong></p>
                     <p className="mt-4 text-gray-600">You will receive an email confirmation shortly.</p>
-                    <p className="mt-1 text-sm text-gray-500">This window will close automatically.</p>
+                    {/* <p className="mt-1 text-sm text-gray-500">This window will close automatically.</p> */}
+                    <button
+                      onClick={() => {
+                        setOrderPlaced(false);
+                        setIsCheckingOut(false);
+                        clearCart();
+                        onClose();
+                      }}
+                      className="mt-6 inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      OK
+                    </button>
                   </div>
                 // ) : orderConfirmationDetails ? ( // Reverted
                 //   <OrderConfirmationModal details={orderConfirmationDetails} onClose={handleCloseConfirmationModal} />
