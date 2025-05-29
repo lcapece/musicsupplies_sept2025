@@ -64,21 +64,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('web_orders')
           .select('order_number')
           .order('order_number', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (error && error.code !== 'PGRST116') { // PGRST116: "The result contains 0 rows"
+        if (error) {
           console.error('Error fetching max order number:', error);
-        } else if (data) {
-          nextOrderNumber = data.order_number + 1;
-        } else {
-          // Table is empty, keep default or set a specific start
-          nextOrderNumber = 750000; 
+          return; // Keep default nextOrderNumber value
         }
+
+        // Check if we got any data back
+        if (data && data.length > 0) {
+          nextOrderNumber = data[0].order_number + 1;
+        }
+        // If no data, keep the default nextOrderNumber value (750000)
+        
       } catch (e) {
         console.error('Exception fetching max order number:', e);
-        // Fallback in case of any other error
-        nextOrderNumber = 750000;
+        // Fallback in case of any other error - keep default value
       }
     };
 
