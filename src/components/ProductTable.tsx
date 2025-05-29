@@ -8,13 +8,15 @@ interface ProductTableProps {
   title?: string;
   requestSort: (key: keyof Product) => void;
   sortConfig: { key: keyof Product | null; direction: 'ascending' | 'descending' };
+  onRowClick?: (product: Product) => void; // Added onRowClick prop
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
   products = [], 
   title = 'Products',
   requestSort,
-  sortConfig 
+  sortConfig,
+  onRowClick // Destructure onRowClick
 }) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
@@ -118,7 +120,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {paginatedProducts.map((product) => (
-                  <tr key={product.partnumber} className="hover:bg-gray-50">
+                  <tr 
+                    key={product.partnumber} 
+                    className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''}`}
+                    onClick={() => onRowClick && onRowClick(product)} // Call onRowClick if provided
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {product.partnumber}
                     </td>

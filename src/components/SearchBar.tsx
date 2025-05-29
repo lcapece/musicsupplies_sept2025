@@ -1,17 +1,18 @@
 import React, { useState, KeyboardEvent } from 'react';
 
 interface SearchBarProps {
-  onSearch: (primaryQuery: string, additionalQuery: string, excludeQuery: string, inStockOnly: boolean) => void;
+  onSearch: (primaryQuery: string, additionalQuery: string, excludeQuery: string) => void; // Removed inStockOnly from props
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   const [primaryQuery, setPrimaryQuery] = useState('');
   const [additionalQuery, setAdditionalQuery] = useState('');
   const [excludeQuery, setExcludeQuery] = useState('');
-  const [inStockOnly, setInStockOnly] = useState(false);
+  // const [inStockOnly, setInStockOnly] = useState(false); // Removed state from SearchBar
   
   const handleSearch = () => {
-    onSearch(primaryQuery, additionalQuery, excludeQuery, inStockOnly);
+    // Call onSearch without inStockOnly, as it's now managed in Dashboard
+    onSearch(primaryQuery, additionalQuery, excludeQuery); 
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -58,21 +59,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
             />
           </div>
         </div>
-        
-        <div className="flex items-center">
-          <label className="inline-flex items-center">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-              checked={inStockOnly}
-              onChange={(e) => {
-                setInStockOnly(e.target.checked);
-                onSearch(primaryQuery, additionalQuery, excludeQuery, e.target.checked);
-              }}
-            />
-            <span className="ml-2 text-sm text-gray-700">Show In-Stock Items Only</span>
-          </label>
-        </div>
+        {/* Removed "Show In-Stock Items Only" checkbox from here */}
         
         <button
           type="submit"

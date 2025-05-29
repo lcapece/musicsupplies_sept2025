@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingCart as CartIcon, X, Minus, Plus, CreditCard } from 'lucide-react';
+import { ShoppingCart as CartIcon, X, Minus, Plus, CreditCard, Trash2 } from 'lucide-react'; // Added Trash2
 // import OrderConfirmationModal from './OrderConfirmationModal'; // Reverted
 // import { OrderConfirmationDetails } from '../types'; // Reverted
 
@@ -342,11 +342,11 @@ Order Confirmation...`; // Truncated
                                   <h3>
                                     <a href="#">{item.partnumber}</a>
                                   </h3>
-                                  <p className="ml-4">${((item.price || 0) * item.quantity).toFixed(2)}</p>
                                 </div>
                                 <p className="mt-1 text-sm text-gray-500">{item.description}</p>
                               </div>
-                              <div className="flex flex-1 items-end justify-between text-sm">
+                              <div className="flex flex-1 items-center justify-between text-sm mt-2">
+                                {/* Quantity controls */}
                                 <div className="flex items-center">
                                   <button
                                     onClick={() => updateQuantity(item.partnumber, Math.max(1, item.quantity - 1))}
@@ -370,13 +370,23 @@ Order Confirmation...`; // Truncated
                                     <Plus size={16} />
                                   </button>
                                 </div>
-                                <div className="flex">
+
+                                {/* Spacer to push prices and remove button to the right */}
+                                <div className="flex-grow"></div>
+
+                                {/* Prices and Remove button container */}
+                                <div className="flex items-center space-x-4">
+                                  <div className="text-right">
+                                    <p className="text-xs text-gray-500">${(item.price || 0).toFixed(2)} ea.</p>
+                                    <p className="font-medium text-gray-900">${((item.price || 0) * item.quantity).toFixed(2)}</p>
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => removeFromCart(item.partnumber)}
-                                    className="font-medium text-indigo-600 hover:text-indigo-500"
+                                    className="p-1 text-red-500 hover:text-red-700"
+                                    aria-label="Remove item"
                                   >
-                                    Remove
+                                    <Trash2 size={18} />
                                   </button>
                                 </div>
                               </div>

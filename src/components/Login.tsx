@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavi
 import PasswordChangeModal from './PasswordChangeModal'; // Import the modal
 import { supabase } from '../lib/supabase'; // Import supabase client
 import { User } from '../types'; // Import User type
+import logo from '../images/music_supplies_logo.png'; // Import the logo
 
 // Import images from /src/images/
 import p1 from '../images/p1.jpg';
@@ -44,6 +45,14 @@ const Login: React.FC = () => {
     try {
       const loginSuccess = await login(accountNumber, password);
       if (loginSuccess) {
+        // Special handling for test account 101 with specific password
+        if (accountNumber === "101" && password === "Monday123$") {
+          console.log("Test account 101 with special password, bypassing default password check.");
+          navigate('/dashboard');
+          setIsLoading(false); // Ensure loading is stopped
+          return; // Exit handleSubmit early
+        }
+
         // Fetch full account details to get acctName and zip for the check
         // user from useAuth might not be updated immediately or might not have all fields
         const fetchedAccount = await fetchUserAccount(accountNumber);
@@ -53,7 +62,8 @@ const Login: React.FC = () => {
           const zip = fetchedAccount.zip.toLowerCase();
           const defaultPassword = firstLetter + zip;
 
-          if (password.toLowerCase() === defaultPassword) {
+          // Compare the entered password (lowercase) with the generated default password (lowercase)
+          if (password.toLowerCase() === defaultPassword.toLowerCase()) {
             setCurrentAccountData(fetchedAccount);
             setIsPasswordModalOpen(true);
             // Don't navigate to dashboard yet, user needs to change password
@@ -86,7 +96,7 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4"> {/* Added px-4 for some padding on very small screens */}
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl"> {/* Changed max-w-md to max-w-2xl */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600 mb-4">MusicSupplies.com</h1>
+          <img src={logo} alt="Music Supplies Logo" className="mx-auto h-36 w-auto mb-4" /> {/* Increased logo size */}
           <p className="text-gray-600">
             MusicSupplies.com is the customer portal for Lou Capece Music Distributors.
           </p>
@@ -99,43 +109,45 @@ const Login: React.FC = () => {
         )}
         
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-1">
-              Account Number
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <UserIcon size={18} className="text-gray-400" />
+          <div className="flex justify-center space-x-4 mb-6"> {/* Flex container for inputs */}
+            <div className="w-[35%]"> {/* Account Number Input Field */}
+              <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                Account Number
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <UserIcon size={18} className="text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  id="accountNumber"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Account Number"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  required
+                />
               </div>
-              <input
-                type="text"
-                id="accountNumber"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your account number"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                required
-              />
             </div>
-          </div>
-          
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <KeyRound size={18} className="text-gray-400" />
+            
+            <div className="w-[35%]"> {/* Password Input Field */}
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <KeyRound size={18} className="text-gray-400" />
+                </div>
+                <input
+                  type="password"
+                  id="password"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </div>
-              <input
-                type="password"
-                id="password"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
             </div>
           </div>
 
