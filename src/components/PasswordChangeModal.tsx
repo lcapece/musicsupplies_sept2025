@@ -15,7 +15,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
   const [mobilePhone, setMobilePhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // const [successMessage, setSuccessMessage] = useState<string | null>(null); // Removed as it's no longer used
   const { user, fetchUserAccount } = useAuth();
 
   useEffect(() => {
@@ -28,7 +27,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    // setSuccessMessage(null); // Removed as successMessage state is removed
 
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match.");
@@ -48,23 +46,35 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
       }
 
-      const updates: any = {
-        password: newPassword, // Storing as plain text as requested
-        email_address: email, // Update email_address field in DB (corrected to lowercase)
-        mobile_phone: mobilePhone,
-        requires_password_change: false // Set this flag to false after successful update
-      };
+      // First, update the password using the new function
+      const { data: passwordUpdateResult, error: passwordError } = await supabase
+        .rpc('update_user_password_lcmd', {
+          p_account_number: parseInt(accountData.accountNumber || user.accountNumber),
+          p_new_password: newPassword
+        });
 
+      if (passwordError) {
+        throw passwordError;
+      }
+
+      if (!passwordUpdateResult) {
+        throw new Error('Failed to update password');
+      }
+
+      // Then update email and mobile phone in accounts_lcmd
       const { error: updateError } = await supabase
         .from('accounts_lcmd')
-        .update(updates)
+        .update({
+          email_address: email,
+          mobile_phone: mobilePhone,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', accountData.id);
 
       if (updateError) {
         throw updateError;
       }
 
-      // setSuccessMessage("Your details have been updated successfully. Please log in again with your new password.");
       onClose(true); // Close modal immediately on success and trigger next step (e.g. discount modal)
 
     } catch (err: any) {
@@ -173,7 +183,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
               </button>
             </div>
           </form>
-        {/* Removed orphaned closing parenthesis and brace */}
       </div>
     </div>
   );

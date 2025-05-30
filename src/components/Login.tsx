@@ -23,20 +23,15 @@ const Login: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, error, user, isAuthenticated, fetchUserAccount } = useAuth(); // Added user, isAuthenticated, fetchUserAccount
+  const { login, error, user, isAuthenticated, showPasswordChangeModal, handlePasswordModalClose } = useAuth();
   const navigate = useNavigate();
 
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [currentAccountData, setCurrentAccountData] = useState<User | null>(null);
-
   useEffect(() => {
-    if (isAuthenticated && user) {
-      // This effect will run after login and user state is updated
-      // Check for password condition if not already handled by handleSubmit
-      // However, the primary check should be in handleSubmit right after login success
+    if (isAuthenticated && user && !user.requires_password_change) {
+      // Navigate to dashboard if user is authenticated and doesn't need password change
+      navigate('/dashboard');
     }
   }, [isAuthenticated, user, navigate]);
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,51 +40,28 @@ const Login: React.FC = () => {
     try {
       const loginSuccess = await login(accountNumber, password);
       if (loginSuccess) {
-        // Special handling for test account 101 with specific password
-        if (accountNumber === "101" && password === "Monday123$") {
-          console.log("Test account 101 with special password, bypassing default password check.");
-          navigate('/dashboard');
-          setIsLoading(false); // Ensure loading is stopped
-          return; // Exit handleSubmit early
-        }
-
-        // Fetch full account details to get acctName and zip for the check
-        // user from useAuth might not be updated immediately or might not have all fields
-        const fetchedAccount = await fetchUserAccount(accountNumber);
-
-        if (fetchedAccount && fetchedAccount.acctName && fetchedAccount.zip) {
-          const firstLetter = fetchedAccount.acctName.charAt(0).toLowerCase();
-          const zip = fetchedAccount.zip.toLowerCase();
-          const defaultPassword = firstLetter + zip;
-
-          // Compare the entered password (lowercase) with the generated default password (lowercase)
-          if (password.toLowerCase() === defaultPassword.toLowerCase()) {
-            setCurrentAccountData(fetchedAccount);
-            setIsPasswordModalOpen(true);
-            // Don't navigate to dashboard yet, user needs to change password
-          } else {
-            navigate('/dashboard'); // Navigate to dashboard if password is not default
-          }
-        } else {
-          // If account details can't be fetched, or are incomplete, proceed to dashboard
-          // Or handle as an error - for now, proceeding.
-          console.warn("Could not verify default password due to missing account details. Proceeding to dashboard.");
+        // The AuthContext now handles password change modal logic
+        // If login is successful and no password change is required, navigate to dashboard
+        // The password change modal will be shown automatically by AuthContext if needed
+        if (!user?.requires_password_change) {
           navigate('/dashboard');
         }
+        // If password change is required, the modal will be shown automatically
+        // and navigation will happen after password change completion
       }
     } catch (err) {
       // error state from useAuth() should cover most login errors
       console.error("Login submit error", err)
-    } 
-    finally {
+    } finally {
       setIsLoading(false);
     }
   };
   
-  const handleModalClose = () => {
-    setIsPasswordModalOpen(false);
-    // Optionally, force logout or navigate to login if password change is mandatory
-    // For now, just closing the modal. User might still be "logged in" but should ideally be forced to re-login.
+  const handleModalClose = (wasSuccess: boolean) => {
+    handlePasswordModalClose(wasSuccess);
+    if (wasSuccess) {
+      navigate('/dashboard');
+    }
   };
 
   return (
@@ -204,11 +176,11 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        {currentAccountData && (
+        {user && (
           <PasswordChangeModal
-            isOpen={isPasswordModalOpen}
+            isOpen={showPasswordChangeModal}
             onClose={handleModalClose}
-            accountData={currentAccountData}
+            accountData={user}
           />
         )}
       </div>

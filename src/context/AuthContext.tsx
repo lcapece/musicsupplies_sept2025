@@ -120,22 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // The following block for hardcoded test login for account 101 is being removed.
-      // if (accountNumberInt === 101 && password === "A11803") {
-      //   const userData: User = {
-      //     accountNumber: "101",
-      //     acctName: "All Music", 
-      //     address: "123 Main St", 
-      //     city: "Springfield",
-      //     state: "IL",
-      //     zip: "62701"
-      //   };
-      //   
-      //   setUser(userData);
-      //   setIsAuthenticated(true);
-      //   localStorage.setItem('user', JSON.stringify(userData));
-      //   return true;
-      // }
+      // All authentication logic is now handled by the authenticate_user_lcmd function
 
       // Call the RPC function for login
       const rpcParams = {
@@ -185,11 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Modal logic based on requires_password_change
       if (userData.requires_password_change) {
         setShowPasswordChangeModal(true);
-      } 
-      // else {
-      //   // Removed automatic opening of DiscountFormModal on login
-      //   // setShowDiscountFormModal(true); 
-      // }
+      }
 
       // The maxDiscountRate is already fetched on app load. No need to fetch again on login.
       // The old activeDiscount logic (based on date ranges or latest created_at) is removed
