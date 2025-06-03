@@ -7,11 +7,14 @@ import Dashboard from './pages/Dashboard';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import NewAccountApplicationPage from './pages/NewAccountApplicationPage';
 import AdminAccountApplicationsPage from './pages/AdminAccountApplicationsPage';
+import AdminDashboard from './pages/AdminDashboard';
 import PasswordChangeModal from './components/PasswordChangeModal';
 import DiscountFormModal from './components/DiscountFormModal';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'; // Import new page
 import SmsCommunicationsPage from './pages/SmsCommunicationsPage'; // Import new page
 import EmailCommunicationsPage from './pages/EmailCommunicationsPage'; // Import new page
+import CustomerAccountPage from './pages/CustomerAccountPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 
 interface ProtectedRouteProps {
@@ -64,7 +67,7 @@ function AppContent() {
           path="/" 
           element={
             <ProtectedRoute>
-              <Dashboard />
+              {user?.accountNumber === '999' ? <AdminDashboard /> : <Dashboard />}
             </ProtectedRoute>
           } 
         />
@@ -83,6 +86,14 @@ function AppContent() {
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/sms-communications" element={<SmsCommunicationsPage />} />
         <Route path="/email-communications" element={<EmailCommunicationsPage />} />
+        <Route 
+          path="/account" 
+          element={
+            <ProtectedRoute>
+              <CustomerAccountPage />
+            </ProtectedRoute>
+          } 
+        />
          <Route path="*" element={<Navigate to="/" />} />
       </Routes>
 
@@ -120,11 +131,13 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <CartProvider>
-          <AppContent />
-        </CartProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <CartProvider>
+            <AppContent />
+          </CartProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { OrderConfirmationDetails, CartItem } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface OrderConfirmationModalProps {
   orderDetails: OrderConfirmationDetails | null;
@@ -7,6 +9,44 @@ interface OrderConfirmationModalProps {
 }
 
 const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({ orderDetails, onClose }) => {
+  const { user } = useAuth();
+  const [smsStatus, setSmsStatus] = useState<'pending' | 'sending' | 'sent' | 'failed'>('pending');
+
+  useEffect(() => {
+    if (orderDetails && user) {
+      sendOrderNotificationSMS();
+    }
+  }, [orderDetails, user]);
+
+  const sendOrderNotificationSMS = async () => {
+    if (!orderDetails || !user) return;
+
+    try {
+      setSmsStatus('sending');
+
+      const { data, error } = await supabase.functions.invoke('send-order-sms', {
+        body: {
+          accountNumber: user.accountNumber,
+          accountName: user.acctName,
+          orderNumber: orderDetails.webOrderNumber,
+          totalAmount: orderDetails.total
+        }
+      });
+
+      if (error) {
+        console.error('Error sending SMS notification:', error);
+        setSmsStatus('failed');
+        return;
+      }
+
+      console.log('SMS notification sent successfully:', data);
+      setSmsStatus('sent');
+    } catch (error) {
+      console.error('Error sending SMS notification:', error);
+      setSmsStatus('failed');
+    }
+  };
+
   if (!orderDetails) {
     return null;
   }
@@ -32,6 +72,38 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({ orderDe
             Thank you for your order! Your Web Order Number is:
             <strong className="text-blue-600 ml-2">{orderDetails.webOrderNumber}</strong>
           </p>
+        </div>
+
+        {/* SMS Notification Status */}
+        <div className="mb-6 p-4 rounded-lg border">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-gray-700">SMS Notification:</span>
+            {smsStatus === 'pending' && (
+              <span className="text-sm text-gray-500">Preparing...</span>
+            )}
+            {smsStatus === 'sending' && (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-blue-600">Sending SMS notification...</span>
+              </div>
+            )}
+            {smsStatus === 'sent' && (
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span className="text-sm text-green-600">SMS notification sent to +15164550980</span>
+              </div>
+            )}
+            {smsStatus === 'failed' && (
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                <span className="text-sm text-red-600">Failed to send SMS notification</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mb-6">

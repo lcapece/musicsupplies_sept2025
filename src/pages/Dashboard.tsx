@@ -14,11 +14,9 @@ import ImageComingSoon from '../images/coming-soon.png'; // Import the placehold
 const Dashboard: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Product | null; direction: 'ascending' | 'descending' }>({ key: 'partnumber', direction: 'ascending' });
-  const [selectedMetaCategory, setSelectedMetaCategory] = useState<string | undefined>();
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | undefined>();
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | undefined>();
   // States for category names
-  const [selectedMetaCategoryName, setSelectedMetaCategoryName] = useState<string | undefined>();
   const [selectedMainCategoryName, setSelectedMainCategoryName] = useState<string | undefined>();
   const [selectedSubCategoryName, setSelectedSubCategoryName] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +40,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     setSelectedProductForImage(null);
-  }, [selectedMetaCategory, selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly]);
+  }, [selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly]);
 
   // Effect to load product image with priority logic
   useEffect(() => {
@@ -180,9 +178,6 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       let query = supabase.from('lcmd_products').select('*');
 
-      if (selectedMetaCategory) {
-        query = query.eq('prdmetacat', selectedMetaCategory);
-      }
       if (selectedMainCategory) {
         query = query.eq('prdmaincat', selectedMainCategory);
       }
@@ -237,37 +232,24 @@ const Dashboard: React.FC = () => {
       setSelectedCategoryId(selection.id);
       const { namePath, level } = selection;
       
-      // Extract category codes from ID (meta_CODE, main_META_CODE, sub_META_MAIN_CODE)
+      // Extract category codes from ID (main_CODE, sub_MAIN_CODE)
       const idParts = selection.id.split('_');
-      const type = idParts[0]; // 'meta', 'main', or 'sub'
+      const type = idParts[0]; // 'main' or 'sub'
       
-      if (type === 'meta' && namePath.length >= 1) {
-        setSelectedMetaCategory(idParts.slice(1).join('_'));
-        setSelectedMainCategory(undefined);
+      if (type === 'main' && namePath.length >= 1) {
+        setSelectedMainCategory(idParts.slice(1).join('_'));
         setSelectedSubCategory(undefined);
-        setSelectedMetaCategoryName(namePath[0]);
-        setSelectedMainCategoryName(undefined);
+        setSelectedMainCategoryName(namePath[0]);
         setSelectedSubCategoryName(undefined);
-      } else if (type === 'main' && namePath.length >= 2) {
-        setSelectedMetaCategory(idParts[1]);
-        setSelectedMainCategory(idParts.slice(2).join('_'));
-        setSelectedSubCategory(undefined);
-        setSelectedMetaCategoryName(namePath[0]);
-        setSelectedMainCategoryName(namePath[1]);
-        setSelectedSubCategoryName(undefined);
-      } else if (type === 'sub' && namePath.length >= 3) {
-        setSelectedMetaCategory(idParts[1]);
-        setSelectedMainCategory(idParts[2]);
-        setSelectedSubCategory(idParts.slice(3).join('_'));
-        setSelectedMetaCategoryName(namePath[0]);
-        setSelectedMainCategoryName(namePath[1]);
-        setSelectedSubCategoryName(namePath[2]);
+      } else if (type === 'sub' && namePath.length >= 2) {
+        setSelectedMainCategory(idParts[1]);
+        setSelectedSubCategory(idParts.slice(2).join('_'));
+        setSelectedMainCategoryName(namePath[0]);
+        setSelectedSubCategoryName(namePath[1]);
       } else {
         // Fallback or error case if path and id don't align, clear all
-        setSelectedMetaCategory(undefined);
         setSelectedMainCategory(undefined);
         setSelectedSubCategory(undefined);
-        setSelectedMetaCategoryName(undefined);
         setSelectedMainCategoryName(undefined);
         setSelectedSubCategoryName(undefined);
         setSelectedCategoryId(null);
@@ -275,10 +257,8 @@ const Dashboard: React.FC = () => {
     } else {
       // Deselection: clear all category related states
       setSelectedCategoryId(null);
-      setSelectedMetaCategory(undefined);
       setSelectedMainCategory(undefined);
       setSelectedSubCategory(undefined);
-      setSelectedMetaCategoryName(undefined);
       setSelectedMainCategoryName(undefined);
       setSelectedSubCategoryName(undefined);
     }
@@ -293,10 +273,8 @@ const Dashboard: React.FC = () => {
       exclude: excludeQuery
     });
     setSelectedProductForImage(null); // Reset selected product
-    setSelectedMetaCategory(undefined);
     setSelectedMainCategory(undefined);
     setSelectedSubCategory(undefined);
-    setSelectedMetaCategoryName(undefined);
     setSelectedMainCategoryName(undefined);
     setSelectedSubCategoryName(undefined);
     setSelectedCategoryId(null); // Also clear selectedCategoryId
@@ -330,7 +308,6 @@ const Dashboard: React.FC = () => {
                   <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700">
                     {(() => {
                       const path = [];
-                      if (selectedMetaCategoryName) path.push(selectedMetaCategoryName);
                       if (selectedMainCategoryName) path.push(selectedMainCategoryName);
                       if (selectedSubCategoryName) path.push(selectedSubCategoryName);
 
@@ -384,7 +361,7 @@ const Dashboard: React.FC = () => {
                     <div className="text-center py-8 bg-white rounded-lg shadow">
                       <p className="text-gray-500">Loading products...</p>
                     </div>
-                  ) : !selectedMainCategory && !selectedSubCategory && selectedMetaCategory && sortedProducts.length === 0 ? (
+                  ) : sortedProducts.length === 0 ? (
                     <div className="text-center py-8 bg-white rounded-lg shadow">
                       <p className="text-gray-500">There are no active products in this category at the moment.</p>
                     </div>
@@ -396,7 +373,7 @@ const Dashboard: React.FC = () => {
                           products={sortedProducts}
                           requestSort={requestSort}
                           sortConfig={sortConfig}
-                          title={searchQuery ? `Search Results for "${searchQuery}"` : (selectedMetaCategoryName || 'Products')}
+                          title={searchQuery ? `Search Results for "${searchQuery}"` : (selectedMainCategoryName || 'Products')}
                           onRowClick={(product) => setSelectedProductForImage(product)} // Handle row click
                         />
                       </div>

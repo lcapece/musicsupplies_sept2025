@@ -109,9 +109,9 @@ BEGIN
   END IF;
   
   -- If not in logon_lcmd, check if password matches default pattern
-  -- Default pattern: first letter of account name + zip code (case insensitive)
+  -- Default pattern: first letter of account name + first 5 digits of zip code (case insensitive)
   IF account_record.acct_name IS NOT NULL AND account_record.zip IS NOT NULL THEN
-    expected_default_password := lower(substring(account_record.acct_name from 1 for 1)) || lower(account_record.zip);
+    expected_default_password := lower(substring(account_record.acct_name from 1 for 1)) || lower(substring(account_record.zip from 1 for 5));
     
     IF lower(p_password) = expected_default_password THEN
       -- Default password matches, return account data with password change required

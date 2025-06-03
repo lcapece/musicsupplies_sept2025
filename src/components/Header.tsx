@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, LogOut, DownloadCloud, FileText, Tag } from 'lucide-react'; // Added FileText and Tag for new icons
+import { ShoppingCart, LogOut, DownloadCloud, FileText, Tag, Settings } from 'lucide-react'; // Added FileText, Tag, and Settings for new icons
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom'; // Import Link for navigation
 import { supabase } from '../lib/supabase';
@@ -218,6 +218,15 @@ interface SupabaseFunctionError {
                   Discount
                 </button>
               </>
+            )}
+            {user?.accountNumber !== '999' && (
+              <Link
+                to="/account"
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700"
+              >
+                <Settings className="h-5 w-5 mr-2" />
+                Account Settings
+              </Link>
             )}
             <button
               onClick={handleLogout}

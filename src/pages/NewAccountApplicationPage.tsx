@@ -63,6 +63,7 @@ const NewAccountApplicationPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [smsStatus, setSmsStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -92,6 +93,35 @@ const NewAccountApplicationPage: React.FC = () => {
     }
   }, [formData.requesting_credit_line]);
 
+  const sendApplicationNotificationSMS = async () => {
+    try {
+      setSmsStatus('sending');
+
+      const message = `New Account Application Submitted!\nBusiness: ${formData.business_name}\nContact: ${formData.contact_name}\nPhone: ${formData.business_phone}\nEmail: ${formData.business_email}\nCredit Requested: ${formData.requesting_credit_line ? 'Yes' : 'No'}`;
+
+      const { data, error } = await supabase.functions.invoke('send-test-sms', {
+        body: {
+          accountNumber: 'New Application',
+          accountName: formData.business_name,
+          smsNumber: '+15164550980', // Your admin SMS number
+          message: message
+        }
+      });
+
+      if (error) {
+        console.error('Error sending application SMS:', error);
+        setSmsStatus('failed');
+        return;
+      }
+
+      console.log('Application SMS sent successfully:', data);
+      setSmsStatus('sent');
+    } catch (error) {
+      console.error('Error sending application SMS:', error);
+      setSmsStatus('failed');
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -114,6 +144,7 @@ const NewAccountApplicationPage: React.FC = () => {
     setIsLoading(true);
     setFormError(null);
     setFormSuccess(null);
+    setSmsStatus('idle');
 
     // Basic validation
     if (formData.requesting_credit_line) {
@@ -148,6 +179,10 @@ const NewAccountApplicationPage: React.FC = () => {
         setFormError(`Submission failed: ${error.message}`);
       } else {
         setFormSuccess("Application submitted successfully! We will get back to you soon.");
+        
+        // Send SMS notification after successful submission
+        await sendApplicationNotificationSMS();
+        
         setFormData(initialFormData); // Reset form
         // navigate('/application-success'); // Optional: redirect to a success page
       }
@@ -182,7 +217,44 @@ const NewAccountApplicationPage: React.FC = () => {
       <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-xl">
         <h1 className="text-3xl font-bold text-blue-600 mb-6 text-center">New Account Application</h1>
         
-        {formSuccess && <div className="mb-4 p-3 bg-green-100 text-green-700 border border-green-300 rounded-md">{formSuccess}</div>}
+        {formSuccess && (
+          <div className="mb-4 p-3 bg-green-100 text-green-700 border border-green-300 rounded-md">
+            {formSuccess}
+            
+            {/* SMS Notification Status */}
+            <div className="mt-3 p-3 rounded-lg border bg-gray-50">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Admin SMS Notification:</span>
+                {smsStatus === 'idle' && (
+                  <span className="text-sm text-gray-500">Preparing...</span>
+                )}
+                {smsStatus === 'sending' && (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-sm text-blue-600">Sending SMS notification...</span>
+                  </div>
+                )}
+                {smsStatus === 'sent' && (
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span className="text-sm text-green-600">Admin notified via SMS</span>
+                  </div>
+                )}
+                {smsStatus === 'failed' && (
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    <span className="text-sm text-red-600">SMS notification failed</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
         {formError && <div className="mb-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-md">{formError}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
