@@ -54,7 +54,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // If no savedCart
     return [];
   });
-  const { user, maxDiscountRate } = useAuth(); // Changed from activeDiscount to maxDiscountRate
+  const { user, maxDiscountRate, currentDiscountInfo } = useAuth(); // Changed from activeDiscount to maxDiscountRate
 
   useEffect(() => {
     // This useEffect is now only for initializing the order number
@@ -148,34 +148,118 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Invalid user account number format.');
     }
 
-    
-    let calculatedDiscountAmount = 0;
-    let calculatedGrandTotal = totalPrice;
-    let calculatedDiscountPercentage = 0;
+    // Determine discount part number and amount based on currentDiscountInfo
+    let discountPartNumber = null;
+    let discountDescription = null;
+    let discountAmount = 0;
     let orderComments = `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`;
 
-    if (maxDiscountRate && maxDiscountRate > 0 && items.length > 0) {
-      calculatedDiscountAmount = totalPrice * maxDiscountRate;
-      calculatedGrandTotal = totalPrice - calculatedDiscountAmount;
-      calculatedDiscountPercentage = maxDiscountRate * 100;
-      orderComments += ` | Customer Discount Applied: ${calculatedDiscountPercentage.toFixed(2)}% ($${calculatedDiscountAmount.toFixed(2)})`;
+    if (currentDiscountInfo && maxDiscountRate && maxDiscountRate > 0 && items.length > 0) {
+      discountAmount = totalPrice * maxDiscountRate;
+      
+      if (currentDiscountInfo.type === 'order_based') {
+        // Extract order number from the source string (e.g., "Order-based discount (1/3)")
+        const orderMatch = currentDiscountInfo.source.match(/\((\d+)\/\d+\)/);
+        const orderNumber = orderMatch ? orderMatch[1] : '1';
+        
+        switch (orderNumber) {
+          case '1':
+            discountPartNumber = 'WEB-DISCOUNT-5-ORDER1';
+            discountDescription = '5% Discount for 1st Order with MusicSupplies.com';
+            break;
+          case '2':
+            discountPartNumber = 'WEB-DISCOUNT-5-ORDER2';
+            discountDescription = '5% Discount for 2nd Order with MusicSupplies.com';
+            break;
+          case '3':
+            discountPartNumber = 'WEB-DISCOUNT-5-ORDER3';
+            discountDescription = '5% Discount for 3rd Order with MusicSupplies.com';
+            break;
+          default:
+            discountPartNumber = 'WEB-DISCOUNT-5-ORDER1';
+            discountDescription = '5% Discount for 1st Order with MusicSupplies.com';
+        }
+      } else if (currentDiscountInfo.type === 'date_based') {
+        // Map discount rate to appropriate part number
+        const discountPercentage = Math.round(maxDiscountRate * 100);
+        
+        switch (discountPercentage) {
+          case 1:
+            discountPartNumber = 'WEB-DISCOUNT-1';
+            discountDescription = '1% Discount for MusicSupplies.com (Limited Time)';
+            break;
+          case 2:
+            discountPartNumber = 'WEB-DISCOUNT-2';
+            discountDescription = '2% Discount for MusicSupplies.com (Limited Time)';
+            break;
+          case 3:
+            discountPartNumber = 'WEB-DISCOUNT-3';
+            discountDescription = '3% Discount for MusicSupplies.com (Limited Time)';
+            break;
+          case 4:
+            discountPartNumber = 'WEB-DISCOUNT-4';
+            discountDescription = '4% Discount for MusicSupplies.com (Limited Time)';
+            break;
+          case 5:
+            discountPartNumber = 'WEB-DISCOUNT-5';
+            discountDescription = '4% Discount for MusicSupplies.com (Limited Time)'; // Note: WEB-DISCOUNT-5 is 4% per your table
+            break;
+          default:
+            // For any other percentage, use the closest match
+            if (discountPercentage >= 5) {
+              discountPartNumber = 'WEB-DISCOUNT-5';
+              discountDescription = '4% Discount for MusicSupplies.com (Limited Time)';
+            } else if (discountPercentage >= 4) {
+              discountPartNumber = 'WEB-DISCOUNT-4';
+              discountDescription = '4% Discount for MusicSupplies.com (Limited Time)';
+            } else if (discountPercentage >= 3) {
+              discountPartNumber = 'WEB-DISCOUNT-3';
+              discountDescription = '3% Discount for MusicSupplies.com (Limited Time)';
+            } else if (discountPercentage >= 2) {
+              discountPartNumber = 'WEB-DISCOUNT-2';
+              discountDescription = '2% Discount for MusicSupplies.com (Limited Time)';
+            } else {
+              discountPartNumber = 'WEB-DISCOUNT-1';
+              discountDescription = '1% Discount for MusicSupplies.com (Limited Time)';
+            }
+        }
+      }
+      
+      orderComments += ` | Discount Applied: ${discountPartNumber} ($${discountAmount.toFixed(2)})`;
     }
+
+    // Create order items array with discount as the last item (if applicable)
+    const orderItems = items.map(item => ({ 
+      partnumber: item.partnumber, 
+      description: item.description,
+      quantity: item.quantity, 
+      price: item.price || 0, 
+      extended_price: (item.price || 0) * item.quantity
+    }));
+
+    // CRITICAL: Add discount as a line item with negative amount
+    // This MUST appear last on the invoice for legacy system compatibility
+    if (discountPartNumber && discountAmount > 0) {
+      orderItems.push({
+        partnumber: discountPartNumber,
+        description: discountDescription || 'Discount Applied',
+        quantity: 1,
+        price: -discountAmount, // Negative price for discount
+        extended_price: -discountAmount
+      });
+    }
+
+    const grandTotal = totalPrice - discountAmount;
 
     const orderPayload = {
       order_number: orderNumberForDb,
       account_number: accountNumberInt,
       order_comments: orderComments,
-      order_items: items.map(item => ({ 
-        partnumber: item.partnumber, 
-        description: item.description,
-        quantity: item.quantity, 
-        price: item.price || 0, 
-        extended_price: (item.price || 0) * item.quantity
-      })),
+      order_items: orderItems,
       subtotal: totalPrice,
-      discount_percentage: calculatedDiscountPercentage,
-      discount_amount: calculatedDiscountAmount,
-      grand_total: calculatedGrandTotal,
+      discount_percentage: discountAmount > 0 ? (discountAmount / totalPrice) * 100 : 0,
+      discount_amount: discountAmount,
+      grand_total: grandTotal,
       status: 'Pending Confirmation'
     };
     console.log('Placing order with payload:', orderPayload);
@@ -192,6 +276,54 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     console.log('Order saved successfully:', insertedOrder);
+
+    // If an order-based discount was applied, update the usage tracking
+    if (currentDiscountInfo && currentDiscountInfo.type === 'order_based' && maxDiscountRate && maxDiscountRate > 0) {
+      try {
+        // Find the discount tier ID from the discount rate
+        const { data: discountTiers, error: tierError } = await supabase
+          .from('discount_tiers')
+          .select('id')
+          .eq('discount_type', 'order_based')
+          .eq('discount', maxDiscountRate)
+          .limit(1);
+
+        if (tierError) {
+          console.error('Error finding discount tier for usage tracking:', tierError);
+        } else if (discountTiers && discountTiers.length > 0) {
+          const discountTierId = discountTiers[0].id;
+          
+          // First, get current usage or create new record
+          const { data: existingUsage, error: usageError } = await supabase
+            .from('account_order_discounts')
+            .select('orders_used')
+            .eq('account_number', user.accountNumber)
+            .eq('discount_tier_id', discountTierId)
+            .single();
+
+          const currentUsage = existingUsage?.orders_used || 0;
+          
+          // Update or insert the usage record
+          const { error: upsertError } = await supabase
+            .from('account_order_discounts')
+            .upsert({
+              account_number: user.accountNumber,
+              discount_tier_id: discountTierId,
+              orders_used: currentUsage + 1
+            }, {
+              onConflict: 'account_number,discount_tier_id'
+            });
+
+          if (upsertError) {
+            console.error('Error updating order discount usage:', upsertError);
+          } else {
+            console.log('Order-based discount usage updated successfully');
+          }
+        }
+      } catch (err) {
+        console.error('Exception updating order discount usage:', err);
+      }
+    }
     // Email sending logic will be added later, once build is stable
     console.log(`Order ${orderNumberGenerated} placed. Email to ${customerEmail} and CC pcapece@aol.com would be sent here.`);
 

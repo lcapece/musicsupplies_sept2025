@@ -9,6 +9,13 @@ interface ActiveDiscountInfo { // This might be deprecated or repurposed if only
   percentage: number | null;
 }
 
+interface DiscountInfo {
+  rate: number;
+  type: 'date_based' | 'order_based';
+  message?: string;
+  source: string; // Description of discount source
+}
+
 interface AuthContextType {
   user: User | null;
   login: (accountNumber: string, password: string) => Promise<boolean>;
@@ -17,7 +24,8 @@ interface AuthContextType {
   isLoading: boolean; 
   error: string | null;
   fetchUserAccount: (accountNumber: string) => Promise<User | null>; 
-  maxDiscountRate: number | null; // New: for the MAX(discount) value (e.g., 0.01 for 1%)
+  maxDiscountRate: number | null; // New: for the highest eligible discount rate
+  currentDiscountInfo: DiscountInfo | null; // Information about the applied discount
   // activeDiscount: ActiveDiscountInfo | null; // Potentially remove if maxDiscountRate replaces its calculation role
   // showActiveDiscountModal: boolean; // Potentially remove
   // clearActiveDiscount: () => void; // Potentially remove
@@ -38,6 +46,7 @@ const AuthContext = createContext<AuthContextType>({
   error: null,
   fetchUserAccount: async () => null, 
   maxDiscountRate: null, // New
+  currentDiscountInfo: null,
   // activeDiscount: null,
   // showActiveDiscountModal: false,
   // clearActiveDiscount: () => {},
@@ -59,8 +68,115 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // const [activeDiscount, setActiveDiscount] = useState<ActiveDiscountInfo | null>(null); // Old discount state
   // const [showActiveDiscountModal, setShowActiveDiscountModal] = useState<boolean>(false); // Old discount modal state
   const [maxDiscountRate, setMaxDiscountRate] = useState<number | null>(null); // New state for max discount rate
+  const [currentDiscountInfo, setCurrentDiscountInfo] = useState<DiscountInfo | null>(null);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState<boolean>(false);
   const [showDiscountFormModal, setShowDiscountFormModal] = useState<boolean>(false);
+
+  // Function to calculate the highest eligible discount for a user
+  const calculateBestDiscount = async (accountNumber: string): Promise<void> => {
+    try {
+      const accountNumberInt = parseInt(accountNumber, 10);
+      if (isNaN(accountNumberInt)) {
+        console.log('[AuthContext] Invalid account number for discount calculation');
+        setMaxDiscountRate(null);
+        setCurrentDiscountInfo(null);
+        return;
+      }
+
+      // 1. Fetch active date-based discounts
+      const { data: dateDiscounts, error: dateError } = await supabase
+        .from('lcmd_discount')
+        .select('discount, promo_message')
+        .eq('is_active', true)
+        .lte('start_date', new Date().toISOString().split('T')[0])
+        .gte('end_date', new Date().toISOString().split('T')[0]);
+
+      if (dateError) {
+        console.error('[AuthContext] Error fetching date-based discounts:', dateError);
+      }
+
+      // 2. Fetch order-based discounts and customer usage
+      const { data: orderDiscounts, error: orderError } = await supabase
+        .from('discount_tiers')
+        .select('id, discount, max_orders, discount_type')
+        .eq('discount_type', 'order_based');
+
+      if (orderError) {
+        console.error('[AuthContext] Error fetching order-based discounts:', orderError);
+      }
+
+      // 3. For each order-based discount, check customer usage
+      const eligibleOrderDiscounts = [];
+      if (orderDiscounts && orderDiscounts.length > 0) {
+        for (const orderDiscount of orderDiscounts) {
+          const { data: usage, error: usageError } = await supabase
+            .from('account_order_discounts')
+            .select('orders_used')
+            .eq('account_number', accountNumber)
+            .eq('discount_tier_id', orderDiscount.id)
+            .single();
+
+          if (usageError && usageError.code !== 'PGRST116') { // PGRST116 = no rows found
+            console.error('[AuthContext] Error fetching order discount usage:', usageError);
+            continue;
+          }
+
+          const ordersUsed = usage?.orders_used || 0;
+          const maxOrders = orderDiscount.max_orders || 0;
+
+          // If customer still has orders remaining, this discount is eligible
+          if (ordersUsed < maxOrders) {
+            eligibleOrderDiscounts.push({
+              rate: orderDiscount.discount,
+              type: 'order_based' as const,
+              message: `New customer discount - ${maxOrders - ordersUsed} orders remaining`,
+              source: `Order-based discount (${ordersUsed + 1}/${maxOrders})`
+            });
+          }
+        }
+      }
+
+      // 4. Combine and find the highest discount
+      const allEligibleDiscounts = [];
+
+      // Add date-based discounts
+      if (dateDiscounts && dateDiscounts.length > 0) {
+        dateDiscounts.forEach(discount => {
+          if (discount.discount && discount.discount > 0) {
+            allEligibleDiscounts.push({
+              rate: discount.discount,
+              type: 'date_based' as const,
+              message: discount.promo_message || 'Promotional discount',
+              source: 'Date-based promotion'
+            });
+          }
+        });
+      }
+
+      // Add eligible order-based discounts
+      allEligibleDiscounts.push(...eligibleOrderDiscounts);
+
+      // 5. Find the highest discount
+      if (allEligibleDiscounts.length > 0) {
+        const bestDiscount = allEligibleDiscounts.reduce((best, current) => 
+          current.rate > best.rate ? current : best
+        );
+        
+        setMaxDiscountRate(bestDiscount.rate);
+        setCurrentDiscountInfo(bestDiscount);
+        console.log('[AuthContext] Best discount found:', bestDiscount);
+      } else {
+        setMaxDiscountRate(null);
+        setCurrentDiscountInfo(null);
+        console.log('[AuthContext] No eligible discounts found');
+      }
+
+    } catch (err) {
+      console.error('[AuthContext] Exception calculating discounts:', err);
+      setMaxDiscountRate(null);
+      setCurrentDiscountInfo(null);
+    }
+  };
 
   useEffect(() => {
     const checkUserAndFetchMaxDiscount = async () => {
@@ -77,34 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(false);
       }
 
-      // Fetch max discount rate on initial load
-      try {
-        const { data: discounts, error: discountError } = await supabase
-          .from('lcmd_discount')
-          .select('discount');
-
-        if (discountError) {
-          console.error('[AuthContext] Error fetching all discounts for MAX calculation:', discountError);
-          setMaxDiscountRate(null);
-        } else if (discounts && discounts.length > 0) {
-          const validDiscounts = discounts.map(d => d.discount).filter(d => typeof d === 'number' && d > 0);
-          if (validDiscounts.length > 0) {
-            setMaxDiscountRate(Math.max(...validDiscounts));
-            console.log('[AuthContext] Max discount rate set to:', Math.max(...validDiscounts));
-          } else {
-            setMaxDiscountRate(null);
-            console.log('[AuthContext] No positive discount rates found to calculate MAX.');
-          }
-        } else {
-          setMaxDiscountRate(null);
-          console.log('[AuthContext] No discount records found for MAX calculation.');
-        }
-      } catch (err) {
-        console.error('[AuthContext] Exception fetching max discount rate:', err);
-        setMaxDiscountRate(null);
-      } finally {
-        setIsLoading(false); 
-      }
+      setIsLoading(false);
     };
     checkUserAndFetchMaxDiscount();
   }, []);
@@ -172,12 +261,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setShowPasswordChangeModal(true);
       }
 
-      // The maxDiscountRate is already fetched on app load. No need to fetch again on login.
-      // The old activeDiscount logic (based on date ranges or latest created_at) is removed
-      // as per the new requirement to use MAX(discount) globally.
-      // If a promo message modal is still desired, it would need a separate mechanism
-      // or use the details from the record that provided the MAX(discount).
-      // For now, removing the old activeDiscount modal logic.
+      // Calculate the best eligible discount for this user
+      await calculateBestDiscount(userData.accountNumber);
 
       return true;
 
@@ -284,6 +369,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       error, 
       fetchUserAccount,
       maxDiscountRate, // New
+      currentDiscountInfo, // New
       // activeDiscount, // Old
       // showActiveDiscountModal, // Old
       // clearActiveDiscount, // Old
