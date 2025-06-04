@@ -13,20 +13,44 @@ interface Account {
   has_custom_password: boolean;
 }
 
+interface LogonEntry {
+  account_number: number;
+  password: string;
+}
+
 const AccountsTab: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [totalAccountCount, setTotalAccountCount] = useState(0);
 
   useEffect(() => {
     fetchAccounts();
   }, []);
 
+  const getDefaultPassword = (acctName: string, zip: string) => {
+    if (!acctName || !zip) return '';
+    const firstLetter = acctName.charAt(0).toLowerCase();
+    const zipFirst5 = zip.substring(0, 5);
+    return `${firstLetter}${zipFirst5}`;
+  };
+
   const fetchAccounts = async () => {
     try {
       setLoading(true);
+      
+      // First get the total count
+      const { count, error: countError } = await supabase
+        .from('accounts_lcmd')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!countError && count) {
+        setTotalAccountCount(count);
+      }
+
+      // Then fetch all accounts with a higher limit
       const { data, error } = await supabase
         .from('accounts_lcmd')
         .select(`
@@ -39,26 +63,50 @@ const AccountsTab: React.FC = () => {
           phone,
           requires_password_change
         `)
-        .order('account_number', { ascending: true });
+        .order('account_number', { ascending: true })
+        .limit(10000);  // Increased limit to get all accounts
 
       if (error) {
         console.error('Error fetching accounts:', error);
         return;
       }
 
-      // Check which accounts have custom passwords
+      // Get all password entries
       const { data: passwordData, error: passwordError } = await supabase
         .from('logon_lcmd')
-        .select('account_number');
+        .select('account_number, password')
+        .limit(10000);
 
       if (passwordError) {
         console.error('Error fetching password data:', passwordError);
       }
 
-      const accountsWithPasswordStatus = (data || []).map(account => ({
-        ...account,
-        has_custom_password: passwordData?.some(p => p.account_number === account.account_number) || false
-      }));
+      // Create a map of account passwords
+      const passwordMap: { [key: number]: string } = {};
+      passwordData?.forEach((entry: LogonEntry) => {
+        passwordMap[entry.account_number] = entry.password;
+      });
+
+      // Check which accounts have custom passwords
+      // An account has a custom password if:
+      // 1. It has an entry in logon_lcmd AND
+      // 2. The password is NOT the default pattern (first letter + zip)
+      const accountsWithPasswordStatus = (data || []).map(account => {
+        const hasEntry = passwordMap.hasOwnProperty(account.account_number);
+        let hasCustomPassword = false;
+        
+        if (hasEntry) {
+          const storedPassword = passwordMap[account.account_number];
+          const defaultPattern = getDefaultPassword(account.acct_name, account.zip);
+          // Case insensitive comparison
+          hasCustomPassword = storedPassword.toLowerCase() !== defaultPattern.toLowerCase();
+        }
+        
+        return {
+          ...account,
+          has_custom_password: hasCustomPassword
+        };
+      });
 
       setAccounts(accountsWithPasswordStatus);
     } catch (error) {
@@ -169,20 +217,17 @@ const AccountsTab: React.FC = () => {
     }
   };
 
-  const getDefaultPassword = (account: Account) => {
-    if (!account.acct_name || !account.zip) return 'N/A';
-    const firstLetter = account.acct_name.charAt(0).toLowerCase();
-    const zipFirst5 = account.zip.substring(0, 5);
-    return `${firstLetter}${zipFirst5}`;
+  const getDefaultPasswordDisplay = (account: Account) => {
+    return getDefaultPassword(account.acct_name, account.zip) || 'N/A';
   };
 
   const filteredAccounts = accounts.filter(account => {
     const searchLower = searchTerm.toLowerCase();
     return !searchTerm || 
       account.account_number.toString().includes(searchTerm) ||
-      account.acct_name.toLowerCase().includes(searchLower) ||
-      account.city.toLowerCase().includes(searchLower) ||
-      account.state.toLowerCase().includes(searchLower);
+      (account.acct_name || '').toLowerCase().includes(searchLower) ||
+      (account.city || '').toLowerCase().includes(searchLower) ||
+      (account.state || '').toLowerCase().includes(searchLower);
   });
 
   const PasswordModal: React.FC<{
@@ -220,7 +265,7 @@ const AccountsTab: React.FC = () => {
               <strong>Account:</strong> {account.acct_name}
             </p>
             <p className="text-sm text-gray-600 mb-4">
-              <strong>Current Default Pattern:</strong> {getDefaultPassword(account)}
+              <strong>Current Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
             </p>
           </div>
           <div className="space-y-4">
@@ -279,7 +324,10 @@ const AccountsTab: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Accounts Management</h2>
-          <p className="text-sm text-gray-600 mt-1">Manage account default passwords and settings</p>
+          <p className="text-sm text-gray-600 mt-1">
+            Manage account default passwords and settings
+            {totalAccountCount > 0 && ` (${totalAccountCount} total accounts in database)`}
+          </p>
         </div>
         <button
           onClick={fetchAccounts}
@@ -293,18 +341,23 @@ const AccountsTab: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="text-sm font-medium text-gray-600">Total Accounts</div>
-          <div className="text-2xl font-bold text-gray-900">{filteredAccounts.length}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {accounts.length}
+            {totalAccountCount > accounts.length && (
+              <span className="text-sm text-gray-500"> of {totalAccountCount}</span>
+            )}
+          </div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="text-sm font-medium text-gray-600">Custom Passwords</div>
           <div className="text-2xl font-bold text-blue-600">
-            {filteredAccounts.filter(a => a.has_custom_password).length}
+            {accounts.filter(a => a.has_custom_password).length}
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Require Password Change</div>
-          <div className="text-2xl font-bold text-orange-600">
-            {filteredAccounts.filter(a => a.requires_password_change).length}
+          <div className="text-sm font-medium text-gray-600">Using Default Pattern</div>
+          <div className="text-2xl font-bold text-green-600">
+            {accounts.filter(a => !a.has_custom_password).length}
           </div>
         </div>
       </div>
@@ -384,10 +437,10 @@ const AccountsTab: React.FC = () => {
                       {account.account_number}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
-                      {account.acct_name}
+                      {account.acct_name || 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {account.city}, {account.state} {account.zip}
+                      {account.city || 'N/A'}, {account.state || 'N/A'} {account.zip || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {account.phone || 'N/A'}
@@ -396,8 +449,8 @@ const AccountsTab: React.FC = () => {
                       <div className="space-y-1">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           account.has_custom_password 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-green-100 text-green-800'
                         }`}>
                           {account.has_custom_password ? 'Custom Password' : 'Default Pattern'}
                         </span>
@@ -411,7 +464,7 @@ const AccountsTab: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
-                      {getDefaultPassword(account)}
+                      {getDefaultPasswordDisplay(account)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">

@@ -6,11 +6,13 @@ import AccountsTab from '../components/admin/AccountsTab';
 import HistoryTab from '../components/admin/HistoryTab';
 import DataSyncTab from '../components/admin/DataSyncTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
-import SmsNotificationTab from '../components/admin/SmsNotificationTab';
+import GeneralSettingsTab from '../components/admin/GeneralSettingsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import ProductGroupManagementTab from '../components/admin/ProductGroupManagementTab';
+import MissingSubgroupsTab from '../components/admin/MissingSubgroupsTab';
+import ProductsTab from '../components/admin/ProductsTab';
 
-type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'datasync' | 'clicksend' | 'smsnotifications' | 'applications' | 'productgroups';
+type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'datasync' | 'clicksend' | 'generalsettings' | 'applications' | 'productgroups' | 'missingsubgroups' | 'products';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -22,10 +24,12 @@ const AdminDashboard: React.FC = () => {
     { id: 'accounts' as AdminTab, label: 'Accounts', icon: '👥' },
     { id: 'applications' as AdminTab, label: 'Applications', icon: '📝' },
     { id: 'productgroups' as AdminTab, label: 'Product Groups', icon: '📦' },
+    { id: 'products' as AdminTab, label: 'Products', icon: '📋' },
+    { id: 'missingsubgroups' as AdminTab, label: 'Missing Subgroups', icon: '🔍' },
     { id: 'history' as AdminTab, label: 'History', icon: '📊' },
     { id: 'datasync' as AdminTab, label: 'Data Sync', icon: '🔄' },
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
-    { id: 'smsnotifications' as AdminTab, label: 'SMS Settings', icon: '⚡' },
+    { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
   ];
 
   const renderTabContent = () => {
@@ -40,14 +44,18 @@ const AdminDashboard: React.FC = () => {
         return <AccountApplicationsTab />;
       case 'productgroups':
         return <ProductGroupManagementTab />;
+      case 'products':
+        return <ProductsTab />;
+      case 'missingsubgroups':
+        return <MissingSubgroupsTab />;
       case 'history':
         return <HistoryTab />;
       case 'datasync':
         return <DataSyncTab />;
       case 'clicksend':
         return <ClickSendTab />;
-      case 'smsnotifications':
-        return <SmsNotificationTab />;
+      case 'generalsettings':
+        return <GeneralSettingsTab />;
       default:
         return <ManagementTab />;
     }

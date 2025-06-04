@@ -13,6 +13,8 @@ interface DiscountData {
   start_date: string; // YYYY-MM-DD
   end_date: string; // YYYY-MM-DD
   discount: number; // float4, e.g., 0.0025 for 0.25%
+  discount_type: 'amount_based' | 'order_based'; // New: Type of discount
+  max_orders?: number; // New: Max orders for order-based discount
   created_at?: string;
 }
 
@@ -22,6 +24,8 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({ isOpen, onClose }
     start_date: '',
     end_date: '',
     discount: 0.0025, // Default to 0.25%
+    discount_type: 'amount_based', // Default to amount_based
+    max_orders: undefined,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +58,8 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({ isOpen, onClose }
             start_date: data.start_date || '',
             end_date: data.end_date || '',
             discount: data.discount || 0.0025,
+            discount_type: data.discount_type || 'amount_based',
+            max_orders: data.max_orders || undefined,
           });
         } else {
           // No existing discount, reset form to defaults for a new entry
@@ -62,6 +68,8 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({ isOpen, onClose }
             start_date: '',
             end_date: '',
             discount: 0.0025,
+            discount_type: 'amount_based',
+            max_orders: undefined,
           });
         }
         setIsLoading(false);
@@ -72,7 +80,12 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({ isOpen, onClose }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'discount' ? parseFloat(value) : value }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: name === 'discount' ? parseFloat(value) : 
+              name === 'max_orders' ? parseInt(value) || undefined : 
+              value 
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,20 +104,20 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({ isOpen, onClose }
         setIsLoading(false);
         return;
     }
+    if (formData.discount_type === 'order_based' && (!formData.max_orders || formData.max_orders <= 0)) {
+      setError("Max orders must be a positive number for order-based discounts.");
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      // If an ID exists, it's an update (upsert will handle this).
-      // If no ID, it's an insert (upsert will also handle this if `id` is the primary key and nullable or has a default).
-      // Supabase upsert requires a conflict target if you want to update on conflict.
-      // If lcmd_discount is expected to have only one active discount, we can upsert on a dummy constraint or handle logic to deactivate old ones.
-      // For this example, we'll upsert. If an ID is present, it will update. If not, it will insert.
-      // Ensure your table `lcmd_discount` has `id` as its primary key.
-      
       const payload: Omit<DiscountData, 'id'> & { id?: string } = {
         promo_message: formData.promo_message,
         start_date: formData.start_date,
         end_date: formData.end_date,
         discount: formData.discount,
+        discount_type: formData.discount_type,
+        max_orders: formData.discount_type === 'order_based' ? formData.max_orders : undefined, // Set to undefined if not order_based
       };
       if (formData.id) {
         payload.id = formData.id; // Include ID for update
@@ -200,6 +213,40 @@ const DiscountFormModal: React.FC<DiscountFormModalProps> = ({ isOpen, onClose }
               />
             </div>
           </div>
+
+          <div>
+            <label htmlFor="discount_type" className="block text-sm font-medium text-gray-700 mb-1">
+              Discount Type
+            </label>
+            <select
+              id="discount_type"
+              name="discount_type"
+              value={formData.discount_type}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="amount_based">Amount Based</option>
+              <option value="order_based">Order Based</option>
+            </select>
+          </div>
+
+          {formData.discount_type === 'order_based' && (
+            <div>
+              <label htmlFor="max_orders" className="block text-sm font-medium text-gray-700 mb-1">
+                Max Orders
+              </label>
+              <input
+                type="number"
+                id="max_orders"
+                name="max_orders"
+                value={formData.max_orders || ''}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="e.g., 3"
+                min="1"
+              />
+            </div>
+          )}
 
           <div>
             <label htmlFor="discount" className="block text-sm font-medium text-gray-700 mb-1">
