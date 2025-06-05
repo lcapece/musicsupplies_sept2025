@@ -8,7 +8,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Acccessories & Supplies",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Accessories & Supplies_Music Stands",
+        name: "Music Stands",
+        level: 2,
+        parentId: "main_Acccessories & Supplies",
+        prdsubgrp: "Music Stands"
+      },
+      {
+        id: "sub_Accessories & Supplies_Sheet Music",
+        name: "Sheet Music",
+        level: 2,
+        parentId: "main_Acccessories & Supplies",
+        prdsubgrp: "Sheet Music"
+      }
+    ],
     prdmaingrp: "Acccessories & Supplies"
   },
   {
@@ -16,7 +31,29 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Amps, Speakers, Mic's & Sound",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Amps, Speakers, Mic's & Sound_Guitar Amps",
+        name: "Guitar Amps",
+        level: 2,
+        parentId: "main_Amps, Speakers, Mic's & Sound",
+        prdsubgrp: "Guitar Amps"
+      },
+      {
+        id: "sub_Amps, Speakers, Mic's & Sound_Bass Amps",
+        name: "Bass Amps",
+        level: 2,
+        parentId: "main_Amps, Speakers, Mic's & Sound",
+        prdsubgrp: "Bass Amps"
+      },
+      {
+        id: "sub_Amps, Speakers, Mic's & Sound_Microphones",
+        name: "Microphones",
+        level: 2,
+        parentId: "main_Amps, Speakers, Mic's & Sound",
+        prdsubgrp: "Microphones"
+      }
+    ],
     prdmaingrp: "Amps, Speakers, Mic's & Sound"
   },
   {
@@ -24,7 +61,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Band & Orchestra",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Band & Orchestra_Trumpets",
+        name: "Trumpets",
+        level: 2,
+        parentId: "main_Band & Orchestra",
+        prdsubgrp: "Trumpets"
+      },
+      {
+        id: "sub_Band & Orchestra_Clarinets",
+        name: "Clarinets",
+        level: 2,
+        parentId: "main_Band & Orchestra",
+        prdsubgrp: "Clarinets"
+      }
+    ],
     prdmaingrp: "Band & Orchestra"
   },
   {
@@ -32,7 +84,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Cables",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Cables_Guitar Cables",
+        name: "Guitar Cables",
+        level: 2,
+        parentId: "main_Cables",
+        prdsubgrp: "Guitar Cables"
+      },
+      {
+        id: "sub_Cables_Audio Cables",
+        name: "Audio Cables",
+        level: 2,
+        parentId: "main_Cables",
+        prdsubgrp: "Audio Cables"
+      }
+    ],
     prdmaingrp: "Cables"
   },
   {
@@ -40,7 +107,29 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Fretted Instruments",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Fretted Instruments_Electric Guitars",
+        name: "Electric Guitars",
+        level: 2,
+        parentId: "main_Fretted Instruments",
+        prdsubgrp: "Electric Guitars"
+      },
+      {
+        id: "sub_Fretted Instruments_Acoustic Guitars",
+        name: "Acoustic Guitars",
+        level: 2,
+        parentId: "main_Fretted Instruments",
+        prdsubgrp: "Acoustic Guitars"
+      },
+      {
+        id: "sub_Fretted Instruments_Bass Guitars",
+        name: "Bass Guitars",
+        level: 2,
+        parentId: "main_Fretted Instruments",
+        prdsubgrp: "Bass Guitars"
+      }
+    ],
     prdmaingrp: "Fretted Instruments"
   },
   {
@@ -48,7 +137,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Guitar Accessories",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Guitar Accessories_Guitar Picks",
+        name: "Guitar Picks",
+        level: 2,
+        parentId: "main_Guitar Accessories",
+        prdsubgrp: "Guitar Picks"
+      },
+      {
+        id: "sub_Guitar Accessories_Capos",
+        name: "Capos",
+        level: 2,
+        parentId: "main_Guitar Accessories",
+        prdsubgrp: "Capos"
+      }
+    ],
     prdmaingrp: "Guitar Accessories"
   },
   {
@@ -56,7 +160,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Guitar Parts",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Guitar Parts_Tuning Pegs",
+        name: "Tuning Pegs",
+        level: 2,
+        parentId: "main_Guitar Parts",
+        prdsubgrp: "Tuning Pegs"
+      },
+      {
+        id: "sub_Guitar Parts_Bridges",
+        name: "Bridges",
+        level: 2,
+        parentId: "main_Guitar Parts",
+        prdsubgrp: "Bridges"
+      }
+    ],
     prdmaingrp: "Guitar Parts"
   },
   {
@@ -64,7 +183,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Instructional Material",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Instructional Material_Method Books",
+        name: "Method Books",
+        level: 2,
+        parentId: "main_Instructional Material",
+        prdsubgrp: "Method Books"
+      },
+      {
+        id: "sub_Instructional Material_DVDs",
+        name: "DVDs",
+        level: 2,
+        parentId: "main_Instructional Material",
+        prdsubgrp: "DVDs"
+      }
+    ],
     prdmaingrp: "Instructional Material"
   },
   {
@@ -72,7 +206,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Instrument Cases & Bags",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Instrument Cases & Bags_Guitar Cases",
+        name: "Guitar Cases",
+        level: 2,
+        parentId: "main_Instrument Cases & Bags",
+        prdsubgrp: "Guitar Cases"
+      },
+      {
+        id: "sub_Instrument Cases & Bags_Keyboard Cases",
+        name: "Keyboard Cases",
+        level: 2,
+        parentId: "main_Instrument Cases & Bags",
+        prdsubgrp: "Keyboard Cases"
+      }
+    ],
     prdmaingrp: "Instrument Cases & Bags"
   },
   {
@@ -80,7 +229,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Instrument Display Hangers",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Instrument Display Hangers_Wall Hangers",
+        name: "Wall Hangers",
+        level: 2,
+        parentId: "main_Instrument Display Hangers",
+        prdsubgrp: "Wall Hangers"
+      },
+      {
+        id: "sub_Instrument Display Hangers_Floor Stands",
+        name: "Floor Stands",
+        level: 2,
+        parentId: "main_Instrument Display Hangers",
+        prdsubgrp: "Floor Stands"
+      }
+    ],
     prdmaingrp: "Instrument Display Hangers"
   },
   {
@@ -88,7 +252,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Keyboards, Pianos & Accordions",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Keyboards, Pianos & Accordions_Digital Pianos",
+        name: "Digital Pianos",
+        level: 2,
+        parentId: "main_Keyboards, Pianos & Accordions",
+        prdsubgrp: "Digital Pianos"
+      },
+      {
+        id: "sub_Keyboards, Pianos & Accordions_Synthesizers",
+        name: "Synthesizers",
+        level: 2,
+        parentId: "main_Keyboards, Pianos & Accordions",
+        prdsubgrp: "Synthesizers"
+      }
+    ],
     prdmaingrp: "Keyboards, Pianos & Accordions"
   },
   {
@@ -96,7 +275,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Maintenance & Cleaners",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Maintenance & Cleaners_Guitar Polish",
+        name: "Guitar Polish",
+        level: 2,
+        parentId: "main_Maintenance & Cleaners",
+        prdsubgrp: "Guitar Polish"
+      },
+      {
+        id: "sub_Maintenance & Cleaners_Cleaning Cloths",
+        name: "Cleaning Cloths",
+        level: 2,
+        parentId: "main_Maintenance & Cleaners",
+        prdsubgrp: "Cleaning Cloths"
+      }
+    ],
     prdmaingrp: "Maintenance & Cleaners"
   },
   {
@@ -104,7 +298,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Pedals & Effects",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Pedals & Effects_Distortion Pedals",
+        name: "Distortion Pedals",
+        level: 2,
+        parentId: "main_Pedals & Effects",
+        prdsubgrp: "Distortion Pedals"
+      },
+      {
+        id: "sub_Pedals & Effects_Delay Pedals",
+        name: "Delay Pedals",
+        level: 2,
+        parentId: "main_Pedals & Effects",
+        prdsubgrp: "Delay Pedals"
+      }
+    ],
     prdmaingrp: "Pedals & Effects"
   },
   {
@@ -112,7 +321,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Percussion",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Percussion_Drum Sets",
+        name: "Drum Sets",
+        level: 2,
+        parentId: "main_Percussion",
+        prdsubgrp: "Drum Sets"
+      },
+      {
+        id: "sub_Percussion_Cymbals",
+        name: "Cymbals",
+        level: 2,
+        parentId: "main_Percussion",
+        prdsubgrp: "Cymbals"
+      }
+    ],
     prdmaingrp: "Percussion"
   },
   {
@@ -120,7 +344,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Picks",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Picks_Guitar Picks",
+        name: "Guitar Picks",
+        level: 2,
+        parentId: "main_Picks",
+        prdsubgrp: "Guitar Picks"
+      },
+      {
+        id: "sub_Picks_Bass Picks",
+        name: "Bass Picks",
+        level: 2,
+        parentId: "main_Picks",
+        prdsubgrp: "Bass Picks"
+      }
+    ],
     prdmaingrp: "Picks"
   },
   {
@@ -128,7 +367,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Small & Hand Instruments",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Small & Hand Instruments_Harmonicas",
+        name: "Harmonicas",
+        level: 2,
+        parentId: "main_Small & Hand Instruments",
+        prdsubgrp: "Harmonicas"
+      },
+      {
+        id: "sub_Small & Hand Instruments_Recorders",
+        name: "Recorders",
+        level: 2,
+        parentId: "main_Small & Hand Instruments",
+        prdsubgrp: "Recorders"
+      }
+    ],
     prdmaingrp: "Small & Hand Instruments"
   },
   {
@@ -136,7 +390,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Stands & Lighting",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Stands & Lighting_Music Stands",
+        name: "Music Stands",
+        level: 2,
+        parentId: "main_Stands & Lighting",
+        prdsubgrp: "Music Stands"
+      },
+      {
+        id: "sub_Stands & Lighting_Stage Lights",
+        name: "Stage Lights",
+        level: 2,
+        parentId: "main_Stands & Lighting",
+        prdsubgrp: "Stage Lights"
+      }
+    ],
     prdmaingrp: "Stands & Lighting"
   },
   {
@@ -144,7 +413,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Straps",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Straps_Guitar Straps",
+        name: "Guitar Straps",
+        level: 2,
+        parentId: "main_Straps",
+        prdsubgrp: "Guitar Straps"
+      },
+      {
+        id: "sub_Straps_Bass Straps",
+        name: "Bass Straps",
+        level: 2,
+        parentId: "main_Straps",
+        prdsubgrp: "Bass Straps"
+      }
+    ],
     prdmaingrp: "Straps"
   },
   {
@@ -152,7 +436,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "String Instrument Parts & Supplies",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_String Instrument Parts & Supplies_Violin Parts",
+        name: "Violin Parts",
+        level: 2,
+        parentId: "main_String Instrument Parts & Supplies",
+        prdsubgrp: "Violin Parts"
+      },
+      {
+        id: "sub_String Instrument Parts & Supplies_Cello Parts",
+        name: "Cello Parts",
+        level: 2,
+        parentId: "main_String Instrument Parts & Supplies",
+        prdsubgrp: "Cello Parts"
+      }
+    ],
     prdmaingrp: "String Instrument Parts & Supplies"
   },
   {
@@ -160,7 +459,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "String Instruments",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_String Instruments_Violins",
+        name: "Violins",
+        level: 2,
+        parentId: "main_String Instruments",
+        prdsubgrp: "Violins"
+      },
+      {
+        id: "sub_String Instruments_Cellos",
+        name: "Cellos",
+        level: 2,
+        parentId: "main_String Instruments",
+        prdsubgrp: "Cellos"
+      }
+    ],
     prdmaingrp: "String Instruments"
   },
   {
@@ -168,7 +482,22 @@ export const categoryTreeData: ProductGroup[] = [
     name: "Strings",
     level: 1,
     parentId: null,
-    children: [],
+    children: [
+      {
+        id: "sub_Strings_Guitar Strings",
+        name: "Guitar Strings",
+        level: 2,
+        parentId: "main_Strings",
+        prdsubgrp: "Guitar Strings"
+      },
+      {
+        id: "sub_Strings_Bass Strings",
+        name: "Bass Strings",
+        level: 2,
+        parentId: "main_Strings",
+        prdsubgrp: "Bass Strings"
+      }
+    ],
     prdmaingrp: "Strings"
   }
 ];

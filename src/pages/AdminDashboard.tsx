@@ -11,8 +11,9 @@ import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import ProductGroupManagementTab from '../components/admin/ProductGroupManagementTab';
 import MissingSubgroupsTab from '../components/admin/MissingSubgroupsTab';
 import ProductsTab from '../components/admin/ProductsTab';
+import IconGenerationTab from '../components/admin/IconGenerationTab';
 
-type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'datasync' | 'clicksend' | 'generalsettings' | 'applications' | 'productgroups' | 'missingsubgroups' | 'products';
+type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'datasync' | 'clicksend' | 'generalsettings' | 'applications' | 'productgroups' | 'missingsubgroups' | 'products' | 'icongeneration';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -30,6 +31,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'datasync' as AdminTab, label: 'Data Sync', icon: '🔄' },
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
+    { id: 'icongeneration' as AdminTab, label: 'AI Icon Generation', icon: '🎨' },
   ];
 
   const renderTabContent = () => {
@@ -56,6 +58,8 @@ const AdminDashboard: React.FC = () => {
         return <ClickSendTab />;
       case 'generalsettings':
         return <GeneralSettingsTab />;
+      case 'icongeneration':
+        return <IconGenerationTab />;
       default:
         return <ManagementTab />;
     }
