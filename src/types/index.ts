@@ -12,9 +12,8 @@ export interface Product {
   price: number | null;
   inventory: number | null;
   image?: string; // Add optional image property
-  prdmetacat?: string; // Product meta category
-  prdmaincat?: string; // Product main category
-  prdsubcat?: string; // Product sub category
+  prdmaingrp?: string; // Product main group (level 1)
+  prdsubgrp?: string; // Product sub group (level 2)
 }
 
 export interface CartItem extends Product {
@@ -47,9 +46,8 @@ export interface User {
 }
 
 export interface ProductGroup {
-  prdmetagrp?: string;
-  prdmaingrp?: string;
-  prdsubgrp?: string;
+  prdmaingrp?: string; // Main group (level 1)
+  prdsubgrp?: string; // Sub group (level 2)
   level: number;
   id: string;
   name: string;

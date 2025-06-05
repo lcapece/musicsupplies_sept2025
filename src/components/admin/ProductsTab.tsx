@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Product } from '../../types';
 
-type SortField = 'partnumber' | 'description' | 'price' | 'inventory' | 'prdmaincat' | 'prdsubcat';
+type SortField = 'partnumber' | 'description' | 'price' | 'inventory' | 'prdmaingrp' | 'prdsubgrp';
 type SortDirection = 'asc' | 'desc';
 
 const ProductsTab: React.FC = () => {
@@ -63,8 +63,8 @@ const ProductsTab: React.FC = () => {
     // Apply missing subgroups filter
     if (showMissingSubgroups) {
       filtered = filtered.filter(product => 
-        !product.prdmaincat || product.prdmaincat === 'NA' || 
-        !product.prdsubcat || product.prdsubcat === 'NA'
+        !product.prdmaingrp || product.prdmaingrp === 'NA' || 
+        !product.prdsubgrp || product.prdsubgrp === 'NA'
       );
     }
 
@@ -177,8 +177,8 @@ const ProductsTab: React.FC = () => {
           <div className="text-sm font-medium text-gray-600">Missing Groups</div>
           <div className="text-2xl font-bold text-orange-600">
             {products.filter(p => 
-              !p.prdmaincat || p.prdmaincat === 'NA' || 
-              !p.prdsubcat || p.prdsubcat === 'NA'
+              !p.prdmaingrp || p.prdmaingrp === 'NA' || 
+              !p.prdsubgrp || p.prdsubgrp === 'NA'
             ).length}
           </div>
         </div>
@@ -227,7 +227,7 @@ const ProductsTab: React.FC = () => {
             className="h-4 w-4 text-blue-600 border-gray-300 rounded"
           />
           <label htmlFor="showMissingSubgroups" className="ml-2 text-sm text-gray-700">
-            Show products with missing subgroups only
+            Show products with missing groups only
           </label>
         </div>
       </div>
@@ -288,21 +288,21 @@ const ProductsTab: React.FC = () => {
                     </div>
                   </th>
                   <th 
-                    onClick={() => handleSort('prdmaincat')}
+                    onClick={() => handleSort('prdmaingrp')}
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   >
                     <div className="flex items-center">
-                      Main Category
-                      <span className="ml-1">{getSortIcon('prdmaincat')}</span>
+                      Main Group
+                      <span className="ml-1">{getSortIcon('prdmaingrp')}</span>
                     </div>
                   </th>
                   <th 
-                    onClick={() => handleSort('prdsubcat')}
+                    onClick={() => handleSort('prdsubgrp')}
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   >
                     <div className="flex items-center">
-                      Sub Category
-                      <span className="ml-1">{getSortIcon('prdsubcat')}</span>
+                      Sub Group
+                      <span className="ml-1">{getSortIcon('prdsubgrp')}</span>
                     </div>
                   </th>
                 </tr>
@@ -323,13 +323,13 @@ const ProductsTab: React.FC = () => {
                       {formatInventory(product.inventory)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <span className={!product.prdmaincat || product.prdmaincat === 'NA' ? 'text-red-600 font-medium' : ''}>
-                        {product.prdmaincat || 'N/A'}
+                      <span className={!product.prdmaingrp || product.prdmaingrp === 'NA' ? 'text-red-600 font-medium' : ''}>
+                        {product.prdmaingrp || 'N/A'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <span className={!product.prdsubcat || product.prdsubcat === 'NA' ? 'text-red-600 font-medium' : ''}>
-                        {product.prdsubcat || 'N/A'}
+                      <span className={!product.prdsubgrp || product.prdsubgrp === 'NA' ? 'text-red-600 font-medium' : ''}>
+                        {product.prdsubgrp || 'N/A'}
                       </span>
                     </td>
                   </tr>
@@ -344,7 +344,7 @@ const ProductsTab: React.FC = () => {
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <div className="text-sm text-blue-800">
           Showing {filteredProducts.length} of {products.length} total products
-          {showMissingSubgroups && ' (filtered to show missing subgroups only)'}
+          {showMissingSubgroups && ' (filtered to show missing groups only)'}
           {totalProductCount > products.length && 
             ` - Limited display to ${products.length} products for performance`}
         </div>

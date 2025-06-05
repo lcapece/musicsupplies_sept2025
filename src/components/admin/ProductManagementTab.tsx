@@ -31,11 +31,11 @@ const ProductManagementTab: React.FC = () => {
   const fetchCategories = async () => {
     try {
       const { data } = await supabase
-        .from('lcmd_products')
-        .select('prdmetacat')
-        .not('prdmetacat', 'is', null);
+        .from('rt_productgroups')
+        .select('PrdMainGrp')
+        .not('PrdMainGrp', 'is', null);
       
-      const uniqueCategories = [...new Set(data?.map(item => item.prdmetacat) || [])];
+      const uniqueCategories = [...new Set(data?.map(item => item.PrdMainGrp) || [])];
       setCategories(uniqueCategories.sort());
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -60,7 +60,7 @@ const ProductManagementTab: React.FC = () => {
         query = query.ilike('description', `%${currentFilters.description}%`);
       }
       if (currentFilters.category) {
-        query = query.eq('prdmetacat', currentFilters.category);
+        query = query.eq('prdmaingrp', currentFilters.category);
       }
       if (currentFilters.inStockOnly) {
         query = query.gt('inventory', 0);
@@ -203,9 +203,8 @@ const ProductManagementTab: React.FC = () => {
       description: '',
       price: 0,
       inventory: 0,
-      prdmetacat: '',
-      prdmaincat: '',
-      prdsubcat: ''
+      prdmaingrp: '',
+      prdsubgrp: ''
     });
 
     return (
@@ -245,33 +244,24 @@ const ProductManagementTab: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Meta Category</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Main Group</label>
               <select
-                value={formData.prdmetacat || ''}
-                onChange={(e) => setFormData({ ...formData, prdmetacat: e.target.value })}
+                value={formData.prdmaingrp || ''}
+                onChange={(e) => setFormData({ ...formData, prdmaingrp: e.target.value })}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               >
-                <option value="">Select Category</option>
+                <option value="">Select Main Group</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Main Category</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sub Group</label>
               <input
                 type="text"
-                value={formData.prdmaincat || ''}
-                onChange={(e) => setFormData({ ...formData, prdmaincat: e.target.value })}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
-              <input
-                type="text"
-                value={formData.prdsubcat || ''}
-                onChange={(e) => setFormData({ ...formData, prdsubcat: e.target.value })}
+                value={formData.prdsubgrp || ''}
+                onChange={(e) => setFormData({ ...formData, prdsubgrp: e.target.value })}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               />
             </div>
@@ -407,7 +397,7 @@ const ProductManagementTab: React.FC = () => {
                     Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
+                    Main Group
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Price
@@ -430,7 +420,7 @@ const ProductManagementTab: React.FC = () => {
                       {product.description}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {product.prdmetacat}
+                      {product.prdmaingrp}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${product.price?.toFixed(2) || '0.00'}

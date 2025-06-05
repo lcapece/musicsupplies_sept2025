@@ -10,7 +10,7 @@
     - Add policy for public read access
   
   3. Data
-    - Copy test data from `lcmd_ordhist_test` to `lcmd_ordhist`
+    - Copy test data from `lcmd_ordhist_test` to `lcmd_ordhist` (only if test table exists)
 */
 
 -- Create production orders table matching test structure
@@ -40,9 +40,14 @@ CREATE POLICY "Enable read access for all users"
   TO public 
   USING (true);
 
--- Insert sample data from the test table
-INSERT INTO lcmd_ordhist 
-  (accountnumber, invoicenumber, dstamp, salesman, terms, model, "Description", "Qty", unitnet)
-SELECT
-  accountnumber, invoicenumber, dstamp, salesman, terms, model, "Description", "Qty", unitnet
-FROM lcmd_ordhist_test;
+-- Insert sample data from the test table (only if it exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lcmd_ordhist_test') THEN
+    INSERT INTO lcmd_ordhist 
+      (accountnumber, invoicenumber, dstamp, salesman, terms, model, "Description", "Qty", unitnet)
+    SELECT
+      accountnumber, invoicenumber, dstamp, salesman, terms, model, "Description", "Qty", unitnet
+    FROM lcmd_ordhist_test;
+  END IF;
+END $$;

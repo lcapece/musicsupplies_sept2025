@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductGroup } from '../types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { categoryTreeData } from '../data/categoryTree';
 
 export interface CategorySelection {
   id: string;
@@ -250,21 +250,21 @@ const CategoryTreeItem: React.FC<{
   return (
     <div className="select-none">
       <div 
-        className={`flex items-center py-2 px-3 cursor-pointer hover:bg-gray-100 ${isSelected ? 'bg-blue-100' : ''}`}
+        className={`flex items-center py-2 cursor-pointer hover:bg-gray-100 ${isSelected ? 'bg-blue-100' : ''}`}
         onClick={handleSelect}
-        style={{ paddingLeft: `${(level - 1) * 20 + 12}px` }}
+        style={{ paddingLeft: `${(level - 1) * 20 + 8}px` }}
       >
         {hasChildren ? (
-          <span onClick={handleToggle} className="mr-2">
+          <span onClick={handleToggle} className="mr-2 flex-shrink-0">
             {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
           </span>
         ) : (
-          <span className="mr-2 w-5"></span>
+          <span className="mr-2 w-5 flex-shrink-0"></span>
         )}
-        <span className="mr-3">
+        <span className="mr-3 flex-shrink-0">
           {level === 1 ? getCategoryIcon(category.name) : null}
         </span>
-        <span className={`text-base truncate ${level === 2 ? 'text-blue-600' : ''}`}>
+        <span className={`text-base text-left truncate ${level === 2 ? 'text-blue-600' : ''}`}>
           {category.name}
         </span>
       </div>
@@ -295,68 +295,24 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCategories = async () => {
+  const loadCategories = () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('rt_productgroups')
-        .select('PrdMainGrp, PrdSubGrp')
-        .order('PrdMainGrp, PrdSubGrp');
-
-      if (error) throw error;
-
-      // Build tree structure
-      const tree: ProductGroup[] = [];
-      const mainGroups = new Map<string, ProductGroup>();
-
-      // Process main groups (level 1)
-      data?.forEach(row => {
-        if (row.PrdMainGrp && !mainGroups.has(row.PrdMainGrp)) {
-          const group: ProductGroup = {
-            id: `main_${row.PrdMainGrp}`,
-            name: row.PrdMainGrp,
-            level: 1,
-            parentId: null,
-            children: [],
-            prdmaingrp: row.PrdMainGrp
-          };
-          mainGroups.set(row.PrdMainGrp, group);
-          tree.push(group);
-        }
-      });
-
-      // Process sub groups (level 2)
-      data?.forEach(row => {
-        if (row.PrdMainGrp && row.PrdSubGrp) {
-          const mainGroup = mainGroups.get(row.PrdMainGrp);
-          if (mainGroup) {
-            const subGroup: ProductGroup = {
-              id: `sub_${row.PrdMainGrp}_${row.PrdSubGrp}`,
-              name: row.PrdSubGrp,
-              level: 2,
-              parentId: mainGroup.id,
-              prdsubgrp: row.PrdSubGrp
-            };
-            mainGroup.children = mainGroup.children || [];
-            mainGroup.children.push(subGroup);
-          }
-        }
-      });
-
-      setCategories(tree);
+      // Use static category tree data - no database call needed
+      setCategories(categoryTreeData);
       setLoading(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'An error occurred loading categories');
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCategories();
+    loadCategories();
 
-    // Listen for refresh event from admin panel
+    // Listen for refresh event from admin panel (future feature)
     const handleRefresh = () => {
-      fetchCategories();
+      loadCategories();
     };
 
     window.addEventListener('refreshCategoryTree', handleRefresh);
@@ -403,11 +359,12 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
           />
         ))}
          <div 
-          className="flex items-center py-2 px-3 cursor-pointer hover:bg-gray-100 mt-2 border-t pt-3"
+          className="flex items-center py-2 cursor-pointer hover:bg-gray-100 mt-2 border-t pt-3"
           onClick={() => onSelectCategory(null)}
+          style={{ paddingLeft: '8px' }}
         >
-          <span className="mr-2 w-5"></span>
-          <span className="text-base text-gray-600 italic">Show All Products</span>
+          <span className="mr-2 w-5 flex-shrink-0"></span>
+          <span className="text-base text-left text-gray-600 italic">Show All Products</span>
         </div>
       </div>
     </div>
