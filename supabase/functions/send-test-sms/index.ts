@@ -22,12 +22,14 @@ serve(async (req) => {
     const { accountNumber, accountName, smsNumber, message }: TestSMSRequest = await req.json()
 
     // ClickSend API configuration
-    const clicksendUsername = Deno.env.get('CLICKSEND_USERNAME')
-    const clicksendApiKey = Deno.env.get('CLICKSEND_API_KEY')
+    const clicksendUsername = Deno.env.get('CLICKSEND_USER_ID') || Deno.env.get('CLICKSEND_USERNAME')
+    const clicksendApiKey = Deno.env.get('CLICKSEND_KEY') || Deno.env.get('CLICKSEND_API_KEY')
     
     if (!clicksendUsername || !clicksendApiKey) {
       throw new Error('ClickSend credentials not configured')
     }
+
+    console.log('Using ClickSend credentials:', { username: clicksendUsername ? 'FOUND' : 'MISSING', apiKey: clicksendApiKey ? 'FOUND' : 'MISSING' })
 
     // ClickSend API payload
     const smsPayload = {
@@ -95,6 +97,6 @@ serve(async (req) => {
 supabase functions deploy send-test-sms
 
 Environment variables needed:
-supabase secrets set CLICKSEND_USERNAME=your_username
-supabase secrets set CLICKSEND_API_KEY=your_api_key
+supabase secrets set CLICKSEND_USER_ID=your_username
+supabase secrets set CLICKSEND_KEY=your_api_key
 */

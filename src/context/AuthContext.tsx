@@ -216,10 +216,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         p_account_number: accountNumberInt,
         p_password: password // Pass the original password, the function handles lowercasing
       };
-      const newRpcFunctionName = 'authenticate_user_lcmd'; // New function name
-      console.log(`[AuthContext] Calling RPC: ${newRpcFunctionName} with params:`, { p_account_number: accountNumberInt, p_password: '***' }); // Log params, obscuring password
+      const rpcFunctionName = 'authenticate_user'; // Updated function name
+      console.log(`[AuthContext] Calling RPC: ${rpcFunctionName} with params:`, { p_account_number: accountNumberInt, p_password: '***' }); // Log params, obscuring password
 
-      const { data: rpcResult, error: rpcError } = await supabase.rpc(newRpcFunctionName, rpcParams);
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(rpcFunctionName, rpcParams);
 
       if (rpcError) {
         console.error('RPC Database error:', rpcError);

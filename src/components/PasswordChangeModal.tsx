@@ -10,18 +10,13 @@ interface PasswordChangeModalProps {
 
 const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClose, accountData }) => {
   const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Added for password visibility
   const [email, setEmail] = useState('');
   const [mobilePhone, setMobilePhone] = useState('');
   const [smsConsent, setSmsConsent] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSendingCode, setIsSendingCode] = useState(false);
-  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [codeSent, setCodeSent] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
   const { user, fetchUserAccount } = useAuth();
 
   useEffect(() => {
@@ -31,82 +26,29 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
     }
   }, [accountData]);
 
-  const handleSendSmsCode = async () => {
-    if (!mobilePhone.trim()) {
-      setError('Please enter a mobile phone number first');
-      return;
-    }
-
-    if (!smsConsent) {
-      setError('Please consent to receive SMS messages');
-      return;
-    }
-
-    setError(null);
-    setSuccessMessage(null);
-    setIsSendingCode(true);
-
+  // Function to send a welcome SMS message
+  const sendWelcomeSms = async (phoneNumber: string) => {
+    if (!phoneNumber.trim()) return;
+    
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('send-sms-verification', {
+      const { data, error } = await supabase.functions.invoke('send-test-sms', {
         body: {
-          phoneNumber: mobilePhone,
-          accountNumber: parseInt(accountData.accountNumber || user?.accountNumber || '0')
+          accountNumber: accountData.accountNumber || user?.accountNumber || '0',
+          accountName: accountData.acct_name || 'Customer',
+          smsNumber: phoneNumber,
+          message: `Thank you for enabling SMS notifications from Music Supplies! You'll now receive order updates and promotional offers.`
         }
       });
-
-      if (functionError) {
-        throw new Error(functionError.message || 'Failed to send verification code');
+      
+      if (error) {
+        console.error('Error from SMS function:', error);
+        return;
       }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      setCodeSent(true);
-      setSuccessMessage('Verification code sent successfully! Check your phone.');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send verification code');
-    } finally {
-      setIsSendingCode(false);
-    }
-  };
-
-  const handleVerifyCode = async () => {
-    if (!verificationCode.trim()) {
-      setError('Please enter the verification code');
-      return;
-    }
-
-    setError(null);
-    setSuccessMessage(null);
-    setIsVerifyingCode(true);
-
-    try {
-      const { data, error: functionError } = await supabase.functions.invoke('verify-sms-code', {
-        body: {
-          accountNumber: parseInt(accountData.accountNumber || user?.accountNumber || '0'),
-          verificationCode: verificationCode
-        }
-      });
-
-      if (functionError) {
-        throw new Error(functionError.message || 'Failed to verify code');
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      if (data?.success) {
-        setPhoneVerified(true);
-        setSuccessMessage('Phone number verified successfully!');
-      } else {
-        throw new Error('Invalid or expired verification code');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to verify code');
-    } finally {
-      setIsVerifyingCode(false);
+      
+      console.log('Welcome SMS sent successfully:', data);
+    } catch (err) {
+      console.error('Error sending welcome SMS:', err);
+      // Don't show error to user - non-critical operation
     }
   };
 
@@ -115,19 +57,9 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
     setError(null);
     setSuccessMessage(null);
 
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
     if (newPassword.length < 6) { // Basic password length validation
         setError("Password must be at least 6 characters long.");
         return;
-    }
-
-    // If user provided phone number but hasn't verified it, require verification
-    if (mobilePhone.trim() && smsConsent && !phoneVerified) {
-      setError("Please verify your phone number before continuing.");
-      return;
     }
 
     setIsLoading(true);
@@ -141,7 +73,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
 
       // First, update the password using the new function
       const { data: passwordUpdateResult, error: passwordError } = await supabase
-        .rpc('update_user_password_lcmd', {
+        .rpc('update_user_password', { // Updated function name
           p_account_number: parseInt(accountData.accountNumber || user.accountNumber),
           p_new_password: newPassword
         });
@@ -154,33 +86,28 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         throw new Error('Failed to update password');
       }
 
-      // Then update email and mobile phone in accounts_lcmd (only if phone wasn't verified via SMS)
-      if (!phoneVerified) {
-        const { error: updateError } = await supabase
-          .from('accounts_lcmd')
-          .update({
-            email_address: email,
-            mobile_phone: mobilePhone,
-            sms_consent: smsConsent && mobilePhone.trim() ? true : false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', accountData.id);
+      // Update email and mobile phone in accounts_lcmd
+      const { error: updateError } = await supabase
+        .from('accounts_lcmd')
+        .update({
+          email_address: email,
+          mobile_phone: mobilePhone,
+          sms_consent: smsConsent && mobilePhone.trim() ? true : false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', accountData.id);
 
-        if (updateError) {
-          throw updateError;
-        }
-      } else {
-        // If phone was verified, only update email (phone and SMS consent already updated by verification)
-        const { error: updateError } = await supabase
-          .from('accounts_lcmd')
-          .update({
-            email_address: email,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', accountData.id);
-
-        if (updateError) {
-          throw updateError;
+      if (updateError) {
+        throw updateError;
+      }
+      
+      // If SMS consent is enabled, send a welcome message
+      if (smsConsent && mobilePhone.trim()) {
+        try {
+          await sendWelcomeSms(mobilePhone);
+        } catch (smsErr) {
+          console.error('Failed to send welcome SMS, but continuing with account update:', smsErr);
+          // Non-critical error, continue with success flow
         }
       }
 
@@ -208,29 +135,37 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
               <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="newPassword">
                 New Password
               </label>
-              <input
-                type="password"
-                id="newPassword"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="newPassword"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="confirmPassword">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
+            {/* Confirm password field removed */}
+            {/* <div className="mb-6"> ... </div> */}
 
             <hr className="my-6" />
 
@@ -263,71 +198,24 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
             </div>
 
             {mobilePhone.trim() && (
-              <>
-                <div className="mb-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={smsConsent}
-                      onChange={(e) => setSmsConsent(e.target.checked)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm text-gray-700">
-                      I consent to receive SMS messages from Music Supplies for order updates and promotional offers
-                    </span>
-                  </label>
-                </div>
-
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={smsConsent}
+                    onChange={(e) => setSmsConsent(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    I consent to receive SMS messages from Music Supplies for order updates and promotional offers
+                  </span>
+                </label>
                 {smsConsent && (
-                  <div className="mb-4 p-4 bg-blue-50 rounded-md">
-                    <h4 className="font-medium text-gray-800 mb-2">SMS Verification</h4>
-                    
-                    {!codeSent ? (
-                      <button
-                        type="button"
-                        onClick={handleSendSmsCode}
-                        disabled={isSendingCode}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {isSendingCode ? 'Sending...' : 'Send Verification Code'}
-                      </button>
-                    ) : !phoneVerified ? (
-                      <div className="space-y-3">
-                        <div className="flex space-x-2">
-                          <input
-                            type="text"
-                            placeholder="Enter 6-digit code"
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            maxLength={6}
-                          />
-                          <button
-                            type="button"
-                            onClick={handleVerifyCode}
-                            disabled={isVerifyingCode}
-                            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
-                          >
-                            {isVerifyingCode ? 'Verifying...' : 'Verify'}
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleSendSmsCode}
-                          disabled={isSendingCode}
-                          className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          Resend Code
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-green-600 font-medium">
-                        ✓ Phone number verified successfully!
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-sm text-gray-600 mt-2 italic">
+                    A welcome message will be sent to your phone when you save your changes.
+                  </p>
                 )}
-              </>
+              </div>
             )}
 
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
