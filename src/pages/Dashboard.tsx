@@ -21,7 +21,7 @@ const Dashboard: React.FC = () => {
   const [selectedSubCategoryName, setSelectedSubCategoryName] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [inStockOnly, setInStockOnly] = useState(false);
-  const [showImageAndSpecs, setShowImageAndSpecs] = useState(false);
+  const [showImageAndSpecs, setShowImageAndSpecs] = useState(true); // Changed to true for default checked
   const [selectedProductForImage, setSelectedProductForImage] = useState<Product | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string>(ImageComingSoon); // State for the image URL to display
   const [products, setProducts] = useState<Product[]>([]);
@@ -382,11 +382,11 @@ const Dashboard: React.FC = () => {
                           <h3 className="text-lg font-semibold mb-2">
                             {selectedProductForImage.partnumber} - Image & Specs
                           </h3>
-                          <div className="mb-4">
+                          <div className="mb-4 flex justify-center">
                             <img 
                               src={currentImageUrl} // Use state for image URL
                               alt={selectedProductForImage.description || selectedProductForImage.partnumber}
-                              className="w-full h-auto rounded border"
+                              className="max-h-[550px] w-auto object-contain rounded border"
                               // onError is less critical now as pre-loading sets placeholder
                             />
                           </div>
