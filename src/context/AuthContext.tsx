@@ -1,4 +1,4 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -114,14 +114,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .select('orders_used')
             .eq('account_number', accountNumber)
             .eq('discount_tier_id', orderDiscount.id)
-            .single();
+            .limit(1);
 
-          if (usageError && usageError.code !== 'PGRST116') { // PGRST116 = no rows found
+          if (usageError) {
             console.error('[AuthContext] Error fetching order discount usage:', usageError);
             continue;
           }
 
-          const ordersUsed = usage?.orders_used || 0;
+          // Check if data array is not empty before accessing first element
+          const ordersUsed = (usage && usage.length > 0) ? usage[0].orders_used : 0;
           const maxOrders = orderDiscount.max_orders || 0;
 
           // If customer still has orders remaining, this discount is eligible

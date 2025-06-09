@@ -176,7 +176,7 @@ const Dashboard: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      let query = supabase.from('lcmd_products').select('*');
+      let query = supabase.from('products_supabase').select('*');
 
       if (selectedMainCategory) {
         query = query.eq('prdmaincat', selectedMainCategory);
