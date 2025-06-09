@@ -6,18 +6,7 @@ import PasswordChangeModal from './PasswordChangeModal'; // Import the modal
 import { supabase } from '../lib/supabase'; // Import supabase client
 import { User } from '../types'; // Import User type
 import logo from '../images/music_supplies_logo.png'; // Import the logo
-
-// Import images from /src/images/
-import p1 from '../images/p1.jpg';
-import p2 from '../images/p2.jpg';
-import p3 from '../images/p3.jpg';
-import p4 from '../images/p4.jpg';
-import p5 from '../images/p5.jpg';
-import p6 from '../images/p6.jpg';
-import p7 from '../images/p7.jpg';
-import p8 from '../images/p8.jpg';
-import p9 from '../images/p9.jpg';
-import p10 from '../images/p10.jpg';
+import brands from '../images/brands.png'; // Import the brands image
 
 const Login: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
@@ -138,32 +127,17 @@ const Login: React.FC = () => {
             </Link>
           </div>
 
-          {/* Added Distributor Brands Section */}
+          {/* Brands Section - Replaced multiple images with single brands.png */}
           <div className="my-8 text-center">
             <p className="text-gray-700 font-semibold mb-4">
               Distributor of Exceptional Brands Including:
             </p>
-            {/* First row of images */}
-            <div className="flex justify-center items-center space-x-2 sm:space-x-4 mb-4">
-              {[p1, p2, p3, p4, p5].map((imgSrc, index) => (
-                <img 
-                  key={`p${index + 1}`}
-                  src={imgSrc} 
-                  alt={`Brand p${index + 1}`} 
-                  className="h-10 sm:h-12 md:h-16 object-contain" 
-                />
-              ))}
-            </div>
-            {/* Second row of images */}
-            <div className="flex justify-center items-center space-x-2 sm:space-x-4">
-              {[p6, p7, p8, p9, p10].map((imgSrc, index) => (
-                <img 
-                  key={`p${index + 6}`}
-                  src={imgSrc} 
-                  alt={`Brand p${index + 6}`} 
-                  className="h-10 sm:h-12 md:h-16 object-contain" 
-                />
-              ))}
+            <div className="flex justify-center">
+              <img 
+                src={brands} 
+                alt="Music Supplies Brands" 
+                className="max-w-full h-auto"
+              />
             </div>
           </div>
           
