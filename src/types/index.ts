@@ -55,6 +55,7 @@ export interface ProductGroup {
   name: string;
   parentId: string | null;
   children?: ProductGroup[];
+  productCount?: number; // Count of products in this category
 }
 
 export interface OrderConfirmationDetails {

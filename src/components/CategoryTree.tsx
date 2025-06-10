@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductGroup } from '../types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { categoryTreeData } from '../data/categoryTree';
+import { categoryTreeData, fetchCategoryData } from '../data/categoryTree';
 
 export interface CategorySelection {
   id: string;
@@ -438,11 +438,12 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadCategories = () => {
+  const loadCategories = async () => {
     setLoading(true);
     try {
-      // Use static category tree data - no database call needed
-      setCategories(categoryTreeData);
+      // Fetch category data from the database using the new SQL query
+      const data = await fetchCategoryData();
+      setCategories(data);
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred loading categories');
