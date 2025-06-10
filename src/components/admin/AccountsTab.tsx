@@ -123,9 +123,9 @@ const AccountsTab: React.FC = () => {
         .from('logon_lcmd')
         .select('account_number')
         .eq('account_number', accountNumber)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid error when no rows
 
-      if (checkError && checkError.code !== 'PGRST116') {
+      if (checkError) {
         console.error('Error checking existing password:', checkError);
         alert('Error checking existing password');
         return;
@@ -137,7 +137,6 @@ const AccountsTab: React.FC = () => {
           .from('logon_lcmd')
           .update({
             password: newPassword,
-            requires_password_change: true,
             updated_at: new Date().toISOString()
           })
           .eq('account_number', accountNumber);
@@ -153,8 +152,7 @@ const AccountsTab: React.FC = () => {
           .from('logon_lcmd')
           .insert({
             account_number: accountNumber,
-            password: newPassword,
-            requires_password_change: true
+            password: newPassword
           });
 
         if (insertError) {
@@ -164,7 +162,7 @@ const AccountsTab: React.FC = () => {
         }
       }
 
-      // Update the account to require password change
+      // Update the account to require password change (this is on accounts_lcmd table)
       const { error: accountUpdateError } = await supabase
         .from('accounts_lcmd')
         .update({ requires_password_change: true })
@@ -198,7 +196,7 @@ const AccountsTab: React.FC = () => {
           return;
         }
 
-        // Update account to require password change
+        // Update account to require password change (this is on accounts_lcmd table)
         const { error: updateError } = await supabase
           .from('accounts_lcmd')
           .update({ requires_password_change: true })

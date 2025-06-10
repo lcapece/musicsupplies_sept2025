@@ -195,26 +195,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Simplified direct database query for authentication
-      const { data, error: queryError } = await supabase
-        .from('accounts_lcmd')
-        .select('*')
-        .eq('account_number', accountNumberInt)
-        .single();
-
-      if (queryError) {
-        console.error('Database error:', queryError);
-        setError('An error occurred while trying to log in. Please try again.');
-        return false;
-      }
-
-      if (!data) {
-        setError('Invalid account number or password');
-        return false;
-      }
-
       // Special case for account 101
       if (accountNumberInt === 101 && (password === 'Monday123$' || password.toLowerCase() === 'a11803')) {
+        const { data, error: queryError } = await supabase
+          .from('accounts_lcmd')
+          .select('*')
+          .eq('account_number', accountNumberInt)
+          .single();
+
+        if (queryError || !data) {
+          setError('Account not found');
+          return false;
+        }
+
         const userData: User = {
           accountNumber: String(data.account_number),
           acctName: data.acct_name || '',
@@ -235,6 +228,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Special case for account 999 (admin)
       if (accountNumberInt === 999 && password === 'admin123') {
+        const { data, error: queryError } = await supabase
+          .from('accounts_lcmd')
+          .select('*')
+          .eq('account_number', accountNumberInt)
+          .single();
+
+        if (queryError || !data) {
+          setError('Account not found');
+          return false;
+        }
+
         const userData: User = {
           accountNumber: String(data.account_number),
           acctName: data.acct_name || '',
@@ -253,58 +257,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return true;
       }
 
-      // Direct password check
-      if (data.password === password) {
-        const userData: User = {
-          accountNumber: String(data.account_number),
-          acctName: data.acct_name || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || '',
-          zip: data.zip || '',
-          requires_password_change: data.requires_password_change || false,
-          id: data.id
-        };
-        
-        setUser(userData);
-        setIsAuthenticated(true);
-        localStorage.setItem('user', JSON.stringify(userData));
+      // Use the RPC function for authentication
+      const { data: authResult, error: rpcError } = await supabase
+        .rpc('authenticate_user_lcmd', {
+          p_account_number: accountNumberInt,
+          p_password: password
+        });
 
-        // Modal logic based on requires_password_change
-        if (userData.requires_password_change) {
-          setShowPasswordChangeModal(true);
-        }
-
-        await calculateBestDiscount(userData.accountNumber);
-        return true;
+      if (rpcError) {
+        console.error('Authentication RPC error:', rpcError);
+        setError('An error occurred while trying to log in. Please try again.');
+        return false;
       }
 
-      // Default password check (first letter of name + first 5 digits of zip)
-      if (data.acct_name && data.zip) {
-        const defaultPassword = (data.acct_name.charAt(0) + data.zip.substring(0, 5)).toLowerCase();
-        if (password.toLowerCase() === defaultPassword) {
-          const userData: User = {
-            accountNumber: String(data.account_number),
-            acctName: data.acct_name || '',
-            address: data.address || '',
-            city: data.city || '',
-            state: data.state || '',
-            zip: data.zip || '',
-            requires_password_change: true, // Force password change for default password
-            id: data.id
-          };
-          
-          setUser(userData);
-          setIsAuthenticated(true);
-          localStorage.setItem('user', JSON.stringify(userData));
-          setShowPasswordChangeModal(true);
-          await calculateBestDiscount(userData.accountNumber);
-          return true;
-        }
+      if (!authResult || authResult.length === 0 || !authResult[0].authenticated) {
+        setError('Invalid account number or password');
+        return false;
       }
 
-      setError('Invalid account number or password');
-      return false;
+      const authData = authResult[0];
+      const userData: User = {
+        accountNumber: String(authData.account_number),
+        acctName: authData.acct_name || '',
+        address: authData.address || '',
+        city: authData.city || '',
+        state: authData.state || '',
+        zip: authData.zip || '',
+        requires_password_change: authData.requires_password_change || false,
+        id: authData.account_number
+      };
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      // Modal logic based on requires_password_change
+      if (userData.requires_password_change) {
+        setShowPasswordChangeModal(true);
+      }
+
+      await calculateBestDiscount(userData.accountNumber);
+      return true;
+
     } catch (err) {
       console.error('Login error:', err);
       setError('An unexpected error occurred. Please try again later.');
