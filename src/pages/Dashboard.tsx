@@ -56,7 +56,7 @@ const Dashboard: React.FC = () => {
           const img = new Image();
           img.onload = () => resolve();
           img.onerror = (eventOrMessage) => { // The argument can be an Event or a string
-            console.error(`[Dashboard] Image load error for ${url}:`, eventOrMessage); // Log the raw error/event
+            console.warn(`[Dashboard] Image load warning for ${url}:`, eventOrMessage); // Changed from console.error to console.warn
             reject(eventOrMessage);
           };
           img.src = url;
