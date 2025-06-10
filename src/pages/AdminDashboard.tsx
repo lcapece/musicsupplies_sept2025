@@ -4,13 +4,11 @@ import ManagementTab from '../components/admin/ManagementTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import AccountsTab from '../components/admin/AccountsTab';
 import HistoryTab from '../components/admin/HistoryTab';
-import DataSyncTab from '../components/admin/DataSyncTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import GeneralSettingsTab from '../components/admin/GeneralSettingsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
-import UnresolvedIssuesTab from '../components/admin/UnresolvedIssuesTab';
 
-type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'datasync' | 'clicksend' | 'generalsettings' | 'applications' | 'unresolvedissues';
+type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -22,9 +20,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'accounts' as AdminTab, label: 'Accounts', icon: '👥' },
     { id: 'applications' as AdminTab, label: 'Applications', icon: '📝' },
     { id: 'history' as AdminTab, label: 'History', icon: '📊' },
-    { id: 'datasync' as AdminTab, label: 'Data Sync', icon: '🔄' },
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
-    { id: 'unresolvedissues' as AdminTab, label: 'Unresolved Issues', icon: '⚠️' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
   ];
 
@@ -40,14 +36,10 @@ const AdminDashboard: React.FC = () => {
         return <AccountApplicationsTab />;
       case 'history':
         return <HistoryTab />;
-      case 'datasync':
-        return <DataSyncTab />;
       case 'clicksend':
         return <ClickSendTab />;
       case 'generalsettings':
         return <GeneralSettingsTab />;
-      case 'unresolvedissues':
-        return <UnresolvedIssuesTab />;
       default:
         return <ManagementTab />;
     }
