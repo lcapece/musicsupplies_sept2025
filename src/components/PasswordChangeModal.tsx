@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase'; // Assuming supabase client is exported from here
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 interface PasswordChangeModalProps {
   isOpen: boolean;
-  onClose: (wasSuccess: boolean) => void; // Updated signature
-  accountData: any; // Consider defining a more specific type for accountData
+  onClose: (wasSuccess: boolean) => void;
+  accountData: any;
 }
 
 const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClose, accountData }) => {
   const [newPassword, setNewPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Added for password visibility
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [mobilePhone, setMobilePhone] = useState('');
   const [smsConsent, setSmsConsent] = useState(false);
@@ -21,43 +21,17 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
 
   useEffect(() => {
     if (accountData) {
-      setEmail(accountData.email_address || accountData.email || ''); // Prioritize email_address from DB (corrected to lowercase)
+      setEmail(accountData.email_address || accountData.email || '');
       setMobilePhone(accountData.mobile_phone || '');
     }
   }, [accountData]);
-
-  // Function to send a welcome SMS message
-  const sendWelcomeSms = async (phoneNumber: string) => {
-    if (!phoneNumber.trim()) return;
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('send-test-sms', {
-        body: {
-          accountNumber: accountData.accountNumber || user?.accountNumber || '0',
-          accountName: accountData.acct_name || 'Customer',
-          smsNumber: phoneNumber,
-          message: `Thank you for enabling SMS notifications from Music Supplies! You'll now receive order updates and promotional offers.`
-        }
-      });
-      
-      if (error) {
-        console.error('Error from SMS function:', error);
-        return;
-      }
-      
-      console.log('Welcome SMS sent successfully:', data);
-    } catch (err) {
-      console.error('Error sending welcome SMS:', err);
-      // Don't show error to user - non-critical operation
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
 
-    if (newPassword.length < 6) { // Basic password length validation
+    if (newPassword.length < 6) {
         setError("Password must be at least 6 characters long.");
         return;
     }
@@ -71,47 +45,24 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
       }
 
-      // First, update the password using the new function
-      const { data: passwordUpdateResult, error: passwordError } = await supabase
-        .rpc('update_user_password', { // Updated function name
-          p_account_number: parseInt(accountData.accountNumber || user.accountNumber),
-          p_new_password: newPassword
-        });
-
-      if (passwordError) {
-        throw passwordError;
-      }
-
-      if (!passwordUpdateResult) {
-        throw new Error('Failed to update password');
-      }
-
-      // Update email and mobile phone in accounts_lcmd
+      // Direct database update for password and user details
       const { error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
+          password: newPassword,
           email_address: email,
           mobile_phone: mobilePhone,
           sms_consent: smsConsent && mobilePhone.trim() ? true : false,
+          requires_password_change: false,
           updated_at: new Date().toISOString()
         })
-        .eq('id', accountData.id);
+        .eq('account_number', accountData.accountNumber);
 
       if (updateError) {
         throw updateError;
       }
-      
-      // If SMS consent is enabled, send a welcome message
-      if (smsConsent && mobilePhone.trim()) {
-        try {
-          await sendWelcomeSms(mobilePhone);
-        } catch (smsErr) {
-          console.error('Failed to send welcome SMS, but continuing with account update:', smsErr);
-          // Non-critical error, continue with success flow
-        }
-      }
 
-      onClose(true); // Close modal immediately on success and trigger next step (e.g. discount modal)
+      onClose(true);
 
     } catch (err: any) {
       setError(err.message || "An error occurred while updating your details.");
@@ -164,9 +115,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
               </div>
             </div>
 
-            {/* Confirm password field removed */}
-            {/* <div className="mb-6"> ... </div> */}
-
             <hr className="my-6" />
 
             <div className="mb-4">
@@ -210,18 +158,13 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
                     I consent to receive SMS messages from Music Supplies for order updates and promotional offers
                   </span>
                 </label>
-                {smsConsent && (
-                  <p className="text-sm text-gray-600 mt-2 italic">
-                    A welcome message will be sent to your phone when you save your changes.
-                  </p>
-                )}
               </div>
             )}
 
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <button
                 type="button"
-                onClick={() => onClose(false)} // Call with false for cancel
+                onClick={() => onClose(false)}
                 className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 disabled={isLoading}
               >
