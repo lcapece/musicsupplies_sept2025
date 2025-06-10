@@ -228,36 +228,24 @@ const Dashboard: React.FC = () => {
   
   // Updated to match CategorySelection type from CategoryTree.tsx
   const handleCategorySelect = (selection: import('../components/CategoryTree').CategorySelection | null) => {
-    // Clear previous search terms when a category is selected or deselected
     setSearchQuery('');
     setSearchTerms({ primary: '', additional: '', exclude: '' });
-    setSelectedProductForImage(null); // Reset selected product
+    setSelectedProductForImage(null); 
 
     if (selection) {
-      setSelectedCategoryId(selection.id);
-      const { namePath, level } = selection;
+      setSelectedCategoryId(selection.id); // selection.id is the category_code of the selected node
+      const { namePath, isMainCategory, parentCategoryCode } = selection;
       
-      // Extract category codes from ID (main_CODE, sub_MAIN_CODE)
-      const idParts = selection.id.split('_');
-      const type = idParts[0]; // 'main' or 'sub'
-      
-      if (type === 'main' && namePath.length >= 1) {
-        setSelectedMainCategory(idParts.slice(1).join('_'));
+      if (isMainCategory) {
+        setSelectedMainCategory(selection.id); // The main category's code
         setSelectedSubCategory(undefined);
         setSelectedMainCategoryName(namePath[0]);
         setSelectedSubCategoryName(undefined);
-      } else if (type === 'sub' && namePath.length >= 2) {
-        setSelectedMainCategory(idParts[1]);
-        setSelectedSubCategory(idParts.slice(2).join('_'));
-        setSelectedMainCategoryName(namePath[0]);
-        setSelectedSubCategoryName(namePath[1]);
-      } else {
-        // Fallback or error case if path and id don't align, clear all
-        setSelectedMainCategory(undefined);
-        setSelectedSubCategory(undefined);
-        setSelectedMainCategoryName(undefined);
-        setSelectedSubCategoryName(undefined);
-        setSelectedCategoryId(null);
+      } else { // It's a subcategory
+        setSelectedMainCategory(parentCategoryCode || undefined); // parentCategoryCode is the main category's code
+        setSelectedSubCategory(selection.id); // The sub category's code
+        setSelectedMainCategoryName(namePath[0]); // namePath[0] is main category name
+        setSelectedSubCategoryName(namePath[1]); // namePath[1] is sub category name
       }
     } else {
       // Deselection: clear all category related states

@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { ProductGroup } from '../types';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { categoryTreeData, fetchCategoryData } from '../data/categoryTree';
+import { ChevronDown, ChevronRight, Guitar, Speaker, Drum, Music, Cable, HelpCircle } from 'lucide-react'; // Added Lucide icons
+import { fetchCategoryData } from '../data/categoryTree'; // Keep original fetch for fallback
+
+// Define TreeNode structure consistent with what ManageTreeviewTab stores in localStorage
+interface LocalTreeNode {
+  id: string; 
+  name: string;
+  parent_id: string | null; 
+  children?: LocalTreeNode[];
+  is_main_category: boolean;
+  icon_name: string | null;
+}
 
 export interface CategorySelection {
-  id: string;
+  id: string; // category_code
   namePath: string[]; // Path of names from root to selected category
   level: number;
+  isMainCategory: boolean;
+  parentCategoryCode?: string | null; // Only relevant if not a main category
 }
 interface CategoryTreeProps {
   onSelectCategory: (selection: CategorySelection | null) => void; // Updated to pass object or null for deselection
@@ -391,7 +403,28 @@ const CategoryTreeItem: React.FC<{
   
   const handleSelect = () => {
     const newNamePath = [...currentNamePath, category.name];
-    onSelectCategory({ id: category.id, namePath: newNamePath, level: category.level });
+    // The 'category' prop here is of type ProductGroup.
+    // ProductGroup has 'id', 'name', 'level'. It needs 'isMainCategory' and 'parentId' (for parentCategoryCode).
+    // The transformAdminTreeToProductGroup maps LocalTreeNode.is_main_category to ProductGroup.is_main_category (implicitly, if ProductGroup is extended)
+    // and LocalTreeNode.parent_id to ProductGroup.parentId.
+    // Let's assume ProductGroup has these fields or we add them.
+    // For now, I'll assume category.icon_name can tell us if it's main (as per ManageTreeviewTab logic)
+    // And category.parentId is available.
+
+    // We need to ensure the 'category' object (ProductGroup) has is_main_category and parentId.
+    // The ProductGroup interface has parentId. It needs is_main_category.
+    // Let's assume ProductGroup is augmented or we derive is_main_category from level.
+    // A simpler way: pass the original LocalTreeNode's properties if available, or rely on level.
+    // For now, level 1 is main category.
+    const isMain = category.level === 1; 
+
+    onSelectCategory({ 
+      id: category.id, 
+      namePath: newNamePath, 
+      level: category.level,
+      isMainCategory: isMain, // Derive from level for now
+      parentCategoryCode: category.parentId // ProductGroup has parentId
+    });
     
     // If this category has children, also toggle expansion when clicked
     if (hasChildren) {
@@ -449,15 +482,53 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const transformAdminTreeToProductGroup = (nodes: LocalTreeNode[], level: number = 1): ProductGroup[] => {
+    return nodes.map(node => ({
+      id: node.id,
+      name: node.name,
+      parentId: node.parent_id, // Add parentId mapping
+      level: level,
+      icon: node.icon_name || undefined, // Store icon_name in ProductGroup's icon field
+      children: node.children ? transformAdminTreeToProductGroup(node.children, level + 1) : [],
+      // prdmaingrp and prdsubgrp are not directly available in LocalTreeNode, 
+      // they might need to be derived or are not essential for tree rendering itself if id/parentId is used.
+      // productCount is also not in LocalTreeNode, can be added if needed.
+    }));
+  };
+
   const loadCategories = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Fetch category data from the database using the new SQL query
+      const useAdminTreeConfig = localStorage.getItem('musicSupplies_useTreeViewForNavigation');
+      const shouldUseAdminTree = useAdminTreeConfig ? JSON.parse(useAdminTreeConfig) : false;
+
+      if (shouldUseAdminTree) {
+        const storedTreeData = localStorage.getItem('musicSupplies_siteNavigationTreeData');
+        if (storedTreeData) {
+          const adminTreeNodes: LocalTreeNode[] = JSON.parse(storedTreeData);
+          if (adminTreeNodes && adminTreeNodes.length > 0) {
+            setCategories(transformAdminTreeToProductGroup(adminTreeNodes));
+            console.log('CategoryTree: Loaded data from localStorage (admin-configured)');
+            setLoading(false);
+            return;
+          } else {
+            console.warn('CategoryTree: Admin tree from localStorage is empty or invalid.');
+          }
+        } else {
+          console.warn('CategoryTree: musicSupplies_siteNavigationTreeData not found in localStorage, though use flag is true.');
+        }
+      }
+      
+      // Fallback to original data source
+      console.log('CategoryTree: Falling back to default category data source.');
       const data = await fetchCategoryData();
       setCategories(data);
-      setLoading(false);
     } catch (err) {
+      console.error('Error loading categories for CategoryTree:', err);
       setError(err instanceof Error ? err.message : 'An error occurred loading categories');
+      setCategories([]); // Ensure categories is empty on error
+    } finally {
       setLoading(false);
     }
   };
@@ -465,6 +536,15 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
   useEffect(() => {
     loadCategories();
 
+    // Listen for storage changes to dynamically update if admin changes settings
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'musicSupplies_useTreeViewForNavigation' || event.key === 'musicSupplies_siteNavigationTreeData') {
+        console.log('CategoryTree: Detected storage change, reloading categories.');
+        loadCategories();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
     // Listen for refresh event from admin panel (future feature)
     const handleRefresh = () => {
       loadCategories();
