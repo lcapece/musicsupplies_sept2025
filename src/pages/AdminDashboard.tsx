@@ -8,13 +8,9 @@ import DataSyncTab from '../components/admin/DataSyncTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import GeneralSettingsTab from '../components/admin/GeneralSettingsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
-import ProductGroupManagementTab from '../components/admin/ProductGroupManagementTab';
-import MissingSubgroupsTab from '../components/admin/MissingSubgroupsTab';
-import ProductsTab from '../components/admin/ProductsTab';
-import IconGenerationTab from '../components/admin/IconGenerationTab';
 import UnresolvedIssuesTab from '../components/admin/UnresolvedIssuesTab';
 
-type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'datasync' | 'clicksend' | 'generalsettings' | 'applications' | 'productgroups' | 'missingsubgroups' | 'products' | 'icongeneration' | 'unresolvedissues';
+type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'datasync' | 'clicksend' | 'generalsettings' | 'applications' | 'unresolvedissues';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -25,15 +21,11 @@ const AdminDashboard: React.FC = () => {
     { id: 'orderhistory' as AdminTab, label: 'Order History', icon: '📋' },
     { id: 'accounts' as AdminTab, label: 'Accounts', icon: '👥' },
     { id: 'applications' as AdminTab, label: 'Applications', icon: '📝' },
-    { id: 'productgroups' as AdminTab, label: 'Product Groups', icon: '📦' },
-    { id: 'products' as AdminTab, label: 'Products', icon: '📋' },
-    { id: 'missingsubgroups' as AdminTab, label: 'Missing Subgroups', icon: '🔍' },
     { id: 'history' as AdminTab, label: 'History', icon: '📊' },
     { id: 'datasync' as AdminTab, label: 'Data Sync', icon: '🔄' },
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
     { id: 'unresolvedissues' as AdminTab, label: 'Unresolved Issues', icon: '⚠️' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
-    { id: 'icongeneration' as AdminTab, label: 'AI Icon Generation', icon: '🎨' },
   ];
 
   const renderTabContent = () => {
@@ -46,12 +38,6 @@ const AdminDashboard: React.FC = () => {
         return <AccountsTab />;
       case 'applications':
         return <AccountApplicationsTab />;
-      case 'productgroups':
-        return <ProductGroupManagementTab />;
-      case 'products':
-        return <ProductsTab />;
-      case 'missingsubgroups':
-        return <MissingSubgroupsTab />;
       case 'history':
         return <HistoryTab />;
       case 'datasync':
@@ -60,8 +46,6 @@ const AdminDashboard: React.FC = () => {
         return <ClickSendTab />;
       case 'generalsettings':
         return <GeneralSettingsTab />;
-      case 'icongeneration':
-        return <IconGenerationTab />;
       case 'unresolvedissues':
         return <UnresolvedIssuesTab />;
       default:

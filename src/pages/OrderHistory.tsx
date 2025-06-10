@@ -45,27 +45,18 @@ const OrderHistory: React.FC = () => {
     if (user?.accountNumber) {
       fetchOrders(user.accountNumber);
     } else {
-      // Don't set loading to false immediately if user is just loading
-      // Only if user is definitively null (e.g., after logout) or not yet available
-      if (user === null && loading) { // Check loading to prevent loop if user becomes null then available
+      if (user === null && loading) {
          setLoading(false);
          console.log('[OrderHistory] No user logged in or user data not yet available.');
-         setProcessedInvoices([]); // Clear any existing invoices
-         // Ensure loading is false if we are certain there's no user and not already loading
-         // This case might be hit if user logs out.
+         setProcessedInvoices([]);
          setLoading(false); 
       } else if (user === undefined && loading) {
-        // Initial state where user is undefined, still loading auth context
-        // We don't want to call fetchOrders yet, but also don't want to be stuck on loading
-        // This might be too aggressive, let's see. The primary trigger is user.accountNumber.
-        // setLoading(false); // Potentially premature
         console.log('[OrderHistory] User context is loading.');
       }
     }
-  }, [user]); // Only depend on user object changes
+  }, [user]);
 
   const fetchOrders = async (accountNumber: string) => {
-    // setLoading(true) should be here, not in useEffect, to ensure it's set before each fetch
     setLoading(true); 
     setError(null);
     try {
@@ -76,13 +67,15 @@ const OrderHistory: React.FC = () => {
         return;
       }
 
-      const rpcParams = { p_account_number: accountNumberInt };
-      console.log(`[OrderHistory] Calling RPC: get_all_order_history_for_account with`, rpcParams);
-      const { data: rawOrderData, error: rpcError } = await supabase.rpc('get_all_order_history_for_account', rpcParams);
+      // Use direct query to lcmd_ordhist instead of RPC
+      const { data: rawOrderData, error: queryError } = await supabase
+        .from('lcmd_ordhist')
+        .select('*')
+        .eq('accountnumber', accountNumberInt);
 
-      if (rpcError) {
-        console.error('[OrderHistory] RPC Error:', rpcError);
-        setError(rpcError.message);
+      if (queryError) {
+        console.error('[OrderHistory] Query Error:', queryError);
+        setError(queryError.message);
         setProcessedInvoices([]);
         setLoading(false);
         return;
@@ -95,7 +88,7 @@ const OrderHistory: React.FC = () => {
         return;
       }
 
-      console.log('[OrderHistory] Raw data from RPC:', rawOrderData);
+      console.log('[OrderHistory] Raw data from query:', rawOrderData);
 
       const groupedByInvoice: { [key: string]: any[] } = {};
       for (const item of rawOrderData) {
@@ -115,18 +108,11 @@ const OrderHistory: React.FC = () => {
 
           const qty = safeParseFloat(rawQty);
           const unitNet = safeParseFloat(rawUnitNet);
-
-          if (isNaN(parseFloat(rawQty))) {
-            console.warn(`[OrderHistory] Could not parse Qty: '${rawQty}' for item model ${item.model}. Defaulting to 0.`);
-          }
-          if (isNaN(parseFloat(rawUnitNet))) {
-            console.warn(`[OrderHistory] Could not parse unitNet: '${rawUnitNet}' for item model ${item.model}. Defaulting to 0.`);
-          }
           
           const calculatedExtendedNetPrice = qty * unitNet;
 
           return {
-            linekey: item.linekey,
+            linekey: item.linekey || `${item.invoicenumber}-${item.model}`,
             model: item.model ?? 'N/A',
             description: item.Description ?? 'N/A',
             qty: qty,
@@ -142,12 +128,8 @@ const OrderHistory: React.FC = () => {
         
         const subtotalBeforePayments = totalExtendedNetPrice + shippingCharge;
         
-        // Log the value and type of total_payments_received from the first item of the group
-        console.log(`[OrderHistory] Invoice ${firstItem.invoicenumber}: firstItem.total_payments_received =`, 
-                    firstItem.total_payments_received, 
-                    ', typeof =', typeof firstItem.total_payments_received);
-
-        const paymentsReceived = firstItem.total_payments_received ? safeParseFloat(firstItem.total_payments_received) : 0;
+        // Use payments field from first item or default to 0
+        const paymentsReceived = safeParseFloat(firstItem.payments);
         const netAmountDue = subtotalBeforePayments - paymentsReceived;
 
         return {
@@ -162,8 +144,7 @@ const OrderHistory: React.FC = () => {
           paymentsReceived: paymentsReceived,
           netAmountDue: netAmountDue,
         };
-      }).sort((a, b) => parseInt(b.invoiceNumber, 10) - parseInt(a.invoiceNumber, 10)); // Sort invoices by number descending
-
+      }).sort((a, b) => parseInt(b.invoiceNumber, 10) - parseInt(a.invoiceNumber, 10));
 
       console.log('[OrderHistory] Processed invoices:', invoices);
       setProcessedInvoices(invoices);
@@ -200,7 +181,6 @@ const OrderHistory: React.FC = () => {
           Order History for Account {user.accountNumber}
         </h2>
         
-        {/* We will implement pagination later if needed. For now, display all. */}
         {processedInvoices.map(invoice => (
           <div key={invoice.invoiceNumber} className="mb-8 bg-white p-6 rounded-lg shadow-md">
             {/* Invoice Header */}
