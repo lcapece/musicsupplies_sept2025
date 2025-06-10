@@ -395,7 +395,7 @@ const Dashboard: React.FC = () => {
                             <p className="text-sm text-gray-600 mb-2">{selectedProductForImage.description}</p>
                             <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
                               <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
-                              <li>List Price: ${selectedProductForImage.webmspr !== null && selectedProductForImage.webmspr !== undefined ? selectedProductForImage.webmspr.toFixed(2) : 'N/A'}</li>
+                              <li>List Price: ${typeof selectedProductForImage.webmspr === 'number' ? selectedProductForImage.webmspr.toFixed(2) : 'N/A'}</li>
                               <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>
                             </ul>
                             
