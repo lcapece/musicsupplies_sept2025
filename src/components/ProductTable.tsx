@@ -52,6 +52,13 @@ const ProductTable: React.FC<ProductTableProps> = ({
     return `$${price.toFixed(2)}`;
   };
 
+  const formatListPrice = (msrp: number | null | undefined) => {
+    if (msrp === null || msrp === undefined) {
+      return <span className="text-gray-500">---</span>;
+    }
+    return `$${msrp.toFixed(2)}`;
+  };
+
   // Calculate pagination
   const totalPages = Math.ceil(products.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -97,6 +104,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   </th>
                   <th 
                     className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => requestSort('webmsrp')}
+                  >
+                    List Price
+                    {sortConfig.key === 'webmsrp' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('price')}
                   >
                     Price
@@ -130,6 +146,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {product.description}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                      {formatListPrice(product.webmsrp)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
                       {formatPrice(product.price)}
