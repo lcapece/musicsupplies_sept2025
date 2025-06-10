@@ -27,7 +27,7 @@ const CartContext = createContext<CartContextType>({
 
 export const useCart = () => useContext(CartContext);
 
-let nextOrderNumber = 750000; // This will be updated by useEffect
+let nextOrderNumber = 750000; // This will be updated by useEffect if connection is successful
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
@@ -60,26 +60,47 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // This useEffect is now only for initializing the order number
     const initializeOrderNumber = async () => {
       try {
+        // Add a timeout to the fetch operation to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         const { data, error } = await supabase
           .from('web_orders')
           .select('order_number')
           .order('order_number', { ascending: false })
-          .limit(1);
+          .limit(1)
+          .abortSignal(controller.signal);
+
+        clearTimeout(timeoutId);
 
         if (error) {
-          console.error('Error fetching max order number:', error);
+          console.warn('Warning: Could not fetch max order number from database:', error.message);
+          console.log('Using default order number starting point:', nextOrderNumber);
           return; // Keep default nextOrderNumber value
         }
 
         // Check if we got any data back
         if (data && data.length > 0) {
           nextOrderNumber = data[0].order_number + 1;
+          console.log('Successfully initialized order number from database:', nextOrderNumber);
+        } else {
+          console.log('No existing orders found, using default order number:', nextOrderNumber);
         }
-        // If no data, keep the default nextOrderNumber value (750000)
         
       } catch (e) {
-        console.error('Exception fetching max order number:', e);
-        // Fallback in case of any other error - keep default value
+        // Enhanced error handling with more specific error types
+        if (e instanceof Error) {
+          if (e.name === 'AbortError') {
+            console.warn('Warning: Database connection timed out while fetching order number. Using default value:', nextOrderNumber);
+          } else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+            console.warn('Warning: Network error connecting to database. Please check your internet connection. Using default order number:', nextOrderNumber);
+          } else {
+            console.warn('Warning: Unexpected error fetching order number:', e.message, 'Using default value:', nextOrderNumber);
+          }
+        } else {
+          console.warn('Warning: Unknown error fetching order number. Using default value:', nextOrderNumber);
+        }
+        // Application continues to work with default order number
       }
     };
 
@@ -264,71 +285,84 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     console.log('Placing order with payload:', orderPayload);
 
-    const { data: insertedOrder, error: insertError } = await supabase
-      .from('web_orders')
-      .insert(orderPayload)
-      .select() 
-      .single(); 
+    try {
+      const { data: insertedOrder, error: insertError } = await supabase
+        .from('web_orders')
+        .insert(orderPayload)
+        .select() 
+        .single(); 
 
-    if (insertError || !insertedOrder) {
-      console.error('Supabase insert error:', insertError);
-      throw new Error(insertError?.message || 'Failed to save order to database.');
-    }
+      if (insertError || !insertedOrder) {
+        console.error('Supabase insert error:', insertError);
+        throw new Error(insertError?.message || 'Failed to save order to database.');
+      }
 
-    console.log('Order saved successfully:', insertedOrder);
+      console.log('Order saved successfully:', insertedOrder);
 
-    // If an order-based discount was applied, update the usage tracking
-    if (currentDiscountInfo && currentDiscountInfo.type === 'order_based' && maxDiscountRate && maxDiscountRate > 0) {
-      try {
-        // Find the discount tier ID from the discount rate
-        const { data: discountTiers, error: tierError } = await supabase
-          .from('discount_tiers')
-          .select('id')
-          .eq('discount_type', 'order_based')
-          .eq('discount', maxDiscountRate)
-          .limit(1);
+      // If an order-based discount was applied, update the usage tracking
+      if (currentDiscountInfo && currentDiscountInfo.type === 'order_based' && maxDiscountRate && maxDiscountRate > 0) {
+        try {
+          // Find the discount tier ID from the discount rate
+          const { data: discountTiers, error: tierError } = await supabase
+            .from('discount_tiers')
+            .select('id')
+            .eq('discount_type', 'order_based')
+            .eq('discount', maxDiscountRate)
+            .limit(1);
 
-        if (tierError) {
-          console.error('Error finding discount tier for usage tracking:', tierError);
-        } else if (discountTiers && discountTiers.length > 0) {
-          const discountTierId = discountTiers[0].id;
-          
-          // First, get current usage or create new record
-          const { data: existingUsage, error: usageError } = await supabase
-            .from('account_order_discounts')
-            .select('orders_used')
-            .eq('account_number', user.accountNumber)
-            .eq('discount_tier_id', discountTierId)
-            .single();
+          if (tierError) {
+            console.error('Error finding discount tier for usage tracking:', tierError);
+          } else if (discountTiers && discountTiers.length > 0) {
+            const discountTierId = discountTiers[0].id;
+            
+            // First, get current usage or create new record
+            const { data: existingUsage, error: usageError } = await supabase
+              .from('account_order_discounts')
+              .select('orders_used')
+              .eq('account_number', user.accountNumber)
+              .eq('discount_tier_id', discountTierId)
+              .single();
 
-          const currentUsage = existingUsage?.orders_used || 0;
-          
-          // Update or insert the usage record
-          const { error: upsertError } = await supabase
-            .from('account_order_discounts')
-            .upsert({
-              account_number: user.accountNumber,
-              discount_tier_id: discountTierId,
-              orders_used: currentUsage + 1
-            }, {
-              onConflict: 'account_number,discount_tier_id'
-            });
+            const currentUsage = existingUsage?.orders_used || 0;
+            
+            // Update or insert the usage record
+            const { error: upsertError } = await supabase
+              .from('account_order_discounts')
+              .upsert({
+                account_number: user.accountNumber,
+                discount_tier_id: discountTierId,
+                orders_used: currentUsage + 1
+              }, {
+                onConflict: 'account_number,discount_tier_id'
+              });
 
-          if (upsertError) {
-            console.error('Error updating order discount usage:', upsertError);
-          } else {
-            console.log('Order-based discount usage updated successfully');
+            if (upsertError) {
+              console.error('Error updating order discount usage:', upsertError);
+            } else {
+              console.log('Order-based discount usage updated successfully');
+            }
           }
+        } catch (err) {
+          console.error('Exception updating order discount usage:', err);
         }
-      } catch (err) {
-        console.error('Exception updating order discount usage:', err);
+      }
+      // Email sending logic will be added later, once build is stable
+      console.log(`Order ${orderNumberGenerated} placed. Email to ${customerEmail} and CC pcapece@aol.com would be sent here.`);
+
+      clearCart();
+      return orderNumberGenerated;
+    } catch (error) {
+      // Enhanced error handling for order placement
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          throw new Error('Network error: Unable to connect to the database. Please check your internet connection and try again.');
+        } else {
+          throw error;
+        }
+      } else {
+        throw new Error('An unexpected error occurred while placing the order.');
       }
     }
-    // Email sending logic will be added later, once build is stable
-    console.log(`Order ${orderNumberGenerated} placed. Email to ${customerEmail} and CC pcapece@aol.com would be sent here.`);
-
-    clearCart();
-    return orderNumberGenerated;
   };
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
