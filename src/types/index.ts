@@ -14,6 +14,8 @@ export interface Product {
   image?: string; // Add optional image property
   prdmaingrp?: string; // Product main group (level 1)
   prdsubgrp?: string; // Product sub group (level 2)
+  webmspr?: number | null; // List price
+  longdescription?: string; // Long description that may contain HTML
 }
 
 export interface CartItem extends Product {
