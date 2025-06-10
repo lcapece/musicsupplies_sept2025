@@ -156,6 +156,8 @@ const MusicNotesIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 // SVG Icons for each main category
 const CategoryIcons: { [key: string]: React.FC<{ className?: string }> } = {
+  // ... (existing icons) ...
+  // This map will be used as a fallback if category.icon is not a URL
   'Acccessories & Supplies': ({ className }) => (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="4" y="4" width="16" height="16" rx="2" />
@@ -346,30 +348,39 @@ const CategoryIcons: { [key: string]: React.FC<{ className?: string }> } = {
 };
 
 const getCategoryIcon = (category: ProductGroup) => {
-  // First try to use icon from database
+  // category.icon now holds the icon_name from LocalTreeNode, which can be a keyword or a URL
   if (category.icon) {
+    if (category.icon.startsWith('http://') || category.icon.startsWith('https://')) {
+      // It's a URL, likely a custom DALL-E icon
+      return <img src={category.icon} alt={category.name} className="w-6 h-6 object-contain" />;
+    }
+    // It's a keyword, try to find it in CategoryIcons
     try {
-      // Try to get dynamic icon based on name stored in database
-      const Icon = CategoryIcons[category.icon];
-      if (Icon) {
-        return <Icon className="w-6 h-6 text-red-600" />;
+      const IconComponent = CategoryIcons[category.icon];
+      if (IconComponent) {
+        return <IconComponent className="w-6 h-6 text-red-600" />;
       }
     } catch (e) {
-      console.warn(`Icon not found for: ${category.icon}`);
+      console.warn(`[CategoryTree] Icon component not found for keyword: ${category.icon}`, e);
     }
   }
   
-  // Fallback to name-based icon if no icon specified in database
-  const Icon = CategoryIcons[category.name];
-  if (Icon) {
-    return <Icon className="w-6 h-6 text-red-600" />;
+  // Fallback to category.name as a keyword if category.icon didn't yield a result
+  // (This handles cases where icon_name might be null from localStorage but node.name is valid)
+  if (category.name) {
+    const IconByName = CategoryIcons[category.name];
+    if (IconByName) {
+      return <IconByName className="w-6 h-6 text-red-600" />;
+    }
   }
   
-  // Default icon if no specific icon is found
+  // Default icon if no specific icon is found by URL or keyword
   return (
     <svg className="w-6 h-6 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {/* Using a generic placeholder icon like Lucide's HelpCircle or similar */}
       <circle cx="12" cy="12" r="10" />
-      <path d="M12 6v6l4 2" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
     </svg>
   );
 };

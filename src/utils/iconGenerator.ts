@@ -22,12 +22,15 @@ export class IconGenerator {
       return `Create a simple, clean, minimalist icon representing "${categoryName}" for a music store. 
               Style: flat design, single color (black), white background, no text, 
               professional appearance suitable for e-commerce category navigation. 
-              The icon should be instantly recognizable and represent the music equipment category.`;
+              The icon should be instantly recognizable and represent the music equipment category. 
+              The design must be clear and legible even at very small icon sizes like 25x25 pixels. Avoid intricate details.`;
     } else {
+      // Subcategory prompt can also be updated if this feature is used for them later.
       return `Create a simple, clean, minimalist icon representing "${subcategoryName}" in the "${categoryName}" category for a music store. 
               Style: flat design, single color (black), white background, no text, 
               professional appearance suitable for e-commerce subcategory navigation. 
-              The icon should be instantly recognizable and represent the specific music equipment item.`;
+              The icon should be instantly recognizable and represent the specific music equipment item.
+              The design must be clear and legible even at very small icon sizes like 25x25 pixels. Avoid intricate details.`;
     }
   }
 
