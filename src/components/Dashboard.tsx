@@ -4,8 +4,8 @@ import CategoryTree from '../components/CategoryTree';
 import ProductTable from '../components/ProductTable';
 import SearchBar from '../components/SearchBar';
 import Header from '../components/Header';
-import OrderHistory from './OrderHistory';
-import WebOrdersDisplay from './WebOrdersDisplay'; // Importing the new component
+import OrderHistory from '../pages/OrderHistory';
+import WebOrdersDisplay from '../pages/WebOrdersDisplay'; // Importing the new component
 import { Product } from '../types';
 import { useMemo } from 'react'; // Import useMemo
 import { Link } from 'react-router-dom'; // Import Link for footer

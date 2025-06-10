@@ -56,6 +56,7 @@ export interface ProductGroup {
   parentId: string | null;
   children?: ProductGroup[];
   productCount?: number; // Count of products in this category
+  icon?: string; // Icon name for the category (used for SVG icons)
 }
 
 export interface OrderConfirmationDetails {

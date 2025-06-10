@@ -1,26 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
-interface LoginHistory {
+interface LoginHistoryEntry { // Renamed for clarity, as this will be raw log data or simple aggregation
+  account_number: number;
+  acct_name: string; // Joined from accounts_lcmd
+  login_date: string; // Date part of login_timestamp
+  login_time: string; // Time part of login_timestamp
+  login_success: boolean;
+}
+
+interface AggregatedLoginHistory {
   account_number: number;
   acct_name: string;
-  login_date: string;
-  login_count: number;
-  total_items: number;
-  total_sales: number;
-  last_login_time: string;
+  login_date: string; // Specific date for this aggregation
+  successful_login_count: number;
+  last_successful_login_time?: string; // Time part of the last successful login on this date
 }
+
 
 interface DailyStats {
   date: string;
-  unique_accounts: number;
-  total_logins: number;
-  total_items: number;
-  total_sales: number;
+  unique_active_accounts: number; // Number of distinct accounts with successful logins
+  total_successful_logins: number;
+  // total_failed_logins: number; // Optional: could add this
 }
 
 const HistoryTab: React.FC = () => {
-  const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
+  const [accountActivity, setAccountActivity] = useState<AggregatedLoginHistory[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [loading, setLoading] = useState(false);
   const [dateFilter, setDateFilter] = useState('');
@@ -30,98 +36,178 @@ const HistoryTab: React.FC = () => {
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setDateFilter(today);
-    fetchBasicLoginHistory(today);
-    fetchBasicDailyStats();
+    fetchAccountActivity(today); // Renamed and will fetch real data
+    fetchDailyLoginStats(); // Renamed and will fetch real data
   }, []);
 
-  const fetchBasicLoginHistory = async (date?: string) => {
+  const fetchAccountActivity = async (targetDate?: string) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Basic query for accounts
       let query = supabase
-        .from('accounts_lcmd')
+        .from('login_activity_log')
         .select(`
           account_number,
-          acct_name
+          login_timestamp,
+          login_success,
+          accounts_lcmd (acct_name)
         `)
-        .order('account_number', { ascending: true });
+        .eq('login_success', true); // Only successful logins for this view
 
+      if (targetDate) {
+        query = query.gte('login_timestamp', `${targetDate}T00:00:00.000Z`)
+                     .lt('login_timestamp', `${targetDate}T23:59:59.999Z`);
+      }
+      
       if (accountFilter) {
-        query = query.or(`account_number.eq.${accountFilter},acct_name.ilike.%${accountFilter}%`);
+         // This part needs careful handling due to join
+         // For simplicity, filtering on account_number directly if possible,
+         // or fetching more data and filtering client-side if acct_name search is complex with aggregation.
+         // Let's assume accountFilter is primarily for account_number for now.
+         if (!isNaN(parseInt(accountFilter))) {
+            query = query.eq('account_number', parseInt(accountFilter));
+         }
+         // If filtering by acct_name is needed, it's more complex with aggregates.
+         // A simpler approach for acct_name might be to filter after fetching if dataset is not too large.
       }
 
-      const { data: accounts, error: accountError } = await query;
+      const { data, error } = await query.order('login_timestamp', { ascending: false });
 
-      if (accountError) {
-        console.error('Error fetching accounts:', accountError);
+      if (error) {
+        console.error('Error fetching account activity:', error);
+        setAccountActivity([]);
         return;
       }
 
-      // Create mock data based on accounts
-      const mockHistory: LoginHistory[] = (accounts || []).map((account, index) => {
-        // Generate some random data for demonstration
-        const randomItems = Math.floor(Math.random() * 20);
-        const randomSales = Math.floor(Math.random() * 1000) + 100;
-        const hasActivity = index % 3 !== 0; // 2/3 of accounts have activity
-        
-        return {
-          account_number: account.account_number,
-          acct_name: account.acct_name,
-          login_date: date || new Date().toISOString().split('T')[0],
-          login_count: hasActivity ? 1 : 0,
-          total_items: hasActivity ? randomItems : 0,
-          total_sales: hasActivity ? randomSales : 0,
-          last_login_time: hasActivity ? '12:00:00' : 'No activity'
-        };
-      });
+      // Aggregate data
+      const aggregated: { [key: string]: AggregatedLoginHistory } = {};
+      data?.forEach(log => {
+        const dateStr = new Date(log.login_timestamp).toISOString().split('T')[0];
+        const timeStr = new Date(log.login_timestamp).toLocaleTimeString();
+        const key = `${log.account_number}-${dateStr}`;
 
-      setLoginHistory(mockHistory.filter(item => item.total_items > 0 || item.login_count > 0));
-    } catch (error) {
-      console.error('Error in basic fetch:', error);
+        if (!aggregated[key]) {
+          aggregated[key] = {
+            account_number: log.account_number,
+            acct_name: (log.accounts_lcmd as any)?.acct_name || 'N/A',
+            login_date: dateStr,
+            successful_login_count: 0,
+            last_successful_login_time: undefined,
+          };
+        }
+        aggregated[key].successful_login_count += 1;
+        if (!aggregated[key].last_successful_login_time || new Date(log.login_timestamp).getTime() > new Date(`${dateStr}T${aggregated[key].last_successful_login_time}`).getTime()) {
+            aggregated[key].last_successful_login_time = timeStr;
+        }
+      });
+      
+      let result = Object.values(aggregated);
+
+      // If accountFilter was by name, filter here
+      if (accountFilter && isNaN(parseInt(accountFilter))) {
+        result = result.filter(item => item.acct_name.toLowerCase().includes(accountFilter.toLowerCase()));
+      }
+      
+      setAccountActivity(result.sort((a,b) => b.successful_login_count - a.successful_login_count));
+
+    } catch (err) {
+      console.error('Error processing account activity:', err);
+      setAccountActivity([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchBasicDailyStats = async () => {
+  const fetchDailyLoginStats = async () => {
+    // Fetches stats for the last 30 days
+    setLoading(true);
     try {
-      // Generate mock daily stats for the last 30 days
-      const stats: DailyStats[] = [];
-      const today = new Date();
-      
-      for (let i = 0; i < 30; i++) {
-        const date = new Date();
-        date.setDate(today.getDate() - i);
-        const dateString = date.toISOString().split('T')[0];
-        
-        // Generate random data
-        const uniqueAccounts = Math.floor(Math.random() * 15) + 5;
-        const totalLogins = uniqueAccounts + Math.floor(Math.random() * 10);
-        const totalItems = Math.floor(Math.random() * 100) + 20;
-        const totalSales = Math.floor(Math.random() * 5000) + 1000;
-        
-        stats.push({
-          date: dateString,
-          unique_accounts: uniqueAccounts,
-          total_logins: totalLogins,
-          total_items: totalItems,
-          total_sales: totalSales
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { data, error } = await supabase
+        .rpc('get_daily_login_stats', {
+          start_date: thirtyDaysAgo.toISOString().split('T')[0]
         });
+
+      if (error) {
+        console.error('Error fetching daily login stats:', error);
+        setDailyStats([]);
+        return;
       }
-      
-      setDailyStats(stats);
-    } catch (error) {
-      console.error('Error generating mock stats:', error);
+      setDailyStats(data || []);
+    } catch (err) {
+      console.error('Error processing daily login stats:', err);
+      setDailyStats([]);
+    } finally {
+      setLoading(false);
     }
   };
+  
+  // Helper function to create an RPC for daily stats if it doesn't exist
+  // This is illustrative; actual creation would be a migration.
+  // For now, I'll assume an RPC function `get_daily_login_stats` can be created.
+  // Or, do client-side aggregation if simpler for now.
+  // Let's try client-side aggregation first for fetchDailyLoginStats to avoid creating RPC now.
+
+  const fetchDailyLoginStatsClientSide = async () => {
+    setLoading(true);
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data: logs, error } = await supabase
+        .from('login_activity_log')
+        .select('account_number, login_timestamp, login_success')
+        .eq('login_success', true)
+        .gte('login_timestamp', thirtyDaysAgo.toISOString());
+
+      if (error) {
+        console.error('Error fetching logs for daily stats:', error);
+        setDailyStats([]);
+        return;
+      }
+
+      const dailyMap: { [date: string]: { uniqueAccounts: Set<number>, totalLogins: number } } = {};
+
+      logs?.forEach(log => {
+        const dateStr = new Date(log.login_timestamp).toISOString().split('T')[0];
+        if (!dailyMap[dateStr]) {
+          dailyMap[dateStr] = { uniqueAccounts: new Set(), totalLogins: 0 };
+        }
+        dailyMap[dateStr].uniqueAccounts.add(log.account_number);
+        dailyMap[dateStr].totalLogins += 1;
+      });
+
+      const formattedStats: DailyStats[] = Object.entries(dailyMap).map(([date, stats]) => ({
+        date: date,
+        unique_active_accounts: stats.uniqueAccounts.size,
+        total_successful_logins: stats.totalLogins,
+      })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      setDailyStats(formattedStats);
+
+    } catch (err) {
+      console.error('Error processing daily login stats (client-side):', err);
+      setDailyStats([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setDateFilter(today);
+    fetchAccountActivity(today);
+    fetchDailyLoginStatsClientSide(); // Use client-side aggregation
+  }, []); // Initial fetch
 
   const handleDateFilterChange = (date: string) => {
     setDateFilter(date);
-    fetchBasicLoginHistory(date);
+    fetchAccountActivity(date); // Refetch account activity for the new date
+    // Daily stats are for last 30 days, typically not re-fetched on single date change unless desired
   };
 
   const formatCurrency = (amount: number) => {
+    // This function might not be needed if no currency is displayed
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
@@ -129,20 +215,20 @@ const HistoryTab: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    if (!dateString) return 'N/A';
+    // Ensure dateString is valid before parsing
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return date.toLocaleDateString();
   };
+  
+  // Filtering for account activity is now handled within fetchAccountActivity or client-side if needed
+  // For this example, server-side filtering by account number is partial, name filtering is client-side in fetch.
 
-  const filteredHistory = loginHistory.filter(record => {
-    const matchesAccount = !accountFilter || 
-      record.account_number.toString().includes(accountFilter) ||
-      record.acct_name.toLowerCase().includes(accountFilter.toLowerCase());
-    return matchesAccount;
-  });
+  // Calculate totals for the currently displayed account activity (if dateFilter is active)
+  const currentDisplayTotalLogins = accountActivity.reduce((sum, record) => sum + record.successful_login_count, 0);
+  const currentDisplayActiveAccounts = new Set(accountActivity.map(r => r.account_number)).size;
 
-  // Calculate totals for filtered data
-  const totalItems = filteredHistory.reduce((sum, record) => sum + record.total_items, 0);
-  const totalSales = filteredHistory.reduce((sum, record) => sum + record.total_sales, 0);
-  const totalLogins = filteredHistory.reduce((sum, record) => sum + record.login_count, 0);
 
   return (
     <div className="space-y-6">
@@ -176,28 +262,20 @@ const HistoryTab: React.FC = () => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Simplified to 2 cards for login stats */}
         <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Active Accounts</div>
-          <div className="text-2xl font-bold text-blue-600">{filteredHistory.length}</div>
+          <div className="text-sm font-medium text-gray-600">Active Accounts Today</div>
+          <div className="text-2xl font-bold text-blue-600">{currentDisplayActiveAccounts}</div>
           <div className="text-xs text-gray-500 mt-1">
-            {dateFilter ? `On ${formatDate(dateFilter)}` : 'Total'}
+            {dateFilter ? `On ${formatDate(dateFilter)}` : 'Overview'}
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Total Logins</div>
-          <div className="text-2xl font-bold text-green-600">{totalLogins}</div>
-          <div className="text-xs text-gray-500 mt-1">Login sessions</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Items Purchased</div>
-          <div className="text-2xl font-bold text-purple-600">{totalItems.toLocaleString()}</div>
-          <div className="text-xs text-gray-500 mt-1">Total quantity</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Sales Volume</div>
-          <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalSales)}</div>
-          <div className="text-xs text-gray-500 mt-1">Revenue generated</div>
+          <div className="text-sm font-medium text-gray-600">Successful Logins Today</div>
+          <div className="text-2xl font-bold text-green-600">{currentDisplayTotalLogins}</div>
+          <div className="text-xs text-gray-500 mt-1">
+             {dateFilter ? `On ${formatDate(dateFilter)}` : 'Overview'}
+          </div>
         </div>
       </div>
 
@@ -228,16 +306,21 @@ const HistoryTab: React.FC = () => {
         <div className="mt-4 flex space-x-2">
           <button
             onClick={() => {
-              setDateFilter('');
+              const today = new Date().toISOString().split('T')[0];
+              setDateFilter(today); // Reset date to today
               setAccountFilter('');
-              fetchBasicLoginHistory();
+              fetchAccountActivity(today); // Fetch for today
+              // fetchDailyLoginStatsClientSide(); // Daily stats are generally not affected by this specific filter reset
             }}
             className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium"
           >
-            Clear Filters
+            Reset Filters
           </button>
           <button
-            onClick={() => fetchBasicLoginHistory(dateFilter)}
+            onClick={() => {
+                fetchAccountActivity(dateFilter);
+                fetchDailyLoginStatsClientSide(); // Optionally refresh daily stats too
+            }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
           >
             Refresh Data
@@ -260,16 +343,10 @@ const HistoryTab: React.FC = () => {
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Active Accounts
+                    Unique Active Accounts
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Logins
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Items Purchased
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sales Volume
+                    Total Successful Logins
                   </th>
                 </tr>
               </thead>
@@ -280,16 +357,10 @@ const HistoryTab: React.FC = () => {
                       {formatDate(stat.date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {stat.unique_accounts}
+                      {stat.unique_active_accounts}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {stat.total_logins}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {stat.total_items.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                      {formatCurrency(stat.total_sales)}
+                      {stat.total_successful_logins}
                     </td>
                   </tr>
                 ))}
@@ -302,7 +373,7 @@ const HistoryTab: React.FC = () => {
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">
-              Account Activity Details ({filteredHistory.length} accounts)
+              Account Activity Details ({accountActivity.length} accounts for {dateFilter ? formatDate(dateFilter) : 'selected period'})
             </h3>
           </div>
           
@@ -310,7 +381,7 @@ const HistoryTab: React.FC = () => {
             <div className="flex items-center justify-center h-32">
               <div className="text-gray-600">Loading activity data...</div>
             </div>
-          ) : filteredHistory.length === 0 ? (
+          ) : accountActivity.length === 0 ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-gray-600">No activity found for selected criteria</div>
             </div>
@@ -326,21 +397,15 @@ const HistoryTab: React.FC = () => {
                       Company Name
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Login Count
+                      Successful Logins
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Items Purchased
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sales Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Last Activity
+                      Last Login Time (on this date)
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredHistory.map((record) => (
+                  {accountActivity.map((record) => (
                     <tr key={`${record.account_number}-${record.login_date}`} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {record.account_number}
@@ -349,16 +414,10 @@ const HistoryTab: React.FC = () => {
                         {record.acct_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {record.login_count}
+                        {record.successful_login_count}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {record.total_items.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        {formatCurrency(record.total_sales)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {record.last_login_time}
+                        {record.last_successful_login_time || 'N/A'}
                       </td>
                     </tr>
                   ))}

@@ -333,11 +333,26 @@ const CategoryIcons: { [key: string]: React.FC<{ className?: string }> } = {
   ),
 };
 
-const getCategoryIcon = (categoryName: string) => {
-  const Icon = CategoryIcons[categoryName];
+const getCategoryIcon = (category: ProductGroup) => {
+  // First try to use icon from database
+  if (category.icon) {
+    try {
+      // Try to get dynamic icon based on name stored in database
+      const Icon = CategoryIcons[category.icon];
+      if (Icon) {
+        return <Icon className="w-6 h-6 text-red-600" />;
+      }
+    } catch (e) {
+      console.warn(`Icon not found for: ${category.icon}`);
+    }
+  }
+  
+  // Fallback to name-based icon if no icon specified in database
+  const Icon = CategoryIcons[category.name];
   if (Icon) {
     return <Icon className="w-6 h-6 text-red-600" />;
   }
+  
   // Default icon if no specific icon is found
   return (
     <svg className="w-6 h-6 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -347,14 +362,8 @@ const getCategoryIcon = (categoryName: string) => {
   );
 };
 
-const getSubcategoryIcon = (categoryName: string) => {
-  const Icon = SubcategoryIcons[categoryName];
-  if (Icon) {
-    return <Icon className="w-5 h-5 text-black" />;
-  }
-  // Default music notes icon for subcategories without specific icons
-  return <MusicNotesIcon className="w-5 h-5 text-black" />;
-};
+// Subcategories don't need icons according to requirements
+const getSubcategoryIcon = () => null;
 
 const CategoryTreeItem: React.FC<{
   category: ProductGroup;
@@ -404,9 +413,11 @@ const CategoryTreeItem: React.FC<{
         ) : (
           <span className="mr-2 w-5 flex-shrink-0"></span>
         )}
-        <span className="mr-3 flex-shrink-0">
-          {level === 1 ? getCategoryIcon(category.name) : level === 2 ? getSubcategoryIcon(category.name) : null}
-        </span>
+        {level === 1 && (
+          <span className="mr-3 flex-shrink-0">
+            {getCategoryIcon(category)}
+          </span>
+        )}
         <span className={`text-base text-left truncate ${level === 2 ? 'text-blue-600' : ''}`}>
           {category.name}
         </span>

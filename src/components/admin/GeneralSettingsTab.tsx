@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { applyPasswordRulesMigration, applyTreeViewMigration } from '../../utils/applyMigration';
 
 interface SmsNotificationSetting {
   id: number;
@@ -331,6 +332,61 @@ const GeneralSettingsTab: React.FC = () => {
     return now >= startDate && now <= endDate;
   };
 
+  // Database migration handlers
+  const [migrationLoading, setMigrationLoading] = useState<{
+    passwordRules: boolean;
+    treeView: boolean;
+  }>({
+    passwordRules: false,
+    treeView: false
+  });
+  
+  const [migrationResults, setMigrationResults] = useState<{
+    passwordRules: {success: boolean; message: string} | null;
+    treeView: {success: boolean; message: string} | null;
+  }>({
+    passwordRules: null,
+    treeView: null
+  });
+
+  const handleApplyPasswordRulesMigration = async () => {
+    try {
+      setMigrationLoading(prev => ({ ...prev, passwordRules: true }));
+      const result = await applyPasswordRulesMigration();
+      setMigrationResults(prev => ({ ...prev, passwordRules: result }));
+    } catch (error) {
+      console.error('Error applying password rules migration:', error);
+      setMigrationResults(prev => ({ 
+        ...prev, 
+        passwordRules: { 
+          success: false, 
+          message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        } 
+      }));
+    } finally {
+      setMigrationLoading(prev => ({ ...prev, passwordRules: false }));
+    }
+  };
+
+  const handleApplyTreeViewMigration = async () => {
+    try {
+      setMigrationLoading(prev => ({ ...prev, treeView: true }));
+      const result = await applyTreeViewMigration();
+      setMigrationResults(prev => ({ ...prev, treeView: result }));
+    } catch (error) {
+      console.error('Error applying tree view migration:', error);
+      setMigrationResults(prev => ({ 
+        ...prev, 
+        treeView: { 
+          success: false, 
+          message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        } 
+      }));
+    } finally {
+      setMigrationLoading(prev => ({ ...prev, treeView: false }));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -591,6 +647,90 @@ const GeneralSettingsTab: React.FC = () => {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Database Migrations Section */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Database Migrations</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Apply system-wide database updates and fixes
+          </p>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          {/* Password Rules Migration */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h4 className="text-md font-medium text-gray-900">Password Authentication Rules Update</h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  Apply the latest password authentication rules update that removes special case handling for certain accounts.
+                  This allows all accounts to authenticate using the standard password mechanism.
+                </p>
+                
+                {migrationResults.passwordRules && (
+                  <div className={`mt-3 p-3 rounded-md ${
+                    migrationResults.passwordRules.success 
+                      ? 'bg-green-50 text-green-800' 
+                      : 'bg-red-50 text-red-800'
+                  }`}>
+                    <p className="text-sm font-medium">
+                      {migrationResults.passwordRules.message}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleApplyPasswordRulesMigration}
+                disabled={migrationLoading.passwordRules}
+                className={`px-4 py-2 rounded-md text-sm font-medium ${
+                  migrationLoading.passwordRules
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {migrationLoading.passwordRules ? 'Applying...' : 'Apply Migration'}
+              </button>
+            </div>
+          </div>
+          
+          {/* Tree View Migration */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h4 className="text-md font-medium text-gray-900">Category Tree View Refresh</h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  Refresh the category tree view data from the database. Use this if the category tree
+                  is not displaying correctly or after making changes to product categories.
+                </p>
+                
+                {migrationResults.treeView && (
+                  <div className={`mt-3 p-3 rounded-md ${
+                    migrationResults.treeView.success 
+                      ? 'bg-green-50 text-green-800' 
+                      : 'bg-red-50 text-red-800'
+                  }`}>
+                    <p className="text-sm font-medium">
+                      {migrationResults.treeView.message}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleApplyTreeViewMigration}
+                disabled={migrationLoading.treeView}
+                className={`px-4 py-2 rounded-md text-sm font-medium ${
+                  migrationLoading.treeView
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {migrationLoading.treeView ? 'Refreshing...' : 'Refresh Tree View'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Instructions */}

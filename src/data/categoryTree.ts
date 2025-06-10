@@ -7,17 +7,11 @@ export let categoryTreeData: ProductGroup[] = [];
 // Fetch category data from Supabase
 export const fetchCategoryData = async (): Promise<ProductGroup[]> => {
   try {
-    // Use the SQL query provided to fetch category data
-    const { data, error } = await supabase.rpc('execute_sql', {
-      sql_query: `
-        select distinct prdmaincat, prdsubcat, count(1) as product_count
-        from products_supabase
-        where length(prdmaincat) > 3
-        group by 1, 2
-        order by 1, 2
-        limit 99999
-      `
-    });
+    // Use the correct table name (with underscores)
+    const { data, error } = await supabase
+      .from('tree_view_data_source')
+      .select('*')
+      .order('display_order');
 
     if (error) {
       console.error('Error fetching category data:', error);
@@ -38,45 +32,46 @@ export const fetchCategoryData = async (): Promise<ProductGroup[]> => {
 };
 
 // Helper function to build the full tree structure with subcategories
-// Uses the data from the SQL query with prdmaincat and prdsubcat fields
-export const buildCategoryTree = (rawData: { prdmaincat: string; prdsubcat: string; product_count: number }[]): ProductGroup[] => {
+// Uses the data from the tree_view_data_source table
+export const buildCategoryTree = (rawData: any[]): ProductGroup[] => {
   const tree: ProductGroup[] = [];
   const mainGroups = new Map<string, ProductGroup>();
 
   // Process main groups (level 1)
   rawData?.forEach(row => {
-    if (row.prdmaincat && !mainGroups.has(row.prdmaincat)) {
+    if (row.is_main_category && !mainGroups.has(row.category_code)) {
       const group: ProductGroup = {
-        id: `main_${row.prdmaincat}`,
-        name: row.prdmaincat,
+        id: `main_${row.category_code}`,
+        name: row.category_name,
         level: 1,
         parentId: null,
         children: [],
-        prdmaingrp: row.prdmaincat
+        prdmaingrp: row.category_code,
+        icon: row.icon_name // Store icon name if present
       };
-      mainGroups.set(row.prdmaincat, group);
+      mainGroups.set(row.category_code, group);
       tree.push(group);
     }
   });
 
   // Process sub groups (level 2)
   rawData?.forEach(row => {
-    if (row.prdmaincat && row.prdsubcat) {
-      const mainGroup = mainGroups.get(row.prdmaincat);
+    if (!row.is_main_category && row.parent_category_code) {
+      const mainGroup = mainGroups.get(row.parent_category_code);
       if (mainGroup) {
         // Check if this subcategory already exists
         const existingSubGroup = mainGroup.children?.find(
-          child => child.name === row.prdsubcat
+          child => child.id === `sub_${row.parent_category_code}_${row.category_code}`
         );
         
         if (!existingSubGroup) {
           const subGroup: ProductGroup = {
-            id: `sub_${row.prdmaincat}_${row.prdsubcat}`,
-            name: row.prdsubcat,
+            id: `sub_${row.parent_category_code}_${row.category_code}`,
+            name: row.category_name,
             level: 2,
             parentId: mainGroup.id,
-            prdsubgrp: row.prdsubcat,
-            productCount: row.product_count
+            prdsubgrp: row.category_code,
+            productCount: row.product_count || 0
           };
           mainGroup.children = mainGroup.children || [];
           mainGroup.children.push(subGroup);

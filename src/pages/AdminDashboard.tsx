@@ -7,8 +7,10 @@ import HistoryTab from '../components/admin/HistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import GeneralSettingsTab from '../components/admin/GeneralSettingsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
+import CategoryManagementTab from '../components/admin/CategoryManagementTab';
+import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; // Import the new tab component
 
-type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications';
+type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -19,9 +21,11 @@ const AdminDashboard: React.FC = () => {
     { id: 'orderhistory' as AdminTab, label: 'Order History', icon: '📋' },
     { id: 'accounts' as AdminTab, label: 'Accounts', icon: '👥' },
     { id: 'applications' as AdminTab, label: 'Applications', icon: '📝' },
+    { id: 'categories' as AdminTab, label: 'Categories', icon: '🗂️' },
     { id: 'history' as AdminTab, label: 'History', icon: '📊' },
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
+    { id: 'managetreeview' as AdminTab, label: 'Manage Treeview', icon: '🌲' },
   ];
 
   const renderTabContent = () => {
@@ -34,12 +38,16 @@ const AdminDashboard: React.FC = () => {
         return <AccountsTab />;
       case 'applications':
         return <AccountApplicationsTab />;
+      case 'categories':
+        return <CategoryManagementTab />;
       case 'history':
         return <HistoryTab />;
       case 'clicksend':
         return <ClickSendTab />;
       case 'generalsettings':
         return <GeneralSettingsTab />;
+      case 'managetreeview':
+        return <ManageTreeviewTab />;
       default:
         return <ManagementTab />;
     }

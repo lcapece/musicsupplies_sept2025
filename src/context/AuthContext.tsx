@@ -192,99 +192,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (isNaN(accountNumberInt)) {
         setError('Invalid account number format');
+        // Log failed attempt due to invalid account number format before returning
+        try {
+          await supabase.from('login_activity_log').insert({
+            account_number: accountNumberInt, // or a placeholder if parsing failed badly
+            login_success: false,
+            ip_address: null, 
+            user_agent: null,
+            // Add a note about the failure reason if your table supports it
+          });
+        } catch (logError) {
+          console.error('Failed to log login attempt (invalid format):', logError);
+        }
         return false;
       }
 
-      // Special case for account 101
-      if (accountNumberInt === 101 && (password === 'Monday123$' || password.toLowerCase() === 'a11803')) {
-        const { data, error: queryError } = await supabase
-          .from('accounts_lcmd')
-          .select('*')
-          .eq('account_number', accountNumberInt)
-          .single();
+      // Query the accounts_lcmd table directly for authentication
+      const { data: accountData, error: queryError } = await supabase
+        .from('accounts_lcmd')
+        .select('*') // Select all necessary fields
+        .eq('account_number', accountNumberInt)
+        .single(); // Expect a single account
 
-        if (queryError || !data) {
-          setError('Account not found');
-          return false;
+      if (queryError) {
+        console.error('Direct authentication query error:', queryError);
+        if (queryError.code === 'PGRST116') { // PGRST116: "Searched for a single row, but 0 rows were found"
+             setError('Account not found. Please verify your account number.');
+         } else {
+            setError('An error occurred while trying to log in. Please check your details.');
         }
-
-        const userData: User = {
-          accountNumber: String(data.account_number),
-          acctName: data.acct_name || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || '',
-          zip: data.zip || '',
-          requires_password_change: false,
-          id: data.id
-        };
-        
-        setUser(userData);
-        setIsAuthenticated(true);
-        localStorage.setItem('user', JSON.stringify(userData));
-        await calculateBestDiscount(userData.accountNumber);
-        return true;
+        // Log failed attempt (query error)
+        try {
+          await supabase.from('login_activity_log').insert({
+            account_number: accountNumberInt,
+            login_success: false,
+            ip_address: null,
+            user_agent: null
+          });
+        } catch (logError) {
+          console.error('Failed to log login attempt (query error):', logError);
+        }
+        return false;
       }
 
-      // Special case for account 999 (admin)
-      if (accountNumberInt === 999 && password === 'admin123') {
-        const { data, error: queryError } = await supabase
-          .from('accounts_lcmd')
-          .select('*')
-          .eq('account_number', accountNumberInt)
-          .single();
-
-        if (queryError || !data) {
-          setError('Account not found');
-          return false;
+      if (!accountData) {
+        // This case should ideally be caught by queryError.code === 'PGRST116'
+        setError('Account not found. Please verify your account number.');
+        // Log failed attempt (account not found by !accountData, though PGRST116 should catch it)
+        try {
+          await supabase.from('login_activity_log').insert({
+            account_number: accountNumberInt,
+            login_success: false,
+            ip_address: null,
+            user_agent: null
+          });
+        } catch (logError) {
+          console.error('Failed to log login attempt (account not found):', logError);
         }
-
-        const userData: User = {
-          accountNumber: String(data.account_number),
-          acctName: data.acct_name || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || '',
-          zip: data.zip || '',
-          requires_password_change: false,
-          id: data.id
-        };
-        
-        setUser(userData);
-        setIsAuthenticated(true);
-        localStorage.setItem('user', JSON.stringify(userData));
-        await calculateBestDiscount(userData.accountNumber);
-        return true;
+        return false;
       }
 
-      // Use the RPC function for authentication
-      const { data: authResult, error: rpcError } = await supabase
-        .rpc('authenticate_user_lcmd', {
-          p_account_number: accountNumberInt,
-          p_password: password
+      // Check if the password matches (plain text comparison)
+      // Ensure 'password' is the correct column name in 'accounts_lcmd' for the stored password
+      if (accountData.password !== password) {
+        setError('Invalid account number or password.');
+        // Log failed attempt (password mismatch)
+        try {
+          await supabase.from('login_activity_log').insert({
+            account_number: accountNumberInt,
+            login_success: false,
+            ip_address: null,
+            user_agent: null
+          });
+        } catch (logError) {
+          console.error('Failed to log login attempt (password mismatch):', logError);
+        }
+        return false;
+      }
+
+      // If password matches, proceed to set user data
+      // Log successful attempt
+      try {
+        await supabase.from('login_activity_log').insert({
+          account_number: accountNumberInt,
+          login_success: true,
+          ip_address: null,
+          user_agent: null
         });
-
-      if (rpcError) {
-        console.error('Authentication RPC error:', rpcError);
-        setError('An error occurred while trying to log in. Please try again.');
-        return false;
+      } catch (logError) {
+        console.error('Failed to log successful login attempt:', logError);
       }
-
-      if (!authResult || authResult.length === 0 || !authResult[0].authenticated) {
-        setError('Invalid account number or password');
-        return false;
-      }
-
-      const authData = authResult[0];
       const userData: User = {
-        accountNumber: String(authData.account_number),
-        acctName: authData.acct_name || '',
-        address: authData.address || '',
-        city: authData.city || '',
-        state: authData.state || '',
-        zip: authData.zip || '',
-        requires_password_change: authData.requires_password_change || false,
-        id: authData.account_number
+        accountNumber: String(accountData.account_number),
+        acctName: accountData.acct_name || '',
+        address: accountData.address || '',
+        city: accountData.city || '',
+        state: accountData.state || '',
+        zip: accountData.zip || '',
+        email: accountData.email_address || '', 
+        mobile_phone: accountData.mobile_phone || '',
+        requires_password_change: accountData.requires_password_change === true, // Explicitly treat only true as true
+        id: accountData.account_number 
       };
       
       setUser(userData);
@@ -302,6 +310,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Login error:', err);
       setError('An unexpected error occurred. Please try again later.');
+      // Log failed attempt (generic catch block)
+      // Avoid logging if accountNumberInt is not reliable here, or log with a placeholder
+      if (accountNumber && !isNaN(parseInt(accountNumber,10))) {
+        try {
+          await supabase.from('login_activity_log').insert({
+            account_number: parseInt(accountNumber, 10), // Attempt to parse again or use previously parsed
+            login_success: false,
+            ip_address: null,
+            user_agent: null
+          });
+        } catch (logError) {
+          console.error('Failed to log login attempt (catch block):', logError);
+        }
+      }
       return false;
     }
   };
@@ -361,7 +383,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: data.id,
           email: data.email_address || '',
           mobile_phone: data.mobile_phone || '',
-          requires_password_change: data.requires_password_change || false,
+          requires_password_change: data.requires_password_change === true, // Explicitly treat only true as true
         };
         return fetchedUser;
       }
