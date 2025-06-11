@@ -113,9 +113,8 @@ const OrderHistory: React.FC = () => {
         .from('lcmd_ordhist')
         .select(`
           invoicenumber, accountnumber, invoicedate, terms, salesman, 
-          linekey, model, Description, qtyordered, qtyshipped, unitnet, extendednet,
-          shippingtotal, paymentamount, invoicetotal 
-        `) // customerpo removed from select
+          linekey, model, Description, Qty, unitnet, ups, payments
+        `) // customerpo removed from select, fields aligned with lcmd_ordhist
         .eq('accountnumber', accountNumberInt)
         .order('invoicedate', { ascending: false })
         .order('invoicenumber', { ascending: false });
@@ -148,13 +147,13 @@ const OrderHistory: React.FC = () => {
         const firstItem = itemsInInvoice[0];
 
         const lineItems: OrderLineItem[] = itemsInInvoice.map((item, index) => {
-          const qtyShipped = safeParseFloat(item.qtyshipped);
+          const qtyVal = safeParseFloat(item.Qty); // Using item.Qty for both ordered and shipped
           const unitNet = safeParseFloat(item.unitnet);
-          const extendedNet = typeof item.extendednet === 'number' ? item.extendednet : qtyShipped * unitNet;
+          const extendedNet = qtyVal * unitNet; // Calculate extendedNet directly
           return {
             lineKey: item.linekey || `${item.invoicenumber}-${index}`,
-            qtyOrdered: safeParseFloat(item.qtyordered),
-            qtyShipped: qtyShipped,
+            qtyOrdered: qtyVal, // Derived from Qty
+            qtyShipped: qtyVal, // Derived from Qty
             partNumber: item.model ?? 'N/A',
             description: item.Description ?? 'N/A',
             unitNet: unitNet,
@@ -163,6 +162,9 @@ const OrderHistory: React.FC = () => {
         });
 
         const subtotal = lineItems.reduce((sum, item) => sum + item.extendedNet, 0);
+        const shippingChargesVal = safeParseFloat(firstItem.ups); // Mapped from ups
+        const paymentsReceivedVal = safeParseFloat(firstItem.payments); // Mapped from payments
+        const interestChargesVal = 0; // Defaulted to 0
         
         return {
           invoiceNumber: String(firstItem.invoicenumber),
@@ -175,10 +177,10 @@ const OrderHistory: React.FC = () => {
           shipToAddress: null, // Set to null as per original working fix
           lineItems: lineItems,
           subtotal: subtotal,
-          shippingCharges: safeParseFloat(firstItem.shippingtotal),
-          paymentsReceived: safeParseFloat(firstItem.paymentamount),
-          interestCharges: 0, 
-          totalAmountDue: safeParseFloat(firstItem.invoicetotal),
+          shippingCharges: shippingChargesVal,
+          paymentsReceived: paymentsReceivedVal,
+          interestCharges: interestChargesVal, 
+          totalAmountDue: subtotal + shippingChargesVal - paymentsReceivedVal + interestChargesVal, // Calculated
         };
       });
       

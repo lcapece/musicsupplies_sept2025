@@ -3,15 +3,28 @@ import { CartItem, User, Product } from '../types'; // Ensure Product is importe
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
+// Define a type for the introductory promo details we expect from the function
+interface IntroductoryPromo {
+  id: number;
+  name?: string;
+  description?: string;
+  discount_type: string;
+  value: number; // Percentage value, e.g., 5 for 5%
+  max_orders?: number;
+  is_active?: boolean;
+  uses_remaining?: number;
+}
+
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void; // Use Product type
+  addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (partnumber: string) => void;
   updateQuantity: (partnumber: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
   placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string) => Promise<string>;
+  applicableIntroPromo: IntroductoryPromo | null;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -23,11 +36,12 @@ const CartContext = createContext<CartContextType>({
   totalItems: 0,
   totalPrice: 0,
   placeOrder: async () => '',
+  applicableIntroPromo: null,
 });
 
 export const useCart = () => useContext(CartContext);
 
-let nextOrderNumber = 750000; // This will be updated by useEffect if connection is successful
+let nextOrderNumber = 750000; 
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
@@ -35,77 +49,64 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedCart) {
       try {
         const parsedItems = JSON.parse(savedCart);
-        // Ensure that what we parsed is actually an array before returning it.
-        if (Array.isArray(parsedItems)) {
-          // Further check if items in array are valid CartItems (simplified check here)
-          if (parsedItems.every(item => typeof item.partnumber === 'string' && typeof item.quantity === 'number')) {
-            return parsedItems;
-          }
+        if (Array.isArray(parsedItems) && parsedItems.every(item => typeof item.partnumber === 'string' && typeof item.quantity === 'number')) {
+          return parsedItems;
         }
-        // If not an array or items are not valid, treat as corrupted/invalid.
         localStorage.removeItem('cart');
         return [];
       } catch (e) {
-        // If JSON.parse fails
         localStorage.removeItem('cart');
         return [];
       }
     }
-    // If no savedCart
     return [];
   });
-  const { user, maxDiscountRate, currentDiscountInfo } = useAuth(); // Changed from activeDiscount to maxDiscountRate
+
+  const { user, maxDiscountRate, currentDiscountInfo } = useAuth();
+  const [applicableIntroPromo, setApplicableIntroPromo] = useState<IntroductoryPromo | null>(null);
 
   useEffect(() => {
-    // This useEffect is now only for initializing the order number
-    const initializeOrderNumber = async () => {
-      try {
-        // Add a timeout to the fetch operation to prevent hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const fetchIntroPromo = async () => {
+      if (user && typeof user.id === 'number') { 
+        try {
+          console.log(`Fetching intro promo for account ID: ${user.id}`);
+          const { data, error } = await supabase.functions.invoke('get-applicable-intro-promo', {
+            body: { account_id: user.id }, 
+          });
 
-        const { data, error } = await supabase
-          .from('web_orders')
-          .select('order_number')
-          .order('order_number', { ascending: false })
-          .limit(1)
-          .abortSignal(controller.signal);
-
-        clearTimeout(timeoutId);
-
-        if (error) {
-          console.warn('Warning: Could not fetch max order number from database:', error.message);
-          console.log('Using default order number starting point:', nextOrderNumber);
-          return; // Keep default nextOrderNumber value
-        }
-
-        // Check if we got any data back
-        if (data && data.length > 0) {
-          nextOrderNumber = data[0].order_number + 1;
-          console.log('Successfully initialized order number from database:', nextOrderNumber);
-        } else {
-          console.log('No existing orders found, using default order number:', nextOrderNumber);
-        }
-        
-      } catch (e) {
-        // Enhanced error handling with more specific error types
-        if (e instanceof Error) {
-          if (e.name === 'AbortError') {
-            console.warn('Warning: Database connection timed out while fetching order number. Using default value:', nextOrderNumber);
-          } else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-            console.warn('Warning: Network error connecting to database. Please check your internet connection. Using default order number:', nextOrderNumber);
+          if (error) throw error;
+          
+          if (data && data.applicable_promo) {
+            setApplicableIntroPromo(data.applicable_promo);
+            console.log('Applicable intro promo found:', data.applicable_promo);
           } else {
-            console.warn('Warning: Unexpected error fetching order number:', e.message, 'Using default value:', nextOrderNumber);
+            setApplicableIntroPromo(null);
+            console.log('No applicable intro promo or uses exhausted for account ID:', user.id, data?.message);
           }
-        } else {
-          console.warn('Warning: Unknown error fetching order number. Using default value:', nextOrderNumber);
+        } catch (err) {
+          console.error('Error fetching introductory promo for account ID:', user.id, err);
+          setApplicableIntroPromo(null);
         }
-        // Application continues to work with default order number
+      } else {
+        setApplicableIntroPromo(null); 
       }
     };
 
+    fetchIntroPromo();
+  }, [user]);
+
+  useEffect(() => {
+    const initializeOrderNumber = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const { data, error } = await supabase.from('web_orders').select('order_number').order('order_number', { ascending: false }).limit(1).abortSignal(controller.signal);
+        clearTimeout(timeoutId);
+        if (error) { console.warn('Warning: Could not fetch max order number:', error.message); return; }
+        if (data && data.length > 0 && data[0].order_number) { nextOrderNumber = data[0].order_number + 1; }
+      } catch (e: any) { console.warn('Warning: Error fetching order number:', e.message); }
+    };
     initializeOrderNumber();
-    // Initial loading of cart from localStorage is moved to useState initializer
   }, []);
   
   useEffect(() => {
@@ -116,252 +117,156 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
       if (existingItem) {
-        return prevItems.map(item => 
-          item.partnumber === product.partnumber 
-            ? { ...item, quantity: item.quantity + quantity } 
-            : item
-        );
-      } else {
-        const newItem: CartItem = {
-          ...product,
-          inventory: product.inventory ?? null, 
-          price: product.price ?? 0, 
-          quantity
-        };
-        return [...prevItems, newItem];
+        return prevItems.map(item => item.partnumber === product.partnumber ? { ...item, quantity: item.quantity + quantity } : item);
       }
+      return [...prevItems, { ...product, inventory: product.inventory ?? null, price: product.price ?? 0, quantity }];
     });
   };
 
-  const removeFromCart = (partnumber: string) => {
-    setItems(prevItems => prevItems.filter(item => item.partnumber !== partnumber));
-  };
-
+  const removeFromCart = (partnumber: string) => setItems(prevItems => prevItems.filter(item => item.partnumber !== partnumber));
   const updateQuantity = (partnumber: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(partnumber);
-      return;
-    }
-    setItems(prevItems => 
-      prevItems.map(item => 
-        item.partnumber === partnumber ? { ...item, quantity } : item
-      )
-    );
+    if (quantity <= 0) { removeFromCart(partnumber); return; }
+    setItems(prevItems => prevItems.map(item => item.partnumber === partnumber ? { ...item, quantity } : item));
   };
-
-  const clearCart = () => {
-    setItems([]);
-    localStorage.removeItem('cart');
-  };
+  const clearCart = () => { setItems([]); localStorage.removeItem('cart'); };
 
   const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string): Promise<string> => {
     const orderNumberGenerated = `WB${nextOrderNumber++}`;
     const orderNumberForDb = parseInt(orderNumberGenerated.slice(2));
     
-    if (!user || !user.accountNumber) {
-      console.error('Place Order: User or account number is not available.');
-      throw new Error('User not authenticated or account number missing.');
+    if (!user || !user.accountNumber || typeof user.id !== 'number') {
+      console.error('Place Order: User, account number, or valid user ID (for accounts.id) is not available.');
+      throw new Error('User not authenticated, account number or valid user ID missing.');
     }
     
     const accountNumberInt = parseInt(user.accountNumber, 10);
-    if (isNaN(accountNumberInt)) {
-      console.error('Place Order: Invalid account number format in user object:', user.accountNumber);
-      throw new Error('Invalid user account number format.');
-    }
+    if (isNaN(accountNumberInt)) { throw new Error('Invalid user account number format.'); }
 
-    // Determine discount part number and amount based on currentDiscountInfo
-    let discountPartNumber = null;
-    let discountDescription = null;
-    let discountAmount = 0;
+    let discountPartNumber: string | null = null;
+    let discountDescription: string | null = null;
+    let finalDiscountAmount = 0;
+    let appliedDiscountRate = 0; // This will be a fraction, e.g., 0.05 for 5%
     let orderComments = `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`;
+    let introPromoUsedInThisOrder = false;
 
-    if (currentDiscountInfo && maxDiscountRate && maxDiscountRate > 0 && items.length > 0) {
-      discountAmount = totalPrice * maxDiscountRate;
+    // Priority 1: Introductory Promo
+    if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && items.length > 0) {
+      appliedDiscountRate = applicableIntroPromo.value / 100.0; 
+      finalDiscountAmount = totalPrice * appliedDiscountRate;
+      discountPartNumber = applicableIntroPromo.name || `INTRO-${applicableIntroPromo.value}P`; // Use a generic part number if name is missing
+      discountDescription = applicableIntroPromo.description || `Introductory ${applicableIntroPromo.value}% Discount`;
+      orderComments += ` | Introductory Discount: ${discountDescription} (${applicableIntroPromo.value}%) ($${finalDiscountAmount.toFixed(2)})`;
+      introPromoUsedInThisOrder = true;
+    } 
+    // Priority 2: Other active discounts (if intro promo was not applied)
+    else if (currentDiscountInfo && maxDiscountRate !== null && maxDiscountRate > 0 && items.length > 0) {
+      appliedDiscountRate = maxDiscountRate;
+      finalDiscountAmount = totalPrice * appliedDiscountRate;
       
       if (currentDiscountInfo.type === 'order_based') {
-        // Extract order number from the source string (e.g., "Order-based discount (1/3)")
         const orderMatch = currentDiscountInfo.source.match(/\((\d+)\/\d+\)/);
-        const orderNumber = orderMatch ? orderMatch[1] : '1';
-        
-        switch (orderNumber) {
-          case '1':
-            discountPartNumber = 'WEB-DISCOUNT-5-ORDER1';
-            discountDescription = '5% Discount for 1st Order with MusicSupplies.com';
-            break;
-          case '2':
-            discountPartNumber = 'WEB-DISCOUNT-5-ORDER2';
-            discountDescription = '5% Discount for 2nd Order with MusicSupplies.com';
-            break;
-          case '3':
-            discountPartNumber = 'WEB-DISCOUNT-5-ORDER3';
-            discountDescription = '5% Discount for 3rd Order with MusicSupplies.com';
-            break;
-          default:
-            discountPartNumber = 'WEB-DISCOUNT-5-ORDER1';
-            discountDescription = '5% Discount for 1st Order with MusicSupplies.com';
-        }
+        const orderNumText = orderMatch ? orderMatch[1] : '1';
+        const orderSuffix = orderNumText === '1' ? 'st' : orderNumText === '2' ? 'nd' : orderNumText === '3' ? 'rd' : 'th';
+        discountPartNumber = `WEB-DISCOUNT-5-ORDER${orderNumText}`; // This seems specific to a "5% off Nth order"
+        discountDescription = `${Math.round(appliedDiscountRate * 100)}% Discount for ${orderNumText}${orderSuffix} Order`;
       } else if (currentDiscountInfo.type === 'date_based') {
-        // Map discount rate to appropriate part number
-        const discountPercentage = Math.round(maxDiscountRate * 100);
-        
-        switch (discountPercentage) {
-          case 1:
-            discountPartNumber = 'WEB-DISCOUNT-1';
-            discountDescription = '1% Discount for MusicSupplies.com (Limited Time)';
-            break;
-          case 2:
-            discountPartNumber = 'WEB-DISCOUNT-2';
-            discountDescription = '2% Discount for MusicSupplies.com (Limited Time)';
-            break;
-          case 3:
-            discountPartNumber = 'WEB-DISCOUNT-3';
-            discountDescription = '3% Discount for MusicSupplies.com (Limited Time)';
-            break;
-          case 4:
-            discountPartNumber = 'WEB-DISCOUNT-4';
-            discountDescription = '4% Discount for MusicSupplies.com (Limited Time)';
-            break;
-          case 5:
-            discountPartNumber = 'WEB-DISCOUNT-5';
-            discountDescription = '4% Discount for MusicSupplies.com (Limited Time)'; // Note: WEB-DISCOUNT-5 is 4% per your table
-            break;
-          default:
-            // For any other percentage, use the closest match
-            if (discountPercentage >= 5) {
-              discountPartNumber = 'WEB-DISCOUNT-5';
-              discountDescription = '4% Discount for MusicSupplies.com (Limited Time)';
-            } else if (discountPercentage >= 4) {
-              discountPartNumber = 'WEB-DISCOUNT-4';
-              discountDescription = '4% Discount for MusicSupplies.com (Limited Time)';
-            } else if (discountPercentage >= 3) {
-              discountPartNumber = 'WEB-DISCOUNT-3';
-              discountDescription = '3% Discount for MusicSupplies.com (Limited Time)';
-            } else if (discountPercentage >= 2) {
-              discountPartNumber = 'WEB-DISCOUNT-2';
-              discountDescription = '2% Discount for MusicSupplies.com (Limited Time)';
-            } else {
-              discountPartNumber = 'WEB-DISCOUNT-1';
-              discountDescription = '1% Discount for MusicSupplies.com (Limited Time)';
-            }
-        }
+        const perc = Math.round(appliedDiscountRate * 100);
+        // This mapping needs to be robust or data-driven from lcmd_discount
+        if (perc === 1) { discountPartNumber = 'WEB-DISCOUNT-1'; discountDescription = '1% Discount (Limited Time)'; }
+        else if (perc === 2) { discountPartNumber = 'WEB-DISCOUNT-2'; discountDescription = '2% Discount (Limited Time)'; }
+        else if (perc === 3) { discountPartNumber = 'WEB-DISCOUNT-3'; discountDescription = '3% Discount (Limited Time)'; }
+        else if (perc === 4) { discountPartNumber = 'WEB-DISCOUNT-4'; discountDescription = '4% Discount (Limited Time)'; }
+        // Assuming WEB-DISCOUNT-5 is for a 5% discount, not 4% as previously commented
+        else if (perc === 5) { discountPartNumber = 'WEB-DISCOUNT-5'; discountDescription = '5% Discount (Limited Time)'; }
+        else { discountPartNumber = `WEB-DISCOUNT-${perc}`; discountDescription = `${perc}% Discount (Limited Time)`;}
       }
-      
-      orderComments += ` | Discount Applied: ${discountPartNumber} ($${discountAmount.toFixed(2)})`;
+      if (discountPartNumber) {
+        orderComments += ` | Discount Applied: ${discountPartNumber} ($${finalDiscountAmount.toFixed(2)})`;
+      }
     }
 
-    // Create order items array with discount as the last item (if applicable)
     const orderItems = items.map(item => ({ 
-      partnumber: item.partnumber, 
-      description: item.description,
-      quantity: item.quantity, 
-      price: item.price || 0, 
-      extended_price: (item.price || 0) * item.quantity
+      partnumber: item.partnumber, description: item.description, quantity: item.quantity, 
+      price: item.price || 0, extended_price: (item.price || 0) * item.quantity
     }));
 
-    // CRITICAL: Add discount as a line item with negative amount
-    // This MUST appear last on the invoice for legacy system compatibility
-    if (discountPartNumber && discountAmount > 0) {
+    if (discountPartNumber && finalDiscountAmount > 0) {
       orderItems.push({
-        partnumber: discountPartNumber,
-        description: discountDescription || 'Discount Applied',
-        quantity: 1,
-        price: -discountAmount, // Negative price for discount
-        extended_price: -discountAmount
+        partnumber: discountPartNumber, description: discountDescription || 'Discount Applied',
+        quantity: 1, price: -finalDiscountAmount, extended_price: -finalDiscountAmount
       });
     }
 
-    const grandTotal = totalPrice - discountAmount;
-
+    const grandTotal = totalPrice - finalDiscountAmount;
     const orderPayload = {
-      order_number: orderNumberForDb,
-      account_number: accountNumberInt,
-      order_comments: orderComments,
-      order_items: orderItems,
-      subtotal: totalPrice,
-      discount_percentage: discountAmount > 0 ? (discountAmount / totalPrice) * 100 : 0,
-      discount_amount: discountAmount,
-      grand_total: grandTotal,
-      status: 'Pending Confirmation'
+      order_number: orderNumberForDb, account_number: accountNumberInt, order_comments: orderComments,
+      order_items: orderItems, subtotal: totalPrice, 
+      discount_percentage: appliedDiscountRate * 100, // Store as percentage
+      discount_amount: finalDiscountAmount, grand_total: grandTotal, status: 'Pending Confirmation'
     };
-    console.log('Placing order with payload:', orderPayload);
 
     try {
-      const { data: insertedOrder, error: insertError } = await supabase
-        .from('web_orders')
-        .insert(orderPayload)
-        .select() 
-        .single(); 
-
-      if (insertError || !insertedOrder) {
-        console.error('Supabase insert error:', insertError);
-        throw new Error(insertError?.message || 'Failed to save order to database.');
-      }
-
+      const { data: insertedOrder, error: insertError } = await supabase.from('web_orders').insert(orderPayload).select('id').single();
+      if (insertError || !insertedOrder) throw insertError || new Error('Failed to save order.');
+      
       console.log('Order saved successfully:', insertedOrder);
 
-      // If an order-based discount was applied, update the usage tracking
-      if (currentDiscountInfo && currentDiscountInfo.type === 'order_based' && maxDiscountRate && maxDiscountRate > 0) {
+      if (introPromoUsedInThisOrder && user && typeof user.id === 'number') {
         try {
-          // Find the discount tier ID from the discount rate
+          console.log(`Recording intro promo usage for account ID: ${user.id}, order ID: ${insertedOrder.id}`);
+          await supabase.functions.invoke('record-intro-promo-usage', {
+            body: { account_id: user.id, order_id: insertedOrder.id }
+          });
+          console.log('Introductory promo usage recorded.');
+          // Refresh intro promo state to reflect usage
+          const { data: refreshedPromo, error: refreshError } = await supabase.functions.invoke('get-applicable-intro-promo', {
+            body: { account_id: user.id }
+          });
+          if (refreshError) console.error("Error refreshing intro promo state after usage:", refreshError);
+          else setApplicableIntroPromo(refreshedPromo?.applicable_promo || null);
+        } catch (promoUsageError) {
+          console.error('Error in record-intro-promo-usage call or state refresh:', promoUsageError);
+        }
+      } else if (currentDiscountInfo && currentDiscountInfo.type === 'order_based' && maxDiscountRate !== null && maxDiscountRate > 0) {
+        // Existing logic for other order_based discounts (non-introductory)
+        try {
           const { data: discountTiers, error: tierError } = await supabase
             .from('discount_tiers')
             .select('id')
-            .eq('discount_type', 'order_based')
-            .eq('discount', maxDiscountRate)
-            .limit(1);
+            .eq('discount_type', 'order_based') // Ensure this targets only non-intro order_based
+            .eq('value', maxDiscountRate * 100) // Assuming 'value' in discount_tiers is percentage, maxDiscountRate is fraction
+            .limit(1)
+            .single();
 
-          if (tierError) {
-            console.error('Error finding discount tier for usage tracking:', tierError);
-          } else if (discountTiers && discountTiers.length > 0) {
-            const discountTierId = discountTiers[0].id;
-            
-            // First, get current usage or create new record
+          if (tierError) throw tierError;
+          if (discountTiers) {
+            const discountTierId = discountTiers.id;
             const { data: existingUsage, error: usageError } = await supabase
               .from('account_order_discounts')
               .select('orders_used')
-              .eq('account_number', user.accountNumber)
+              .eq('account_number', user.accountNumber) // Uses string account_number
               .eq('discount_tier_id', discountTierId)
               .single();
-
-            const currentUsage = existingUsage?.orders_used || 0;
+            if (usageError && usageError.code !== 'PGRST116') throw usageError; // PGRST116: single row not found
             
-            // Update or insert the usage record
+            const currentUsage = existingUsage?.orders_used || 0;
             const { error: upsertError } = await supabase
               .from('account_order_discounts')
-              .upsert({
-                account_number: user.accountNumber,
-                discount_tier_id: discountTierId,
-                orders_used: currentUsage + 1
-              }, {
-                onConflict: 'account_number,discount_tier_id'
-              });
-
-            if (upsertError) {
-              console.error('Error updating order discount usage:', upsertError);
-            } else {
-              console.log('Order-based discount usage updated successfully');
-            }
+              .upsert({ account_number: user.accountNumber, discount_tier_id: discountTierId, orders_used: currentUsage + 1 }, 
+                      { onConflict: 'account_number,discount_tier_id' });
+            if (upsertError) throw upsertError;
+            console.log('Standard order-based discount usage updated.');
           }
         } catch (err) {
-          console.error('Exception updating order discount usage:', err);
+          console.error('Exception updating standard order discount usage:', err);
         }
       }
-      // Email sending logic will be added later, once build is stable
-      console.log(`Order ${orderNumberGenerated} placed. Email to ${customerEmail} and CC pcapece@aol.com would be sent here.`);
-
+      
       clearCart();
       return orderNumberGenerated;
-    } catch (error) {
-      // Enhanced error handling for order placement
-      if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          throw new Error('Network error: Unable to connect to the database. Please check your internet connection and try again.');
-        } else {
-          throw error;
-        }
-      } else {
-        throw new Error('An unexpected error occurred while placing the order.');
-      }
+    } catch (error: any) {
+      console.error('Order placement error:', error);
+      throw new Error(error.message || 'An unexpected error occurred while placing the order.');
     }
   };
 
@@ -370,14 +275,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <CartContext.Provider value={{
-      items,
-      addToCart,
-      removeFromCart,
-      updateQuantity,
-      clearCart,
-      totalItems,
-      totalPrice,
-      placeOrder
+      items, addToCart, removeFromCart, updateQuantity, clearCart,
+      totalItems, totalPrice, placeOrder, applicableIntroPromo
     }}>
       {children}
     </CartContext.Provider>

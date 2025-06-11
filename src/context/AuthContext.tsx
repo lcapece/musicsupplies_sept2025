@@ -207,92 +207,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Query the accounts_lcmd table directly for authentication
-      const { data: accountData, error: queryError } = await supabase
-        .from('accounts_lcmd')
-        .select('*') // Select all necessary fields
-        .eq('account_number', accountNumberInt)
-        .single(); // Expect a single account
+      // Call the authenticate_user PL/pgSQL function
+      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user', {
+        p_account_number: accountNumberInt,
+        p_password: password
+      });
 
-      if (queryError) {
-        console.error('Direct authentication query error:', queryError);
-        if (queryError.code === 'PGRST116') { // PGRST116: "Searched for a single row, but 0 rows were found"
-             setError('Account not found. Please verify your account number.');
-         } else {
-            setError('An error occurred while trying to log in. Please check your details.');
-        }
-        // Log failed attempt (query error)
+      if (rpcError) {
+        console.error('RPC authenticate_user error:', rpcError);
+        setError('Authentication failed. Please check your credentials or try again later.');
+        // Log failed attempt (RPC error)
         try {
           await supabase.from('login_activity_log').insert({
-            account_number: accountNumberInt,
-            login_success: false,
-            ip_address: null,
-            user_agent: null
+            account_number: accountNumberInt, login_success: false, ip_address: null, user_agent: null
           });
-        } catch (logError) {
-          console.error('Failed to log login attempt (query error):', logError);
-        }
+        } catch (logError) { console.error('Failed to log login attempt (RPC error):', logError); }
         return false;
       }
 
-      if (!accountData) {
-        // This case should ideally be caught by queryError.code === 'PGRST116'
-        setError('Account not found. Please verify your account number.');
-        // Log failed attempt (account not found by !accountData, though PGRST116 should catch it)
-        try {
-          await supabase.from('login_activity_log').insert({
-            account_number: accountNumberInt,
-            login_success: false,
-            ip_address: null,
-            user_agent: null
-          });
-        } catch (logError) {
-          console.error('Failed to log login attempt (account not found):', logError);
-        }
-        return false;
-      }
+      // The function returns an array of rows, even if it's a single user.
+      // If no user is found or auth fails, it returns an empty array or specific error.
+      const authenticatedUserData = authFunctionResponse && Array.isArray(authFunctionResponse) && authFunctionResponse.length > 0 
+                                  ? authFunctionResponse[0] 
+                                  : null;
 
-      // Check if the password matches (plain text comparison)
-      // Ensure 'password' is the correct column name in 'accounts_lcmd' for the stored password
-      if (accountData.password !== password) {
+      if (!authenticatedUserData) {
         setError('Invalid account number or password.');
-        // Log failed attempt (password mismatch)
+        // Log failed attempt (no user data returned from function)
         try {
           await supabase.from('login_activity_log').insert({
-            account_number: accountNumberInt,
-            login_success: false,
-            ip_address: null,
-            user_agent: null
+            account_number: accountNumberInt, login_success: false, ip_address: null, user_agent: null
           });
-        } catch (logError) {
-          console.error('Failed to log login attempt (password mismatch):', logError);
-        }
+        } catch (logError) { console.error('Failed to log login attempt (no data from RPC):', logError); }
         return false;
       }
-
-      // If password matches, proceed to set user data
+      
       // Log successful attempt
       try {
         await supabase.from('login_activity_log').insert({
-          account_number: accountNumberInt,
-          login_success: true,
-          ip_address: null,
-          user_agent: null
+          account_number: accountNumberInt, login_success: true, ip_address: null, user_agent: null
         });
-      } catch (logError) {
-        console.error('Failed to log successful login attempt:', logError);
-      }
+      } catch (logError) { console.error('Failed to log successful login attempt:', logError); }
+
+      // Map data from PL/pgSQL function to User type
+      // The function returns columns: account_number, acct_name, address, city, state, zip, id (UUID), email_address, mobile_phone, requires_password_change
       const userData: User = {
-        accountNumber: String(accountData.account_number),
-        acctName: accountData.acct_name || '',
-        address: accountData.address || '',
-        city: accountData.city || '',
-        state: accountData.state || '',
-        zip: accountData.zip || '',
-        email: accountData.email_address || '', 
-        mobile_phone: accountData.mobile_phone || '',
-        requires_password_change: accountData.requires_password_change === true, // Explicitly treat only true as true
-        id: accountData.account_number 
+        accountNumber: String(authenticatedUserData.account_number), // This is BIGINT from function
+        acctName: authenticatedUserData.acct_name || '',
+        address: authenticatedUserData.address || '',
+        city: authenticatedUserData.city || '',
+        state: authenticatedUserData.state || '',
+        zip: authenticatedUserData.zip || '',
+        // 'id' from function is UUID (auth.users.id). 'user.id' in CartContext expects integer accounts.id.
+        // This needs careful handling. For now, using account_number as the primary 'id' for User type as before.
+        // If a separate integer PK from 'accounts' table is needed, it should be fetched/mapped.
+        id: authenticatedUserData.account_number, // This is critical: ensure this 'id' is what CartContext expects for account_id
+        email: authenticatedUserData.email_address || '', 
+        mobile_phone: authenticatedUserData.mobile_phone || '',
+        requires_password_change: authenticatedUserData.requires_password_change === true,
+        // If the UUID id from auth.users is needed on User type, add it:
+        // auth_user_id: authenticatedUserData.id 
       };
       
       setUser(userData);

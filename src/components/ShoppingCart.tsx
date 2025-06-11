@@ -11,9 +11,9 @@ interface ShoppingCartProps {
 }
 
 const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
-  const { items, removeFromCart, updateQuantity, totalItems, totalPrice, clearCart, placeOrder } = useCart();
+  const { items, removeFromCart, updateQuantity, totalItems, totalPrice, clearCart, placeOrder, applicableIntroPromo } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [orderPlaced, setOrderPlaced] = useState(false); // Restored
+  const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string>(''); // Restored
   // const [orderConfirmationDetails, setOrderConfirmationDetails] = useState<OrderConfirmationDetails | null>(null); // Reverted
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'net10'>('net10');
@@ -218,10 +218,23 @@ Order Confirmation...`; // Truncated
 
   if (!isOpen) return null;
 
-  // Calculate discount based on maxDiscountRate
-  const displayDiscountAmount = (maxDiscountRate && maxDiscountRate > 0 && items.length > 0) ? totalPrice * maxDiscountRate : 0;
+  // Calculate effective discount to display
+  let effectiveDiscountRate = 0;
+  let discountDescriptionText = "Discount";
+
+  if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0) {
+    effectiveDiscountRate = applicableIntroPromo.value / 100.0;
+    discountDescriptionText = applicableIntroPromo.description || `Introductory ${applicableIntroPromo.value}% Off`;
+  } else if (maxDiscountRate && maxDiscountRate > 0) {
+    effectiveDiscountRate = maxDiscountRate;
+    // Keep existing logic for how maxDiscountRate description is formed or use a generic one
+    // For simplicity, let's use a generic one if currentDiscountInfo is not detailed enough here
+    discountDescriptionText = `Volume/Promotional Discount (${(maxDiscountRate * 100).toFixed(0)}%)`;
+  }
+  
+  const displayDiscountAmount = items.length > 0 ? totalPrice * effectiveDiscountRate : 0;
   const displayGrandTotal = totalPrice - displayDiscountAmount;
-  const displayDiscountPercentage = maxDiscountRate ? maxDiscountRate * 100 : 0;
+  const displayDiscountPercentage = effectiveDiscountRate * 100;
 
   // const handleCloseConfirmationModal = () => { // Reverted
   //   setOrderConfirmationDetails(null);
@@ -407,8 +420,14 @@ Order Confirmation...`; // Truncated
                   </div>
                   {displayDiscountAmount > 0 && (
                     <div className="flex justify-between text-sm font-medium text-green-600">
-                      <p>Discount ({displayDiscountPercentage.toFixed(0)}%)</p>
+                      <p>{discountDescriptionText}</p>
                       <p>-${displayDiscountAmount.toFixed(2)}</p>
+                    </div>
+                  )}
+                  {/* Display remaining uses for intro promo if applicable */}
+                  {applicableIntroPromo && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && (
+                    <div className="flex justify-between text-xs font-medium text-blue-600 mt-1">
+                      <p>Introductory promo uses remaining: {applicableIntroPromo.uses_remaining}</p>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">

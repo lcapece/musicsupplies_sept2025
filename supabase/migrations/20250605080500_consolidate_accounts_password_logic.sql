@@ -40,17 +40,42 @@ BEGIN
 END;
 $$;
 
--- 3. Drop the logon_lcmd table as it's no longer needed
+-- 3. Data Integrity Check: Hash any unhashed passwords in accounts_LCMD.password
+--    This ensures that if any plain text passwords were moved from logon_lcmd
+--    or existed in accounts_lcmd.password directly, they get hashed.
+DO $$
+DECLARE
+  acc_rec RECORD;
+  hashed_password_check TEXT;
+BEGIN
+  RAISE NOTICE 'Checking for and hashing any plain text passwords in accounts_LCMD.password...';
+  FOR acc_rec IN SELECT account_number, password FROM public.accounts_lcmd WHERE password IS NOT NULL
+  LOOP
+    -- Check if password is NOT already a bcrypt hash (starts with $2a$, $2b$, $2x$, or $2y$)
+    -- Adjusted regex to be more inclusive of bcrypt variants like $2x$ and $2y$
+    IF NOT (acc_rec.password ~ '^(\$2[axyb]\$\d{2}\$[./0-9A-Za-z]{53})$') THEN
+      RAISE NOTICE 'Password for account % appears to be plain text or incorrectly hashed. Hashing now.', acc_rec.account_number;
+      hashed_password_check := crypt(acc_rec.password, gen_salt('bf'));
+      UPDATE public.accounts_lcmd
+      SET password = hashed_password_check, updated_at = NOW()
+      WHERE account_number = acc_rec.account_number;
+    END IF;
+  END LOOP;
+  RAISE NOTICE 'Plain text password check in accounts_LCMD.password complete.';
+END;
+$$;
+
+-- 4. Drop the logon_lcmd table as it's no longer needed
 DROP TABLE IF EXISTS public.logon_lcmd;
 RAISE NOTICE 'Dropped logon_lcmd table.';
 
--- 4. Drop older versions of authentication and password update functions
+-- 5. Drop older versions of authentication and password update functions
 DROP FUNCTION IF EXISTS public.authenticate_user_lcmd(p_account_number integer, p_password text);
 DROP FUNCTION IF EXISTS public.authenticate_user_lcmd(p_account_number bigint, p_password text);
 DROP FUNCTION IF EXISTS public.update_user_password_lcmd(p_account_number bigint, p_new_password text);
 RAISE NOTICE 'Dropped old authentication and password update functions.';
 
--- 5. Create the new consolidated authentication function
+-- 6. Create the new consolidated authentication function
 CREATE OR REPLACE FUNCTION public.authenticate_user(
   p_account_number BIGINT,
   p_password TEXT
@@ -62,7 +87,7 @@ RETURNS TABLE (
   city TEXT,
   state TEXT,
   zip TEXT,
-  id UUID,
+  id UUID, -- This is accounts_lcmd.id (auth.users FK)
   email_address TEXT,
   mobile_phone TEXT,
   requires_password_change BOOLEAN
@@ -74,25 +99,18 @@ DECLARE
   account_record public.accounts_lcmd%ROWTYPE;
   expected_default_password TEXT;
 BEGIN
-  -- Get account details
   SELECT * INTO account_record
   FROM public.accounts_lcmd a
   WHERE a.account_number = p_account_number;
 
-  -- If account doesn't exist, return empty
   IF account_record IS NULL THEN
     RETURN;
   END IF;
 
-  -- Check for default password pattern: first letter of acct_name (case-insensitive) + first 5 digits of zip
-  -- This check is only relevant if the account_record.password IS NULL (meaning no custom password set yet)
   IF account_record.acct_name IS NOT NULL AND account_record.zip IS NOT NULL THEN
     expected_default_password := lower(substring(account_record.acct_name FROM 1 FOR 1)) || substring(regexp_replace(account_record.zip, '[^0-9]', '', 'g') FROM 1 FOR 5);
     
     IF lower(p_password) = expected_default_password THEN
-      -- Default password matches.
-      -- If a custom password IS ALSO set, the custom one should take precedence.
-      -- So, this branch is primarily for users who haven't set a custom password yet.
       IF account_record.password IS NULL THEN
         RETURN QUERY SELECT
           account_record.account_number,
@@ -101,16 +119,15 @@ BEGIN
           COALESCE(account_record.city, '') AS city,
           COALESCE(account_record.state, '') AS state,
           COALESCE(account_record.zip, '') AS zip,
-          account_record.id,
+          account_record.id, -- UUID from accounts_lcmd
           COALESCE(account_record.email_address, account_record.contact, '') AS email_address,
           COALESCE(account_record.mobile_phone, account_record.phone, '') AS mobile_phone,
-          TRUE AS requires_password_change; -- Force change if logging in with default
+          TRUE AS requires_password_change;
         RETURN;
       END IF;
     END IF;
   END IF;
 
-  -- Check against stored hashed password in accounts_LCMD.password
   IF account_record.password IS NOT NULL AND account_record.password = crypt(p_password, account_record.password) THEN
     RETURN QUERY SELECT
       account_record.account_number,
@@ -119,20 +136,19 @@ BEGIN
       COALESCE(account_record.city, '') AS city,
       COALESCE(account_record.state, '') AS state,
       COALESCE(account_record.zip, '') AS zip,
-      account_record.id,
+      account_record.id, -- UUID from accounts_lcmd
       COALESCE(account_record.email_address, account_record.contact, '') AS email_address,
       COALESCE(account_record.mobile_phone, account_record.phone, '') AS mobile_phone,
       COALESCE(account_record.requires_password_change, FALSE) AS requires_password_change;
     RETURN;
   END IF;
 
-  -- If we reach here, authentication failed
   RETURN;
 END;
 $$;
 RAISE NOTICE 'Created new authenticate_user function.';
 
--- 6. Create the new consolidated password update function
+-- 7. Create the new consolidated password update function
 CREATE OR REPLACE FUNCTION public.update_user_password(
   p_account_number BIGINT,
   p_new_password TEXT
@@ -144,16 +160,13 @@ AS $$
 DECLARE
   hashed_password TEXT;
 BEGIN
-  -- Ensure p_new_password is not empty or too short (basic validation)
   IF p_new_password IS NULL OR length(p_new_password) < 6 THEN
     RAISE EXCEPTION 'Password must be at least 6 characters long.';
-    RETURN FALSE; -- Should not be reached due to RAISE
+    RETURN FALSE; 
   END IF;
 
-  -- Generate salt and hash the password using bcrypt
   hashed_password := crypt(p_new_password, gen_salt('bf'));
 
-  -- Update password and flag in accounts_LCMD
   UPDATE public.accounts_lcmd
   SET
     password = hashed_password,
@@ -164,7 +177,6 @@ BEGIN
   IF FOUND THEN
     RETURN TRUE;
   ELSE
-    -- Account not found
     RAISE WARNING 'Account not found for password update: %', p_account_number;
     RETURN FALSE;
   END IF;
@@ -177,10 +189,10 @@ END;
 $$;
 RAISE NOTICE 'Created new update_user_password function.';
 
--- Grant execute permissions on the new functions to the authenticated role
+-- 8. Grant execute permissions on the new functions to the authenticated role
 GRANT EXECUTE ON FUNCTION public.authenticate_user(BIGINT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.update_user_password(BIGINT, TEXT) TO authenticated;
 RAISE NOTICE 'Granted execute permissions on new functions.';
 
-COMMENT ON FUNCTION public.authenticate_user(BIGINT, TEXT) IS 'Authenticates a user based on account number and password. Checks default pattern (first letter of acct_name + first 5 of zip) and then hashed password in accounts_LCMD. Forces password change if default is used.';
+COMMENT ON FUNCTION public.authenticate_user(BIGINT, TEXT) IS 'Authenticates a user based on account number and password. Checks default pattern (first letter of acct_name + first 5 of zip) and then hashed password in accounts_LCMD. Forces password change if default is used and no custom password is set.';
 COMMENT ON FUNCTION public.update_user_password(BIGINT, TEXT) IS 'Updates the user''s password in accounts_LCMD with a bcrypt hash and sets requires_password_change to false.';

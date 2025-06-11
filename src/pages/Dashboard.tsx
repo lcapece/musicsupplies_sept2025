@@ -5,13 +5,16 @@ import ProductTable from '../components/ProductTable';
 import SearchBar from '../components/SearchBar';
 import Header from '../components/Header';
 import OrderHistory from './OrderHistory';
-import WebOrdersDisplay from './WebOrdersDisplay'; // Importing the new component
-import { Product } from '../types';
-import { useMemo } from 'react'; // Import useMemo
-import { Link } from 'react-router-dom'; // Import Link for footer
-import ImageComingSoon from '../images/coming-soon.png'; // Import the placeholder image
+import WebOrdersDisplay from './WebOrdersDisplay';
+import { Product, User as AuthUser } from '../types'; // Assuming User type is exported from types
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import ImageComingSoon from '../images/coming-soon.png';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
+import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/PromotionalPopupModal'; // Import the new modal
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth(); // Get user from AuthContext
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Product | null; direction: 'ascending' | 'descending' }>({ key: 'partnumber', direction: 'ascending' });
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | undefined>();
@@ -36,11 +39,40 @@ const Dashboard: React.FC = () => {
     additional: '',
     exclude: ''
   });
+  const [showPromoPopup, setShowPromoPopup] = useState(false);
+  const [promoStatusData, setPromoStatusData] = useState<PromotionalOffersStatus | null>(null);
 
   useEffect(() => {
     fetchProducts();
     setSelectedProductForImage(null);
   }, [selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly]);
+
+  useEffect(() => {
+    const fetchAndShowPromoPopup = async () => {
+      if (user && user.accountNumber !== '999' && typeof user.id === 'number') {
+        const promoShownKey = `promoPopupShown_session_${user.id}`;
+        const alreadyShownThisSession = sessionStorage.getItem(promoShownKey);
+
+        if (!alreadyShownThisSession) {
+          try {
+            const { data, error } = await supabase.functions.invoke('get-promotional-offers-status', {
+              body: { account_id: user.id },
+            });
+            if (error) throw error;
+
+            if (data && (data.introductoryPromo || data.everydayDiscount)) {
+              setPromoStatusData(data);
+              setShowPromoPopup(true);
+              sessionStorage.setItem(promoShownKey, 'true'); // Mark as shown for this session
+            }
+          } catch (err) {
+            console.error("Error fetching promotional offers status:", err);
+          }
+        }
+      }
+    };
+    fetchAndShowPromoPopup();
+  }, [user]);
 
   // Effect to load product image with priority logic
   useEffect(() => {
@@ -433,6 +465,13 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </footer>
+      {promoStatusData && (
+        <PromotionalPopupModal
+          isOpen={showPromoPopup}
+          onClose={() => setShowPromoPopup(false)}
+          promoStatus={promoStatusData}
+        />
+      )}
     </div>
   );
 };

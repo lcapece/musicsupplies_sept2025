@@ -39,15 +39,3 @@ CREATE POLICY "Enable read access for all users"
   FOR SELECT 
   TO public 
   USING (true);
-
--- Insert sample data from the test table (only if it exists)
-DO $$
-BEGIN
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lcmd_ordhist_test') THEN
-    INSERT INTO lcmd_ordhist 
-      (accountnumber, invoicenumber, dstamp, salesman, terms, model, "Description", "Qty", unitnet)
-    SELECT
-      accountnumber, invoicenumber, dstamp, salesman, terms, model, "Description", "Qty", unitnet
-    FROM lcmd_ordhist_test;
-  END IF;
-END $$;
