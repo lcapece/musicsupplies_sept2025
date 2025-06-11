@@ -242,10 +242,12 @@ const Dashboard: React.FC = () => {
         setSelectedMainCategoryName(namePath[0]);
         setSelectedSubCategoryName(undefined);
       } else { // It's a subcategory
-        setSelectedMainCategory(parentCategoryCode || undefined); // parentCategoryCode is the main category's code
-        setSelectedSubCategory(selection.id); // The sub category's code
-        setSelectedMainCategoryName(namePath[0]); // namePath[0] is main category name
-        setSelectedSubCategoryName(namePath[1]); // namePath[1] is sub category name
+        setSelectedMainCategory(parentCategoryCode || undefined); // This is the prdmaincat value
+        // For selectedSubCategory, we need the actual prdsubcat value, which is the subcategory's name.
+        // namePath[1] should be the subcategory name.
+        setSelectedSubCategory(namePath[1]); 
+        setSelectedMainCategoryName(namePath[0]); 
+        setSelectedSubCategoryName(namePath[1]); 
       }
     } else {
       // Deselection: clear all category related states

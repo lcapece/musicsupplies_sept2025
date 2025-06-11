@@ -301,7 +301,31 @@ const ManageTreeviewTab: React.FC = () => {
       <li className="my-1 list-none"> 
         <div 
           className={`flex items-center py-1 px-2 rounded hover:bg-gray-100 cursor-pointer ${isSelected ? 'bg-blue-200 ring-2 ring-blue-500' : ''}`}
-          style={{ paddingLeft: `${level * 1.5}rem` }}
+          // Indentation: level 0 (main) has minimal base padding (e.g., from px-2 on the div).
+          // level 1 (sub) gets additional padding. 2.5rem is approx 40px.
+          // If base padding of container is effectively 0 for text, then level * 2.5rem works.
+          // Let's use a base padding for the container and add for sub-levels.
+          // The overall div has px-2 (0.5rem).
+          // Main (level 0) will have this 0.5rem.
+          // Sub (level 1) needs additional ~5 chars. Let's try adding 1.25rem (20px) for subs.
+          // So, level 0: 0.5rem (from parent). level 1: 0.5rem (from parent) + 1.25rem.
+          // This means the style should be `level * 1.25rem` if the parent div itself has some base padding.
+          // Or, more simply, `paddingLeft: level === 0 ? '0.5rem' : '2.0rem'` (assuming 0.5rem is base, 1.5rem is ~5-6 chars)
+          // Let's try: level 0 = 0.5rem (implicit from px-2), level 1 = 0.5rem + 1.25rem = 1.75rem
+          // The current style is: style={{ paddingLeft: `${0.5 + level * 1}rem` }}
+          // This gives: level 0 = 0.5rem, level 1 = 1.5rem. Difference is 1rem.
+          // To make difference ~5 chars (approx 2rem if 1 char ~ 0.4rem or 6-7px wide)
+          // Let level 0 be 0.5rem. Level 1 be 0.5rem + 2rem = 2.5rem.
+          // So, paddingLeft: `${0.5 + level * 2.0}rem`
+          // User wants 300% greater indent for level 1. Original additional indent was 1.0rem (1.5 - 0.5).
+          // 300% greater means 1.0rem + 3.0rem = 4.0rem additional indent.
+          // So, level 0: 0.5rem. Level 1: 0.5rem + 4.0rem = 4.5rem.
+          // Formula: 0.5 + level * 4.0
+          // LATEST FEEDBACK: reduce this additional indent (4.0rem) by 40%.
+          // New additional indent = 4.0rem * (1 - 0.40) = 4.0rem * 0.60 = 2.4rem.
+          // So, level 0: 0.5rem. Level 1: 0.5rem + 2.4rem = 2.9rem.
+          // Formula: 0.5 + level * 2.4
+          style={{ paddingLeft: `${0.5 + level * 2.4}rem` }} // level 0: 0.5rem, level 1: 2.9rem
           onClick={handleNodeClick}
         >
           {node.children && node.children.length > 0 ? (
@@ -318,7 +342,11 @@ const ManageTreeviewTab: React.FC = () => {
             </span>
           )}
 
-          <span className={`text-sm ${node.is_main_category ? 'font-semibold text-gray-700' : 'text-gray-600'}`}>
+          <span className={`text-sm ${
+            node.is_main_category 
+              ? 'font-bold text-blue-600' // Main: Blue and Bold
+              : 'text-gray-700'             // Sub: Default gray (was text-gray-600)
+          }`}>
             {node.name}
           </span>
         </div>

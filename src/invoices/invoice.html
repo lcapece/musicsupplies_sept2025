@@ -8,160 +8,118 @@
 </head>
 <body>
     <div class="invoice-box">
-        <header>
-            <div class="company-info">
-                <h1>MusicSupplies.com</h1>
-                <p>Division of Lou Capece Music Distributors</p>
+        <header class="invoice-header">
+            <div class="company-details">
+                <h2>Lou Capece Music Distributors</h2>
+                <p>2555 North Jerusalem Rd.</p>
+                <p>East Meadow, NY 11554</p>
+                <p>Toll Free 1(800) 321-5584</p>
+                <p>Reply to: <a href="mailto:marketing@loucapecemusic.com">marketing@loucapecemusic.com</a></p>
             </div>
-            <div class="invoice-id">
-                WB000000
+            <div class="invoice-info">
+                <h1>Invoice Number: {invoice_number}</h1>
+                <p>Acct No.: {account_number}</p>
+                <p>Invoice Date: {invoice_date}</p>
+                <p>Terms: {terms}</p>
+                <p>Sales Rep: {sales_rep}</p>
             </div>
         </header>
 
-        <section class="addresses">
-            <div class="from-address">
-                <p><strong>FROM:</strong></p>
-                <p>Lou Capece Music Distributors</p>
-                <p>MusicSupplies.com</p>
-                <p>2555 North Jerusalem Rd</p>
-                <p>East Meadow, NY 11554</p>
-            </div>
-            <div class="to-address">
-                <p><strong>TO:</strong></p>
-                <p>{account name}</p>
-                <p>Attn: {contact}</p>
-                <p>{Address}</p>
-                <p>{city}, {state} {zip}</p>
-                <p>Phone: {phone}</p>
-            </div>
-        </section>
-
-        <section class="comments">
-            <p><strong>COMMENTS OR SPECIAL INSTRUCTIONS:</strong></p>
-            <p>{Comments}</p>
-        </section>
-
-        <section class="invoice-details">
-            <table>
-                <thead>
-                    <tr>
-                        <th>SALESPERSON</th>
-                        <th>INVOICE DATE</th>
-                        <th>TERMS</th>
-                        <th>SHIPPED VIA</th>
-                        <th>REFERENCE</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>{salesperson}</td>
-                        <td>{invoice_date}</td>
-                        <td>{terms}</td>
-                        <td>UPS</td>
-                        <td>{reference}</td>
-                    </tr>
-                </tbody>
-            </table>
+        <section class="bill-to">
+            <p><strong>Bill To:</strong></p>
+            <p>{customer_name}</p>
+            <p>{customer_address_line1}</p>
+            <p>{customer_city_state_zip}</p>
+            <p>Attn: {customer_attn}</p>
         </section>
 
         <section class="line-items">
             <table>
                 <thead>
                     <tr>
-                        <th>PART NUMBER</th>
-                        <th>QUANTITY</th>
-                        <th class="description-header">DESCRIPTION</th>
-                        <th>UNIT PRICE</th>
-                        <th>TOTAL</th>
+                        <th>Qty Ordered</th>
+                        <th>Qty Shipped</th>
+                        <th>Part Number</th>
+                        <th class="desc-header">Desc</th>
+                        <th class="text-right">Unit Net</th>
+                        <th class="text-right">Extended Net</th>
                     </tr>
                 </thead>
                 <tbody>
                     <!-- Repeat this block for each line item -->
                     <tr>
+                        <td>{qty_ordered_1}</td>
+                        <td>{qty_shipped_1}</td>
                         <td>{part_number_1}</td>
-                        <td>{quantity_1}</td>
                         <td>{description_1}</td>
-                        <td>{unit_price_1}</td>
-                        <td>{total_1}</td>
+                        <td class="text-right">{unit_net_1}</td>
+                        <td class="text-right">{extended_net_1}</td>
                     </tr>
                     <tr>
+                        <td>{qty_ordered_2}</td>
+                        <td>{qty_shipped_2}</td>
                         <td>{part_number_2}</td>
-                        <td>{quantity_2}</td>
                         <td>{description_2}</td>
-                        <td>{unit_price_2}</td>
-                        <td>{total_2}</td>
+                        <td class="text-right">{unit_net_2}</td>
+                        <td class="text-right">{extended_net_2}</td>
                     </tr>
                     <tr>
+                        <td>{qty_ordered_3}</td>
+                        <td>{qty_shipped_3}</td>
                         <td>{part_number_3}</td>
-                        <td>{quantity_3}</td>
                         <td>{description_3}</td>
-                        <td>{unit_price_3}</td>
-                        <td>{total_3}</td>
-                    </tr>
-                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td class="text-right">{unit_net_3}</td>
+                        <td class="text-right">{extended_net_3}</td>
                     </tr>
                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td>{qty_ordered_4}</td>
+                        <td>{qty_shipped_4}</td>
+                        <td>{part_number_4}</td>
+                        <td>{description_4}</td>
+                        <td class="text-right">{unit_net_4}</td>
+                        <td class="text-right">{extended_net_4}</td>
                     </tr>
-                    <!-- End repeat block -->
+                    <!-- Add more rows as needed, or use a template engine to generate them -->
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+                    <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
                 </tbody>
             </table>
         </section>
 
-        <section class="totals">
-            <table>
-                <tr>
-                    <td class="label">SUBTOTAL</td>
-                    <td class="amount">{subtotal}</td>
-                </tr>
-                <tr>
-                    <td class="label">CREDIT CARD SURCHARGE</td>
-                    <td class="amount">{credit_card_surcharge}</td>
-                </tr>
-                <tr>
-                    <td class="label">SHIPPING & HANDLING</td>
-                    <td class="amount">{shipping_handling}</td>
-                </tr>
-                <tr>
-                    <td class="label total-due-label">TOTAL DUE</td>
-                    <td class="amount total-due-amount">{total_due}</td>
-                </tr>
-            </table>
+        <section class="summary-section">
+            <div class="qr-code">
+                <img src="../images/qr_code_placeholder.png" alt="Scan QR Code to view our latest catalog">
+                <p>Scan QR Code<br>to view our<br>latest catalog</p>
+            </div>
+            <div class="totals">
+                <table>
+                    <tr>
+                        <td class="label">Subtotal:</td>
+                        <td class="amount">{subtotal}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Shipping Charges:</td>
+                        <td class="amount">{shipping_charges}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Payments Received:</td>
+                        <td class="amount">{payments_received}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Interest Charges on Overdue Invoice:</td>
+                        <td class="amount">{interest_charges}</td>
+                    </tr>
+                    <tr>
+                        <td class="label total-due-label">Total Amount Due:</td>
+                        <td class="amount total-due-amount">{total_amount_due}</td>
+                    </tr>
+                </table>
+            </div>
         </section>
-
-        <footer>
-            <p>THANK YOU FOR YOUR BUSINESS!</p>
-        </footer>
     </div>
 </body>
 </html>
