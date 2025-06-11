@@ -10,8 +10,7 @@ export const fetchCategoryData = async (): Promise<ProductGroup[]> => {
     // Use the correct table name (with underscores)
     const { data, error } = await supabase
       .from('treeview_datasource')
-      .select('*')
-      .order('display_order');
+      .select('*');
 
     if (error) {
       console.error('Error fetching category data:', error);
@@ -32,13 +31,22 @@ export const fetchCategoryData = async (): Promise<ProductGroup[]> => {
 };
 
 // Helper function to build the full tree structure with subcategories
-// Uses the data from the tree_view_data_source table
+// Uses the data from the treeview_datasource table
 export const buildCategoryTree = (rawData: any[]): ProductGroup[] => {
   const tree: ProductGroup[] = [];
   const mainGroups = new Map<string, ProductGroup>();
 
+  // Sort rawData by prdmaincat and prdsubcat
+  const sortedRawData = [...rawData].sort((a, b) => {
+    const mainCatCompare = a.prdmaincat.localeCompare(b.prdmaincat);
+    if (mainCatCompare !== 0) {
+      return mainCatCompare;
+    }
+    return (a.prdsubcat || '').localeCompare(b.prdsubcat || '');
+  });
+
   // Process main groups (level 1)
-  rawData?.forEach(row => {
+  sortedRawData?.forEach(row => { // Use sortedRawData here
     if (row.is_main_category && !mainGroups.has(row.category_code)) {
       const group: ProductGroup = {
         id: `main_${row.category_code}`,
@@ -55,7 +63,7 @@ export const buildCategoryTree = (rawData: any[]): ProductGroup[] => {
   });
 
   // Process sub groups (level 2)
-  rawData?.forEach(row => {
+  sortedRawData?.forEach(row => { // Use sortedRawData here
     if (!row.is_main_category && row.parent_category_code) {
       const mainGroup = mainGroups.get(row.parent_category_code);
       if (mainGroup) {
