@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
 interface AccountInfo {
   account_number: number;
@@ -10,13 +11,14 @@ interface AccountInfo {
   state: string;
   zip: string;
   phone: string;
-  email?: string;
-  sms_number?: string;
+  email_address: string | null;
+  mobile_phone: string | null;
   is_dirty: boolean;
 }
 
 const CustomerAccountPage: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate(); // Initialize useNavigate
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,7 +56,7 @@ const CustomerAccountPage: React.FC = () => {
   };
 
   const handleSendTestSMS = async () => {
-    if (!accountInfo?.sms_number) {
+    if (!accountInfo?.mobile_phone) {
       setMessage({type: 'error', text: 'Please set your SMS number first'});
       return;
     }
@@ -65,7 +67,7 @@ const CustomerAccountPage: React.FC = () => {
         body: {
           accountNumber: user?.accountNumber,
           accountName: user?.acctName,
-          smsNumber: accountInfo.sms_number,
+          smsNumber: accountInfo.mobile_phone,
           message: `Hello ${user?.acctName}! This is a test message from MusicSupplies.com. Your account ${user?.accountNumber} is set up to receive order notifications.`
         }
       });
@@ -139,14 +141,14 @@ const CustomerAccountPage: React.FC = () => {
         return;
       }
 
-      // Update password in logon_lcmd table
+      // Update password in accounts_lcmd table (NOT logon_lcmd)
       const { error: updateError } = await supabase
-        .from('logon_lcmd')
-        .upsert({
-          account_number: user.accountNumber,
+        .from('accounts_lcmd')
+        .update({
           password: newPassword,
-          created_at: new Date().toISOString()
-        });
+          updated_at: new Date().toISOString()
+        })
+        .eq('account_number', user.accountNumber);
 
       if (updateError) {
         console.error('Error updating password:', updateError);
@@ -170,7 +172,7 @@ const CustomerAccountPage: React.FC = () => {
     }
   };
 
-  const AccountInfoForm: React.FC = () => {
+  const AccountInfoForm: React.FC<{ navigate: (path: string) => void }> = ({ navigate }) => {
     const [formData, setFormData] = useState<AccountInfo | null>(accountInfo);
 
     useEffect(() => {
@@ -191,8 +193,8 @@ const CustomerAccountPage: React.FC = () => {
       formData.state !== accountInfo.state ||
       formData.zip !== accountInfo.zip ||
       formData.phone !== accountInfo.phone ||
-      formData.email !== accountInfo.email ||
-      formData.sms_number !== accountInfo.sms_number
+      formData.email_address !== accountInfo.email_address ||
+      formData.mobile_phone !== accountInfo.mobile_phone
     );
 
     return (
@@ -290,8 +292,8 @@ const CustomerAccountPage: React.FC = () => {
             </label>
             <input
               type="email"
-              value={formData.email || ''}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              value={formData.email_address || ''}
+              onChange={(e) => setFormData({...formData, email_address: e.target.value})}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               placeholder="contact@company.com"
             />
@@ -304,12 +306,12 @@ const CustomerAccountPage: React.FC = () => {
             <div className="flex space-x-2">
               <input
                 type="tel"
-                value={formData.sms_number || ''}
-                onChange={(e) => setFormData({...formData, sms_number: e.target.value})}
+                value={formData.mobile_phone || ''}
+                onChange={(e) => setFormData({...formData, mobile_phone: e.target.value})}
                 className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
                 placeholder="+1234567890"
               />
-              {formData.sms_number && (
+              {formData.mobile_phone && (
                 <button
                   type="button"
                   onClick={handleSendTestSMS}
@@ -335,6 +337,16 @@ const CustomerAccountPage: React.FC = () => {
             Change Password
           </button>
           
+          <button
+            type="button"
+            onClick={() => {
+              setFormData(accountInfo); // Revert changes
+              navigate('/dashboard'); // Navigate back to dashboard
+            }}
+            className="px-6 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+          >
+            Cancel
+          </button>
           <button
             type="submit"
             disabled={!hasChanges || saving}
@@ -506,7 +518,7 @@ const CustomerAccountPage: React.FC = () => {
           </div>
           
           <div className="p-6">
-            {accountInfo ? <AccountInfoForm /> : (
+            {accountInfo ? <AccountInfoForm navigate={navigate} /> : (
               <div className="text-center text-gray-500 py-8">
                 No account information found
               </div>

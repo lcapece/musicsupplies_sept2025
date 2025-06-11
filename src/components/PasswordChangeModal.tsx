@@ -45,26 +45,34 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
       }
 
-      // Direct database update for password and user details
-      const { error: updateError } = await supabase
+      // Direct database update approach
+      const { data, error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
           password: newPassword,
-          email_address: email,
-          mobile_phone: mobilePhone,
+          email_address: email || null,
+          mobile_phone: mobilePhone || null,
           sms_consent: smsConsent && mobilePhone.trim() ? true : false,
-          requires_password_change: false,
-          updated_at: new Date().toISOString()
+          requires_password_change: false
         })
-        .eq('account_number', accountData.accountNumber);
+        .eq('account_number', parseInt(accountData.accountNumber))
+        .select();
 
       if (updateError) {
+        console.error('Update error:', updateError);
         throw updateError;
       }
 
-      onClose(true);
+      console.log('Update successful:', data);
+      setSuccessMessage("Account updated successfully!");
+      
+      // Wait a moment to show success message
+      setTimeout(() => {
+        onClose(true);
+      }, 1000);
 
     } catch (err: any) {
+      console.error('Error updating account:', err);
       setError(err.message || "An error occurred while updating your details.");
     } finally {
       setIsLoading(false);

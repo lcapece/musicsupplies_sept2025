@@ -207,8 +207,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Call the authenticate_user PL/pgSQL function
-      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user', {
+      // Call the authenticate_user_lcmd PL/pgSQL function
+      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_lcmd', {
         p_account_number: accountNumberInt,
         p_password: password
       });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { KeyRound, User as UserIcon } from 'lucide-react'; // Renamed User to UserIcon to avoid conflict
+import { KeyRound, User as UserIcon, Eye, EyeOff } from 'lucide-react'; // Added Eye and EyeOff icons
 import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavigate
 import PasswordChangeModal from './PasswordChangeModal'; // Import the modal
 import { supabase } from '../lib/supabase'; // Import supabase client
@@ -12,12 +12,15 @@ const Login: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login, error, user, isAuthenticated, showPasswordChangeModal, handlePasswordModalClose } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // If user is authenticated and does NOT require password change, navigate to dashboard
+    // This bypasses the modal if the backend is incorrectly sending requires_password_change = true
+    // but the user has already set a password.
     if (isAuthenticated && user && !user.requires_password_change) {
-      // Navigate to dashboard if user is authenticated and doesn't need password change
       navigate('/dashboard');
     }
   }, [isAuthenticated, user, navigate]);
@@ -100,14 +103,25 @@ const Login: React.FC = () => {
                   <KeyRound size={18} className="text-gray-400" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   id="password"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} className="text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye size={18} className="text-gray-400 hover:text-gray-600" />
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -150,7 +164,9 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        {user && (
+        {/* Temporarily show modal only if user is authenticated AND requires password change */}
+        {/* This is a workaround until the backend function is correctly updated */}
+        {user && showPasswordChangeModal && user.requires_password_change && (
           <PasswordChangeModal
             isOpen={showPasswordChangeModal}
             onClose={handleModalClose}

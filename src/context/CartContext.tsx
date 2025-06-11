@@ -67,6 +67,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const fetchIntroPromo = async () => {
+      // TEMPORARILY DISABLED due to CORS errors
+      // Will be fixed when Edge Functions are properly deployed
+      console.log('Introductory promo functionality temporarily disabled');
+      setApplicableIntroPromo(null);
+      
+      // ORIGINAL CODE (commented out until Edge Functions are deployed)
+      /*
       if (user && typeof user.id === 'number') { 
         try {
           console.log(`Fetching intro promo for account ID: ${user.id}`);
@@ -90,6 +97,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setApplicableIntroPromo(null); 
       }
+      */
     };
 
     fetchIntroPromo();
@@ -212,6 +220,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Order saved successfully:', insertedOrder);
 
       if (introPromoUsedInThisOrder && user && typeof user.id === 'number') {
+        // TEMPORARILY DISABLED due to CORS errors
+        console.log('Introductory promo recording temporarily disabled');
+        
+        // ORIGINAL CODE (commented out until Edge Functions are deployed)
+        /*
         try {
           console.log(`Recording intro promo usage for account ID: ${user.id}, order ID: ${insertedOrder.id}`);
           await supabase.functions.invoke('record-intro-promo-usage', {
@@ -227,6 +240,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (promoUsageError) {
           console.error('Error in record-intro-promo-usage call or state refresh:', promoUsageError);
         }
+        */
       } else if (currentDiscountInfo && currentDiscountInfo.type === 'order_based' && maxDiscountRate !== null && maxDiscountRate > 0) {
         // Existing logic for other order_based discounts (non-introductory)
         try {

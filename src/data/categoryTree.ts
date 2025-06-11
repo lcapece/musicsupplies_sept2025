@@ -9,7 +9,7 @@ export const fetchCategoryData = async (): Promise<ProductGroup[]> => {
   try {
     // Use the correct table name (with underscores)
     const { data, error } = await supabase
-      .from('tree_view_data_source')
+      .from('treeview_datasource')
       .select('*')
       .order('display_order');
 

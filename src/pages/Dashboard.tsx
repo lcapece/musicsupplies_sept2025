@@ -49,6 +49,12 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchAndShowPromoPopup = async () => {
+      // TEMPORARILY DISABLED due to CORS errors
+      // Will be fixed when Edge Functions are properly deployed
+      console.log('Promotional offers status functionality temporarily disabled');
+      
+      // ORIGINAL CODE (commented out until Edge Functions are deployed)
+      /*
       if (user && user.accountNumber !== '999' && typeof user.id === 'number') {
         const promoShownKey = `promoPopupShown_session_${user.id}`;
         const alreadyShownThisSession = sessionStorage.getItem(promoShownKey);
@@ -70,6 +76,7 @@ const Dashboard: React.FC = () => {
           }
         }
       }
+      */
     };
     fetchAndShowPromoPopup();
   }, [user]);

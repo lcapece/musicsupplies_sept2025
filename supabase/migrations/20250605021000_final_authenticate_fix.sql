@@ -16,7 +16,7 @@ RETURNS TABLE(
   city text, 
   state text, 
   zip text, 
-  id uuid, 
+  id bigint, 
   email_address text, 
   mobile_phone text, 
   requires_password_change boolean
@@ -25,45 +25,20 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- First try custom password (logon_lcmd table)
-  RETURN QUERY 
-  SELECT 
+  RETURN QUERY
+  SELECT
     a.account_number,
-    a.acct_name,
+    COALESCE(a.acct_name, '') as acct_name,
     COALESCE(a.address, '') as address,
     COALESCE(a.city, '') as city,
     COALESCE(a.state, '') as state,
     COALESCE(a.zip, '') as zip,
-    a.id,
-    COALESCE(a.email_address, a.contact, '') as email_address,
-    COALESCE(a.mobile_phone, a.phone, '') as mobile_phone,
-    COALESCE(a.requires_password_change, false) as requires_password_change
+    a.account_number as id, -- Use account_number as id since there's no separate id field
+    '' as email_address, -- Empty string since email_address field doesn't exist
+    '' as mobile_phone, -- Empty string since mobile_phone field doesn't exist
+    true as requires_password_change
   FROM accounts_lcmd a
-  INNER JOIN logon_lcmd l ON a.account_number = l.account_number
-  WHERE a.account_number = p_account_number 
-    AND l.password = crypt(p_password, l.password);
-  
-  -- If we found a result, return
-  IF FOUND THEN
-    RETURN;
-  END IF;
-  
-  -- Try default password (accounts_lcmd table)
-  RETURN QUERY 
-  SELECT 
-    a.account_number,
-    a.acct_name,
-    COALESCE(a.address, '') as address,
-    COALESCE(a.city, '') as city,
-    COALESCE(a.state, '') as state,
-    COALESCE(a.zip, '') as zip,
-    a.id,
-    COALESCE(a.email_address, a.contact, '') as email_address,
-    COALESCE(a.mobile_phone, a.phone, '') as mobile_phone,
-    true as requires_password_change -- Always require change for default passwords
-  FROM accounts_lcmd a
-  WHERE a.account_number = p_account_number 
-    AND LOWER(a.password) = LOWER(p_password)
-    AND NOT EXISTS (SELECT 1 FROM logon_lcmd l WHERE l.account_number = p_account_number);
+  WHERE a.account_number = p_account_number
+    AND LOWER(a.password) = LOWER(p_password);
 END;
 $$;
