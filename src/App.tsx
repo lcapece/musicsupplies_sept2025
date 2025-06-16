@@ -124,6 +124,9 @@ function AppContent() {
           endDate={activeDiscount.endDate}
         />
       )} */}
+    <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8em', color: '#888' }}>
+      Version 6.16
+    </div>
     </>
   );
 }
