@@ -9,6 +9,7 @@ interface ProductTableProps {
   requestSort: (key: keyof Product) => void;
   sortConfig: { key: keyof Product | null; direction: 'ascending' | 'descending' };
   onRowClick?: (product: Product) => void; // Added onRowClick prop
+  className?: string; // Added className prop
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
@@ -16,7 +17,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
   title = 'Products',
   requestSort,
   sortConfig,
-  onRowClick // Destructure onRowClick
+  onRowClick, // Destructure onRowClick
+  className // Destructure className
 }) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,7 +75,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className={`bg-white rounded-lg shadow overflow-hidden ${className || ''}`}>
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
       </div>

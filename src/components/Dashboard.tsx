@@ -305,55 +305,57 @@ const Dashboard: React.FC = () => {
                 </div>
                 
                 <div className="col-span-12 lg:col-span-9">
-                  <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700">
-                    {(() => {
-                      const path = [];
-                      if (selectedMainCategoryName) path.push(selectedMainCategoryName);
-                      if (selectedSubCategoryName) path.push(selectedSubCategoryName);
+                  <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 mb-2 sm:mb-0">
+                      {(() => {
+                        const path = [];
+                        if (selectedMainCategoryName) path.push(selectedMainCategoryName);
+                        if (selectedSubCategoryName) path.push(selectedSubCategoryName);
 
-                      if (path.length > 0) {
-                        return `Current Path: ${path.join(' > ')}`;
-                      }
-                      if (searchTerms.primary || searchTerms.additional || searchTerms.exclude) {
-                        return `Search results for: "${searchTerms.primary}${searchTerms.additional ? ' + ' + searchTerms.additional : ''}${searchTerms.exclude ? ' - ' + searchTerms.exclude : ''}"`;
-                      }
-                      return "Showing all product groups";
-                    })()}
-                  </div>
-
-                  {/* Toggles Container */}
-                  <div className="mb-4 flex items-center space-x-6">
-                    {/* Toggle for Show Images & Specs */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showImageAndSpecs"
-                        checked={showImageAndSpecs}
-                        onChange={(e) => {
-                          setShowImageAndSpecs(e.target.checked);
-                          if (!e.target.checked) {
-                            setSelectedProductForImage(null); // Clear selection when hiding
-                          }
-                        }}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="showImageAndSpecs" className="ml-2 block text-sm text-gray-900">
-                        Show Images & Specs
-                      </label>
+                        if (path.length > 0) {
+                          return `Current Path: ${path.join(' > ')}`;
+                        }
+                        if (searchTerms.primary || searchTerms.additional || searchTerms.exclude) {
+                          return `Search results for: "${searchTerms.primary}${searchTerms.additional ? ' + ' + searchTerms.additional : ''}${searchTerms.exclude ? ' - ' + searchTerms.exclude : ''}"`;
+                        }
+                        return "Showing all product groups";
+                      })()}
                     </div>
 
-                    {/* Toggle for Show In-Stock Items Only */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="inStockOnly"
-                        checked={inStockOnly}
-                        onChange={(e) => setInStockOnly(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="inStockOnly" className="ml-2 block text-sm text-gray-900">
-                        Show In-Stock Items Only
-                      </label>
+                    {/* Toggles Container */}
+                    <div className="flex items-center space-x-6">
+                      {/* Toggle for Show Images & Specs */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="showImageAndSpecs"
+                          checked={showImageAndSpecs}
+                          onChange={(e) => {
+                            setShowImageAndSpecs(e.target.checked);
+                            if (!e.target.checked) {
+                              setSelectedProductForImage(null); // Clear selection when hiding
+                            }
+                          }}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="showImageAndSpecs" className="ml-2 block text-sm text-gray-900">
+                          Show Images & Specs
+                        </label>
+                      </div>
+
+                      {/* Toggle for Show In-Stock Items Only */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="inStockOnly"
+                          checked={inStockOnly}
+                          onChange={(e) => setInStockOnly(e.target.checked)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="inStockOnly" className="ml-2 block text-sm text-gray-900">
+                          Show In-Stock Items Only
+                        </label>
+                      </div>
                     </div>
                   </div>
 
@@ -367,47 +369,48 @@ const Dashboard: React.FC = () => {
                     </div>
                   ) : (
                     // Product Table and Image/Specs Area
-                    <div className={`flex flex-col ${showImageAndSpecs ? 'lg:flex-row' : ''} gap-6`}>
-                      <div className={`${showImageAndSpecs ? 'lg:w-2/3' : 'w-full'}`}>
+                    <div>
                         <ProductTable 
                           products={sortedProducts}
                           requestSort={requestSort}
                           sortConfig={sortConfig}
                           title={searchQuery ? `Search Results for "${searchQuery}"` : (selectedMainCategoryName || 'Products')}
                           onRowClick={(product) => setSelectedProductForImage(product)} // Handle row click
+                          className="block w-full" {/* Added className directly to ProductTable */}
                         />
-                      </div>
-                      {showImageAndSpecs && selectedProductForImage && (
-                        <div className="lg:w-1/3 bg-white p-4 rounded-lg shadow">
-                          <h3 className="text-lg font-semibold mb-2">
-                            {selectedProductForImage.partnumber} - Image & Specs
-                          </h3>
-                          <div className="mb-4 flex justify-center">
-                            <img 
-                              src={currentImageUrl} // Use state for image URL
-                              alt={selectedProductForImage.description || selectedProductForImage.partnumber}
-                              className="max-h-[550px] w-auto object-contain rounded border"
-                              // onError is less critical now as pre-loading sets placeholder
-                            />
-                          </div>
-                          <div>
-                            <h4 className="font-medium mb-1">Specifications:</h4>
-                            <p className="text-sm text-gray-600 mb-2">{selectedProductForImage.description}</p>
-                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                              <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
-                              <li>List Price: ${selectedProductForImage.webmsrp ?? 'N/A'}</li>
-                              <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>
-                            </ul>
-                            
-                            <div className="mt-3">
-                              <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription || 'No additional description available' }} />
+                      {showImageAndSpecs && (
+                        <div className="block w-full mt-6 bg-white p-4 rounded-lg shadow">
+                          {selectedProductForImage ? (
+                            <>
+                              <h3 className="text-lg font-semibold mb-2">
+                                {selectedProductForImage.partnumber} - Image & Specs
+                              </h3>
+                              <div className="mb-4 flex justify-center">
+                                <img 
+                                  src={currentImageUrl} // Use state for image URL
+                                  alt={selectedProductForImage.description || selectedProductForImage.partnumber}
+                                  className="max-h-[550px] w-auto object-contain rounded border"
+                                />
+                              </div>
+                              <div>
+                                <h4 className="font-medium mb-1">Specifications:</h4>
+                                <p className="text-sm text-gray-600 mb-2">{selectedProductForImage.description}</p>
+                                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                  <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
+                                  <li>List Price: ${selectedProductForImage.webmsrp ?? 'N/A'}</li>
+                                  <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>
+                                </ul>
+                                
+                                <div className="mt-3">
+                                  <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription || 'No additional description available' }} />
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center justify-center py-8">
+                              <p className="text-gray-500">Select a product to view its image and specs.</p>
                             </div>
-                          </div>
-                        </div>
-                      )}
-                       {showImageAndSpecs && !selectedProductForImage && (
-                        <div className="lg:w-1/3 bg-white p-4 rounded-lg shadow flex items-center justify-center">
-                          <p className="text-gray-500">Select a product to view its image and specs.</p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -443,3 +446,147 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+
+</file_content>
+
+Now that you have the latest state of the file, try the operation again with fewer, more precise SEARCH blocks. For large files especially, it may be prudent to try to limit yourself to <5 SEARCH/REPLACE blocks at a time, then wait for the user to respond with the result of the operation before following up with another replace_in_file call to make additional edits.
+(If you run into this error 3 times in a row, you may use the write_to_file tool as a fallback.)
+</error><environment_details>
+# VSCode Visible Files
+../../VSCode/src/components/ShoppingCart.tsx
+../../VSCode/src/components/ShoppingCart.tsx
+src/components/Dashboard.tsx
+
+# VSCode Open Tabs
+supabase/migrations/20250517181000_add_test_accounts.sql
+src/invoices/invoice.css
+src/pages/OrderHistory.tsx
+supabase/migrations/20250517181100_create_production_ordhist.sql
+supabase/migrations/20250517184100_add_test_orders.sql
+src/invoices/invoice.html
+supabase/migrations/20250611080834_add_introductory_promo.sql
+src/components/admin/DiscountManagementTab.tsx
+supabase/functions/assign-introductory-promo-to-account/index.ts
+supabase/functions/_shared/cors.ts
+supabase/functions/get-applicable-intro-promo/index.ts
+supabase/functions/record-intro-promo-usage/index.ts
+src/components/ShoppingCart.tsx
+supabase/migrations/20250611084754_ensure_web_orders_table.sql
+supabase/functions/get-promotional-offers-status/index.ts
+src/components/PromotionalPopupModal.tsx
+supabase/migrations/20250605080500_consolidate_accounts_password_logic.sql
+supabase/migrations/20250610132000_create_login_activity_log_table.sql
+src/context/AuthContext.tsx
+supabase/migrations/20250605021000_final_authenticate_fix.sql
+fix_login_now.sql
+fix_password_modal_now.sql
+src/components/PasswordChangeModal.tsx
+src/context/CartContext.tsx
+src/pages/Dashboard.tsx
+supabase/migrations/20250611103000_fix_authenticate_function_final.sql
+src/components/Login.tsx
+src/pages/CustomerAccountPage.tsx
+supabase/migrations/20250611_add_is_dirty_to_accounts_lcmd.sql
+supabase/migrations/20250611_add_rls_to_treeview_datasource.sql
+supabase/migrations/20250610124500_create_treeview_view.sql
+src/data/categoryTree.ts
+src/components/ProductTable.tsx
+src/components/Dashboard.tsx
+src/components/ProductImportModal.tsx
+supabase/functions/import-products-from-dropbox/index.ts
+src/pages/WebOrdersDisplay.tsx
+src/pages/AdminAccountApplicationsPage.tsx
+src/components/ActiveDiscountDisplayModal.tsx
+src/pages/PrivacyPolicyPage.tsx
+src/pages/EmailCommunicationsPage.tsx
+src/pages/SmsCommunicationsPage.tsx
+node_modules/.bin/music_supplies_logo.png
+node_modules/favicon.png
+public/favicon.png
+index.html
+src/images/coming-soon.png
+src/components/SearchBar.tsx
+supabase/migrations/20250530181600_fix_account_101_data.sql
+supabase/config.toml
+.env
+supabase/functions/send-sms-verification/index.ts
+supabase/migrations/20250605095500_create_unresolved_issues_table.sql
+src/components/admin/UnresolvedIssuesTab.tsx
+supabase/functions/send-test-sms/index.ts
+supabase/migrations/20250610115000_update_webmsrp_display.sql
+src/types/index.ts
+supabase/migrations/20250610121500_create_tree_view_data_source.sql
+src/components/admin/CategoryManagementTab.tsx
+supabase/migrations/20250610125000_fix_treeview_table_access.sql
+src/utils/applyMigration.ts
+src/components/admin/GeneralSettingsTab.tsx
+supabase/migrations/20250610131000_remove_special_account_password_rules.sql
+supabase/migrations/20250610131500_drop_authenticate_user_lcmd_function.sql
+src/components/admin/HistoryTab.tsx
+src/pages/AdminDashboard.tsx
+src/components/CategoryTree.tsx
+src/utils/iconGenerator.ts
+src/components/admin/ManageTreeviewTab.tsx
+src/components/admin/ClickSendTab.tsx
+src/components/admin/SmsNotificationTab.tsx
+src/components/admin/AccountApplicationsTab.tsx
+src/pages/NewAccountApplicationPage.tsx
+src/lib/errorReporting.ts
+src/main.tsx
+src/components/ErrorBoundary.tsx
+src/App.tsx
+supabase/migrations/20250603100000_fix_default_password_logic.sql
+IMPORTANT_SUPABASE_CONFIG.md
+src/components/admin/ProductGroupManagementTab.tsx
+supabase/migrations/20250603140000_update_products_to_two_level_structure.sql
+supabase/migrations/20250603143000_fix_requires_password_change_null.sql
+supabase/migrations/20250603145000_drop_old_authenticate_function.sql
+supabase/migrations/20250603151000_fix_missing_rls_policies.sql
+supabase/migrations/20250603152000_fix_rls_policies_for_custom_auth.sql
+src/components/admin/AccountsTab.tsx
+src/components/admin/MissingSubgroupsTab.tsx
+supabase/migrations/20250604120000_add_order_based_discounts.sql
+src/components/DiscountFormModal.tsx
+supabase/migrations/20250604130000_insert_first_orders_promo.sql
+src/components/admin/ProductManagementTab.tsx
+src/components/admin/ProductsTab.tsx
+../../Users/ryanh/AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+supabase/migrations/20250605014900_fix_zip_code_password_logic.sql
+supabase/migrations/20250605020000_fix_authenticate_function_parameter_type.sql
+src/components/admin/IconGenerationTab.tsx
+src/components/OrderConfirmationModal.tsx
+CLICKSEND_SMS_SETUP.md
+supabase/migrations/20250530174500_create_logon_lcmd_table.sql
+test_accounts.md
+netlify.toml
+Dockerfile
+nginx.conf
+DEPLOYMENT.md
+deploy.sh
+deploy.bat
+fix_login_manual.sql
+supabase/migrations/20250601061500_create_sms_verification_table.sql
+supabase/functions/verify-sms-code/index.ts
+SMS_VERIFICATION_SETUP.md
+supabase/migrations/20250602154000_add_account_115.sql
+supabase/migrations/20250602154500_add_password_hashing.sql
+src/components/admin/SystemAnalyticsTab.tsx
+src/components/admin/OrderManagementTab.tsx
+src/components/admin/AccountManagementTab.tsx
+supabase/migrations/20250602155000_add_admin_account.sql
+src/components/admin/OrderHistoryTab.tsx
+supabase/migrations/20250602160000_create_admin_backend.sql
+src/components/admin/ManagementTab.tsx
+src/components/Header.tsx
+src/components/admin/DataSyncTab.tsx
+supabase/functions/send-order-sms/index.ts
+
+# Current Time
+6/14/2025, 3:42:00 PM (America/New_York, UTC-4:00)
+
+# Context Window Usage
+163,992 / 1,048.576K tokens used (16%)
+
+# Current Mode
+ACT MODE
+</environment_details>
