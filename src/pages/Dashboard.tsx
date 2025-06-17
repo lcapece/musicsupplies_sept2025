@@ -270,13 +270,16 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       console.log('Fetching products for:', { selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly });
+      console.log('Category filters being applied:', { mainCategory: selectedMainCategory, subCategory: selectedSubCategory }); // Added for debugging
       let query = supabase.from('products_supabase').select('*');
 
-      if (selectedMainCategory) {
-        query = query.eq('prdmaincat', selectedMainCategory);
-      }
-      if (selectedSubCategory) {
-        query = query.eq('prdsubcat', selectedSubCategory);
+      // Re-enabling filters after fixing category mapping
+      // Construct filter string manually to ensure exact matching
+      if (selectedMainCategory && selectedSubCategory) {
+        query = query.filter('prdmaincat', 'ilike', selectedMainCategory)
+                     .filter('prdsubcat', 'eq', selectedSubCategory);
+      } else if (selectedMainCategory) {
+        query = query.filter('prdmaincat', 'ilike', selectedMainCategory);
       }
 
       // Filter out test products
@@ -311,6 +314,8 @@ const Dashboard: React.FC = () => {
       console.log('Fetched raw product data:', data);
 
       setProducts(data || []);
+      console.log('Products state after setProducts:', data); // Added for debugging
+      console.log('Products state after setProducts:', data); // Added for debugging
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -329,17 +334,17 @@ const Dashboard: React.FC = () => {
       const { namePath, isMainCategory, parentCategoryCode } = selection;
       
       if (isMainCategory) {
-        setSelectedMainCategory(selection.id); // The main category's code
+        setSelectedMainCategory(namePath[0]); // Use the name for main category
         setSelectedSubCategory(undefined);
         setSelectedMainCategoryName(namePath[0]);
         setSelectedSubCategoryName(undefined);
       } else { // It's a subcategory
-        setSelectedMainCategory(parentCategoryCode || undefined); // This is the prdmaincat value
+        setSelectedMainCategory(namePath[0]); // Use the name for main category
         // For selectedSubCategory, we need the actual prdsubcat value, which is the subcategory's name.
         // namePath[1] should be the subcategory name.
-        setSelectedSubCategory(namePath[1]); 
-        setSelectedMainCategoryName(namePath[0]); 
-        setSelectedSubCategoryName(namePath[1]); 
+        setSelectedSubCategory(namePath[1]);
+        setSelectedMainCategoryName(namePath[0]);
+        setSelectedSubCategoryName(namePath[1]);
       }
     } else {
       // Deselection: clear all category related states

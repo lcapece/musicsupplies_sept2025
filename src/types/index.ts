@@ -12,8 +12,8 @@ export interface Product {
   price: number | null;
   inventory: number | null;
   image?: string; // Add optional image property
-  prdmaingrp?: string; // Product main group (level 1)
-  prdsubgrp?: string; // Product sub group (level 2)
+  prdmaincat?: string; // Product main category (level 1)
+  prdsubcat?: string; // Product sub category (level 2)
   webmsrp?: number | null; // List price (corrected spelling)
   longdescription?: string; // Long description that may contain HTML
 }
