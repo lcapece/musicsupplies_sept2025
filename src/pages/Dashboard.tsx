@@ -6,7 +6,7 @@ import SearchBar from '../components/SearchBar';
 import Header from '../components/Header';
 import OrderHistory from './OrderHistory';
 import WebOrdersDisplay from './WebOrdersDisplay';
-import { Product, User as AuthUser } from '../types'; // Assuming User type is exported from types
+import { Product, User as AuthUser, RtExtended } from '../types'; // Assuming User type is exported from types
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import ImageComingSoon from '../images/coming-soon.png';
@@ -26,6 +26,7 @@ const Dashboard: React.FC = () => {
   const [inStockOnly, setInStockOnly] = useState(false);
   const [showImageAndSpecs, setShowImageAndSpecs] = useState(true); // Changed to true for default checked
   const [selectedProductForImage, setSelectedProductForImage] = useState<Product | null>(null);
+  const [rtExtendedData, setRtExtendedData] = useState<RtExtended | null>(null); // New state for rt_extended data
   const [currentImageUrl, setCurrentImageUrl] = useState<string>(ImageComingSoon); // State for the image URL to display
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +83,33 @@ const Dashboard: React.FC = () => {
   }, [user]);
 
   // Effect to load product image with priority logic
+  // Effect to fetch rt_extended data when a product is selected
+  useEffect(() => {
+    const fetchRtExtendedData = async () => {
+      if (selectedProductForImage) {
+        const { data, error } = await supabase
+          .from('rt_extended')
+          .select('*')
+          .eq('partnumber', selectedProductForImage.partnumber)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
+          console.error('Error fetching rt_extended data:', error);
+          setRtExtendedData(null);
+        } else if (data) {
+          setRtExtendedData(data);
+        } else {
+          setRtExtendedData(null);
+        }
+      } else {
+        setRtExtendedData(null);
+      }
+    };
+
+    fetchRtExtendedData();
+  }, [selectedProductForImage]);
+
+  // Effect to load product image with priority logic
   useEffect(() => {
     if (showImageAndSpecs && selectedProductForImage) {
       const partNumberOriginal = selectedProductForImage.partnumber; // Use original case from database
@@ -103,6 +131,32 @@ const Dashboard: React.FC = () => {
       };
 
       const tryLoadImages = async () => {
+        // 1. Check rt_extended for image_name and local src/images folder
+        if (rtExtendedData?.image_name) {
+          const localImageName = rtExtendedData.image_name.toLowerCase();
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif']; // Common image extensions
+
+          for (const ext of imageExtensions) {
+            const localImagePath = `/src/images/${localImageName}${ext}`;
+            // Check if the file exists locally (this is a client-side check, won't actually verify file existence on server)
+            // For a true check, you'd need a server endpoint or to list all images in src/images at build time.
+            // For now, we'll assume if the path is constructed, it might exist.
+            // A more robust solution would involve pre-loading all image names or a server endpoint.
+            // Given the current setup, we'll try to load it and see if it fails.
+            try {
+              const response = await fetch(localImagePath);
+              if (response.ok) {
+                setCurrentImageUrl(localImagePath);
+                foundImage = true;
+                return;
+              }
+            } catch (e) {
+              console.warn(`[Dashboard] Local image check failed for ${localImagePath}:`, e);
+            }
+          }
+        }
+
+        // 2. If no local image found, proceed with S3 logic
         const attemptLoadSequence = async (pnBase: string, attemptType: string): Promise<boolean> => {
           // Try suffixed versions with original case of pnBase
           for (const s3Suffix of suffixes) {
@@ -133,7 +187,7 @@ const Dashboard: React.FC = () => {
         };
 
         // --- Main attempt with full original part number ---
-        if (await attemptLoadSequence(partNumberOriginal, "original")) {
+        if (!foundImage && await attemptLoadSequence(partNumberOriginal, "original")) {
           foundImage = true;
           return;
         }
@@ -142,7 +196,7 @@ const Dashboard: React.FC = () => {
         let currentPnToTry = partNumberOriginal;
         let lastHyphenIndex = currentPnToTry.lastIndexOf('-');
         
-        if (lastHyphenIndex > 0) {
+        if (!foundImage && lastHyphenIndex > 0) {
           currentPnToTry = currentPnToTry.substring(0, lastHyphenIndex);
           console.log(`[Dashboard] Full PN attempts failed. Trying base PN (1st strip): ${currentPnToTry}`);
           if (await attemptLoadSequence(currentPnToTry, "stripped_1")) {
@@ -152,7 +206,7 @@ const Dashboard: React.FC = () => {
 
           // --- Fallback 2: Strip a second suffix (if possible) and retry ---
           lastHyphenIndex = currentPnToTry.lastIndexOf('-');
-          if (lastHyphenIndex > 0) {
+          if (!foundImage && lastHyphenIndex > 0) {
             currentPnToTry = currentPnToTry.substring(0, lastHyphenIndex);
             console.log(`[Dashboard] 1st stripped PN attempts failed. Trying base PN (2nd strip): ${currentPnToTry}`);
             if (await attemptLoadSequence(currentPnToTry, "stripped_2")) {
@@ -179,7 +233,7 @@ const Dashboard: React.FC = () => {
     } else {
       setCurrentImageUrl(ImageComingSoon); // Reset to placeholder if panel is hidden or no product selected
     }
-  }, [selectedProductForImage, showImageAndSpecs]);
+  }, [selectedProductForImage, showImageAndSpecs, rtExtendedData]); // Add rtExtendedData to dependencies
 
   const requestSort = (key: keyof Product) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -434,7 +488,11 @@ const Dashboard: React.FC = () => {
                             </ul>
                             
                             <div className="mt-3">
-                              <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription || 'No additional description available' }} />
+                              {rtExtendedData?.ext_descr ? (
+                                <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: rtExtendedData.ext_descr }} />
+                              ) : (
+                                <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription || 'No additional description available' }} />
+                              )}
                             </div>
                           </div>
                         </div>

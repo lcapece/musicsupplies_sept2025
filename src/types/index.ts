@@ -64,3 +64,9 @@ export interface OrderConfirmationDetails {
   items: CartItem[];
   total: number;
 }
+
+export interface RtExtended {
+  partnumber: string;
+  ext_descr?: string;
+  image_name?: string;
+}

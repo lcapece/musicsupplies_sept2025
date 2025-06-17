@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import SmsConsentModal from './SmsConsentModal';
 
 interface PasswordChangeModalProps {
   isOpen: boolean;
@@ -17,10 +18,12 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showSmsConsentModal, setShowSmsConsentModal] = useState(false);
   const { user, fetchUserAccount } = useAuth();
 
   useEffect(() => {
     if (accountData) {
+      console.log("PasswordChangeModal received accountData:", accountData);
       setEmail(accountData.email_address || accountData.email || '');
       setMobilePhone(accountData.mobile_phone || '');
     }
@@ -52,7 +55,8 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
           password: newPassword,
           email_address: email || null,
           mobile_phone: mobilePhone || null,
-          sms_consent: smsConsent && mobilePhone.trim() ? true : false,
+          sms_consent_given: smsConsent && mobilePhone.trim() ? true : false,
+          sms_consent_date: smsConsent && mobilePhone.trim() ? new Date().toISOString() : null,
           requires_password_change: false
         })
         .eq('account_number', parseInt(accountData.accountNumber))
@@ -66,16 +70,40 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       console.log('Update successful:', data);
       setSuccessMessage("Account updated successfully!");
       
-      // Wait a moment to show success message
-      setTimeout(() => {
-        onClose(true);
-      }, 1000);
+      if (accountData.requires_password_change) {
+        setShowSmsConsentModal(true);
+      } else {
+        // Wait a moment to show success message
+        setTimeout(() => {
+          onClose(true);
+        }, 1000);
+      }
 
     } catch (err: any) {
       console.error('Error updating account:', err);
       setError(err.message || "An error occurred while updating your details.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSmsConsent = async (consented: boolean) => {
+    try {
+      await supabase
+        .from('accounts_lcmd')
+        .update({
+          sms_consent_given: consented,
+          sms_consent_date: consented ? new Date().toISOString() : null,
+        })
+        .eq('account_number', parseInt(accountData.accountNumber));
+      
+      // Refresh user account data to reflect changes
+      await fetchUserAccount();
+      onClose(true); // Close the password change modal after SMS consent is handled
+    } catch (error) {
+      console.error('Error updating SMS consent:', error);
+      setError('Failed to update SMS consent.');
+      onClose(false); // Close with failure
     }
   };
 
@@ -188,6 +216,12 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
             </div>
           </form>
       </div>
+
+      <SmsConsentModal
+        isOpen={showSmsConsentModal}
+        onClose={() => setShowSmsConsentModal(false)}
+        onConsent={handleSmsConsent}
+      />
     </div>
   );
 };
