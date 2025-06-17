@@ -43,7 +43,7 @@ export interface User {
   id?: string; // Added id from accounts table
   password?: string; // Added password from accounts table
   requires_password_change?: boolean; // Flag to indicate if user needs to change password
-  sms_consent?: boolean; // SMS consent flag
+  sms_consent_given?: boolean; // SMS consent flag
   sms_consent_date?: string; // Date when SMS consent was given
 }
 

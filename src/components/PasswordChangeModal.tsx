@@ -23,7 +23,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
 
   useEffect(() => {
     if (accountData) {
-      console.log("PasswordChangeModal received accountData:", accountData);
       setEmail(accountData.email_address || accountData.email || '');
       setMobilePhone(accountData.mobile_phone || '');
     }

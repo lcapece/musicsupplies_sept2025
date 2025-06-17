@@ -109,8 +109,6 @@ const ManageTreeviewTab: React.FC = () => {
     is_main_category: node.is_main_category,
     icon_name: node.icon_name,
     children: node.children ? node.children.map(serializeNodeForStorage) : undefined,
-    prdmaincat: node.originalItemData.prdmaincat,
-    prdsubcat: node.originalItemData.prdsubcat,
   });
 
   useEffect(() => {
