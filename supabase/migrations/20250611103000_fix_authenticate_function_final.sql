@@ -45,20 +45,17 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Check if provided password matches stored password (case-insensitive)
-  IF LOWER(v_stored_password) = LOWER(p_password) THEN
+  -- Calculate default password
+  v_default_password := LOWER(SUBSTRING(v_acct_name FROM 1 FOR 1) || SUBSTRING(v_zip FROM 1 FOR 5));
+
+  -- Check if provided password matches default password (case-insensitive)
+  IF LOWER(p_password) = v_default_password THEN
+    v_requires_password_change := TRUE;
+  ELSIF LOWER(v_stored_password) = LOWER(p_password) THEN
     v_requires_password_change := FALSE;
   ELSE
-    -- Calculate default password
-    v_default_password := LOWER(SUBSTRING(v_acct_name FROM 1 FOR 1) || SUBSTRING(v_zip FROM 1 FOR 5));
-    
-    -- Check if provided password matches default password (case-insensitive)
-    IF LOWER(p_password) = v_default_password THEN
-      v_requires_password_change := TRUE;
-    ELSE
-      -- If neither matches, authentication fails
-      RETURN;
-    END IF;
+    -- If neither matches, authentication fails
+    RETURN;
   END IF;
 
   -- Return the authenticated user data

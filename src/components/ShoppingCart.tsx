@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { ShoppingCart as CartIcon, X, Minus, Plus, CreditCard, Trash2 } from 'lucide-react'; // Added Trash2
-// import OrderConfirmationModal from './OrderConfirmationModal'; // Reverted
-// import { OrderConfirmationDetails } from '../types'; // Reverted
+import OrderConfirmationModal from './OrderConfirmationModal';
+import { OrderConfirmationDetails } from '../types';
 
 interface ShoppingCartProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string>(''); // Restored
-  // const [orderConfirmationDetails, setOrderConfirmationDetails] = useState<OrderConfirmationDetails | null>(null); // Reverted
+  const [orderConfirmationDetails, setOrderConfirmationDetails] = useState<OrderConfirmationDetails | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'net10'>('net10');
   const { user, maxDiscountRate } = useAuth(); // Use maxDiscountRate
   const [email, setEmail] = useState(user?.email || user?.email_address || '');
@@ -53,10 +53,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
       //   : totalPrice;
 
       // setOrderConfirmationDetails({ // Reverted
-      //   webOrderNumber: newOrderNumber,
-      //   items: [...items], 
-      //   total: currentTotal, 
-      // });
+      setOrderConfirmationDetails({
+        webOrderNumber: newOrderNumber,
+        items: [...items], 
+        total: maxDiscountRate && maxDiscountRate > 0 && items.length > 0 
+          ? totalPrice * (1 - maxDiscountRate) 
+          : totalPrice, 
+      });
       setOrderNumber(newOrderNumber); // Restored
       setOrderPlaced(true); // Restored
 
@@ -236,12 +239,12 @@ Order Confirmation...`; // Truncated
   const displayGrandTotal = totalPrice - displayDiscountAmount;
   const displayDiscountPercentage = effectiveDiscountRate * 100;
 
-  // const handleCloseConfirmationModal = () => { // Reverted
-  //   setOrderConfirmationDetails(null);
-  //   setIsCheckingOut(false);
-  //   // clearCart(); 
-  //   onClose();
-  // };
+  const handleCloseConfirmationModal = () => {
+    setOrderConfirmationDetails(null);
+    setIsCheckingOut(false);
+    clearCart(); 
+    onClose();
+  };
 
   if (!isOpen) return null; // Keep this guard
 
@@ -283,8 +286,8 @@ Order Confirmation...`; // Truncated
                       OK
                     </button>
                   </div>
-                // ) : orderConfirmationDetails ? ( // Reverted
-                //   <OrderConfirmationModal details={orderConfirmationDetails} onClose={handleCloseConfirmationModal} />
+                ) : orderConfirmationDetails ? (
+                  <OrderConfirmationModal orderDetails={orderConfirmationDetails} onClose={handleCloseConfirmationModal} />
                 ) : isCheckingOut ? (
                   <div className="mt-8">
                     <h3 className="text-xl font-semibold text-gray-900 mb-6">Checkout</h3>
@@ -395,8 +398,11 @@ Order Confirmation...`; // Truncated
                                   </div>
                                   <button
                                     type="button"
-                                    onClick={() => removeFromCart(item.partnumber)}
-                                    className="p-1 text-red-500 hover:text-red-700"
+                                    onClick={() => {
+                                      console.log('Attempting to remove item:', item.partnumber);
+                                      removeFromCart(item.partnumber);
+                                    }}
+                                    className="p-2 bg-red-100 text-red-600 hover:bg-red-200 rounded-md"
                                     aria-label="Remove item"
                                   >
                                     <Trash2 size={18} />

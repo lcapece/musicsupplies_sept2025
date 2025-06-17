@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'; // Import supabase client
 import { User } from '../types'; // Import User type
 import logo from '../images/music_supplies_logo.png'; // Import the logo
 import brands from '../images/brands.png'; // Import the brands image
+import building from '../images/buildings.png'; // Import the building image
 
 const Login: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
@@ -57,12 +58,12 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4"> {/* Added px-4 for some padding on very small screens */}
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl"> {/* Changed max-w-md to max-w-2xl */}
-        <div className="text-center mb-8">
-          <img src={logo} alt="Music Supplies Logo" className="mx-auto h-36 w-auto mb-4" /> {/* Increased logo size */}
-          <p className="text-gray-600">
-            MusicSupplies.com is the customer portal for Lou Capece Music Distributors.
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-4xl">
+        <div className="flex justify-start items-center mb-8 space-x-4"> {/* justify-start for left alignment */}
+          <img src={logo} alt="Music Supplies Logo" className="h-48 w-auto" /> {/* h-48 for 100% larger */}
+          <p className="text-gray-600 text-left"> {/* text-left for justification */}
+            Established 1987, wholesale supplier with over 80% of all independent music and online music stores. Personal, dedicated sales professionals want to help independent shops and online retailers thrive.
           </p>
         </div>
 
@@ -73,19 +74,19 @@ const Login: React.FC = () => {
         )}
         
         <form onSubmit={handleSubmit}>
-          <div className="flex justify-center space-x-4 mb-6"> {/* Flex container for inputs */}
-            <div className="w-[35%]"> {/* Account Number Input Field */}
+          <div className="flex justify-center space-x-4 mb-6 items-end"> {/* Added items-end for vertical alignment */}
+            <div className="w-1/4">
               <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 Account Number
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <UserIcon size={18} className="text-gray-400" />
+                  <UserIcon size={16} className="text-gray-400" />
                 </div>
                 <input
                   type="text"
                   id="accountNumber"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="Account Number"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
@@ -94,18 +95,18 @@ const Login: React.FC = () => {
               </div>
             </div>
             
-            <div className="w-[35%]"> {/* Password Input Field */}
+            <div className="w-1/4">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
-              <div className="relative">
+              <div className="relative flex items-center">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <KeyRound size={18} className="text-gray-400" />
+                  <KeyRound size={16} className="text-gray-400" />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   id="password"
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-8 pr-8 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -113,16 +114,27 @@ const Login: React.FC = () => {
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-2 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff size={18} className="text-gray-400 hover:text-gray-600" />
+                    <EyeOff size={16} className="text-gray-400 hover:text-gray-600" />
                   ) : (
-                    <Eye size={18} className="text-gray-400 hover:text-gray-600" />
+                    <Eye size={16} className="text-gray-400 hover:text-gray-600" />
                   )}
                 </button>
               </div>
+            </div>
+
+            {/* Sign In button moved to its own div for alignment */}
+            <div className="flex items-end"> {/* Use flex and items-end to align the button with the bottom of the inputs */}
+              <button
+                type="submit"
+                className="bg-blue-600 text-white py-1.5 px-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
+                disabled={isLoading}
+              >
+                {isLoading ? '...' : 'Sign In'}
+              </button>
             </div>
           </div>
 
@@ -141,7 +153,7 @@ const Login: React.FC = () => {
             </Link>
           </div>
 
-          {/* Brands Section - Replaced multiple images with single brands.png */}
+          {/* Brands Section */}
           <div className="my-8 text-center">
             <p className="text-gray-700 font-semibold mb-4">
               Distributor of Exceptional Brands Including:
@@ -155,13 +167,24 @@ const Login: React.FC = () => {
             </div>
           </div>
           
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
+          {/* Building image and footer links */}
+          <div className="flex mt-2.5"> {/* Added 10px padding (mt-2.5) */}
+            <div className="w-1/2 text-left pr-2"> {/* 50% width, justified left, some right padding */}
+              <img src={building} alt="Lou Capece Music Building" className="max-w-full h-auto" />
+            </div>
+            <div className="w-1/2 text-center text-sm pl-2"> {/* 50% width, text center, some left padding */}
+              <p>&copy; {new Date().getFullYear()} MusicSupplies.com. A subsidiary of Lou Capece Music. All rights reserved.</p>
+              <p>2555 North Jerusalem Road, East Meadow NY 11554</p>
+              <p className="mt-2">
+                System Created by <a href="https://dataautomation.ai" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">dataautomation.ai</a>
+              </p>
+              <div className="mt-2">
+                <Link to="/privacy-policy" className="text-blue-600 hover:underline mx-2">Privacy Policy</Link> | 
+                <Link to="/sms-communications" className="text-blue-600 hover:underline mx-2">SMS Policy</Link> | 
+                <Link to="/email-communications" className="text-blue-600 hover:underline mx-2">Email Policy</Link>
+              </div>
+            </div>
+          </div>
         </form>
 
         {/* Temporarily show modal only if user is authenticated AND requires password change */}

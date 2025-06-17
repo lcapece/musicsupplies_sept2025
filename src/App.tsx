@@ -94,6 +94,7 @@ function AppContent() {
             </ProtectedRoute>
           } 
         />
+         {/* Redirect any unmatched routes to the home page */}
          <Route path="*" element={<Navigate to="/" />} />
       </Routes>
 
@@ -101,7 +102,7 @@ function AppContent() {
       {user && showPasswordChangeModal && (
         <PasswordChangeModal
           isOpen={showPasswordChangeModal}
-          onClose={handlePasswordModalClose} // Corrected name
+          onClose={handlePasswordModalClose}
           accountData={user} 
         />
       )}
@@ -113,17 +114,6 @@ function AppContent() {
           onClose={closeDiscountFormModal}
         />
       )}
-
-      {/* Active Discount Display Modal (existing) - Temporarily removed due to AuthContext changes */}
-      {/* {showActiveDiscountModal && activeDiscount && (
-        <ActiveDiscountDisplayModal
-          isOpen={showActiveDiscountModal}
-          onClose={clearActiveDiscount}
-          message={activeDiscount.message}
-          startDate={activeDiscount.startDate}
-          endDate={activeDiscount.endDate}
-        />
-      )} */}
     <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8em', color: '#888' }}>
         Version 119
     </div>

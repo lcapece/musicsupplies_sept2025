@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "esnext"],
+    "esModuleInterop": true,
+    "strict": true,
+    "allowImportingTsExtensions": true,
+    "types": ["deno_deploy"]
+  },
+  "include": ["**/*.ts"]
+}

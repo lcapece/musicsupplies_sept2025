@@ -39,7 +39,7 @@ ALTER TABLE public.web_orders ENABLE ROW LEVEL SECURITY;
 -- This policy might need adjustment based on how user identity is mapped to account_number.
 CREATE POLICY "Users can view their own web orders"
   ON public.web_orders FOR SELECT
-  USING (auth.uid() IN (SELECT user_id FROM public.accounts WHERE accounts.account_number = web_orders.account_number)); -- Example linkage
+  USING (auth.uid() IN (SELECT account_number FROM public.accounts_lcmd WHERE accounts_lcmd.account_number = web_orders.account_number)); -- Example linkage
 
 -- Allow service roles (e.g., backend functions) to manage all orders.
 CREATE POLICY "Service roles can manage web orders"

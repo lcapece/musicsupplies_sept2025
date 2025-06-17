@@ -8,42 +8,41 @@ const EmailCommunicationsPage: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-4">Email Communications Policy</h1>
         
         <div className="prose prose-lg text-gray-700">
-          <p><strong>Last Updated:</strong> [Date]</p>
+          <p><strong>Last Updated:</strong> June 17, 2025</p>
 
           <h2 className="text-xl font-semibold mt-6 mb-2">1. Introduction</h2>
           <p>
-            This page outlines our policies regarding email communications from [Your Company Name] ("we," "our," or "us"). By providing us with your email address, you may receive emails related to your account, orders, and optionally, promotional content.
+            This page outlines our policies regarding email communications from MusicSupplies.com ("we," "our," or "us"). We only send emails to customers who have opted to receive invoices, alerts, and other system information relevant to their wholesale account.
           </p>
 
           <h2 className="text-xl font-semibold mt-6 mb-2">2. Types of Emails We Send</h2>
-          <p>We may send the following types of emails:</p>
+          <p>We send the following types of emails to customers who have opted to receive them:</p>
           <ul>
-            <li><strong>Transactional Emails:</strong> These are related to your account activity, such as account creation confirmations, password reset emails, order confirmations, shipping notifications, and responses to your inquiries. You cannot opt-out of essential transactional emails as they are necessary for providing our services.</li>
-            <li><strong>Promotional & Marketing Emails:</strong> These include newsletters, special offers, product announcements, and other marketing content. You will only receive these emails if you have opted in.</li>
-            <li><strong>Informational Emails:</strong> These may include updates to our terms of service, privacy policy, or other important notices related to our services.</li>
+            <li><strong>Transactional Emails:</strong> These are related to your account activity, such as account creation confirmations, password reset emails, order confirmations, shipping notifications, and responses to your inquiries.</li>
+            <li><strong>Alerts and System Information:</strong> These include important updates, service announcements, and other system-related notifications relevant to your wholesale account.</li>
+            <li><strong>Invoices:</strong> Electronic invoices for your orders.</li>
           </ul>
+          <p>You can manage your email preferences in your account settings. You cannot opt-out of essential transactional emails as they are necessary for providing our services.</p>
 
-          <h2 className="text-xl font-semibold mt-6 mb-2">3. Opting-In to Promotional Emails</h2>
+          <h2 className="text-xl font-semibold mt-6 mb-2">3. Opting-In to Email Communications</h2>
           <p>
-            You can opt-in to receive promotional and marketing emails by:
+            You can opt-in to receive email communications for invoices, alerts, and system information by:
           </p>
           <ul>
-            <li>Checking the consent box during account registration or at checkout.</li>
-            <li>Subscribing through a form on our website.</li>
-            <li>[Placeholder for other opt-in methods, if any.]</li>
+            <li>Checking the consent box during account registration or in your account settings.</li>
+            <li>Contacting our customer support to update your preferences.</li>
           </ul>
 
-          <h2 className="text-xl font-semibold mt-6 mb-2">4. How to Opt-Out / Unsubscribe from Promotional Emails</h2>
+          <h2 className="text-xl font-semibold mt-6 mb-2">4. How to Manage Your Email Preferences</h2>
           <p>
-            You can opt-out of receiving promotional and marketing emails from us at any time by:
+            You can manage your email preferences at any time by:
           </p>
           <ul>
-            <li>Clicking the "unsubscribe" link typically found at the bottom of any promotional email you receive from us.</li>
-            <li>Updating your email preferences in your account settings page on our website [if applicable, provide link or instructions].</li>
-            <li>Contacting us directly at [Your Support Email] with your request to unsubscribe.</li>
+            <li>Updating your email preferences in your account settings page on our website.</li>
+            <li>Contacting us directly at <a href="mailto:info@loucapecemusic.com" className="text-blue-600 hover:underline">info@loucapecemusic.com</a> with your request to update preferences.</li>
           </ul>
           <p>
-            Please note that even if you opt-out of promotional emails, you may still receive essential transactional and informational emails related to your account and our services.
+            Please note that even if you opt-out of certain communications, you may still receive essential transactional emails related to your account and our services.
           </p>
 
           <h2 className="text-xl font-semibold mt-6 mb-2">5. Email Frequency</h2>
@@ -66,7 +65,11 @@ const EmailCommunicationsPage: React.FC = () => {
 
           <h2 className="text-xl font-semibold mt-6 mb-2">8. Contact Us</h2>
           <p>
-            If you have any questions about our email communications policy, or if you are having trouble unsubscribing, please contact us at [Your Support Email or Link].
+            If you have any questions about our email communications policy, or if you are having trouble unsubscribing, please contact us at:
+          </p>
+          <p>
+            Email: <a href="mailto:info@loucapecemusic.com" className="text-blue-600 hover:underline">info@loucapecemusic.com</a><br />
+            Physical Address: 2555 North Jerusalem Road, East Meadow NY 11554
           </p>
         </div>
 
