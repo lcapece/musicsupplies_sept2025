@@ -269,6 +269,7 @@ const Dashboard: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      console.log('Fetching products for:', { selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly });
       let query = supabase.from('products_supabase').select('*');
 
       if (selectedMainCategory) {
@@ -306,10 +307,8 @@ const Dashboard: React.FC = () => {
         return;
       }
 
-      // Log the first product to see its structure
-      if (data && data.length > 0) {
-        console.log('Sample product data:', data[0]);
-      }
+      // Log the fetched data
+      console.log('Fetched raw product data:', data);
 
       setProducts(data || []);
     } catch (error) {
