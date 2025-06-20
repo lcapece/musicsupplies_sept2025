@@ -511,29 +511,10 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const useAdminTreeConfig = localStorage.getItem('musicSupplies_useTreeViewForNavigation');
-      const shouldUseAdminTree = useAdminTreeConfig ? JSON.parse(useAdminTreeConfig) : false;
-
-      if (shouldUseAdminTree) {
-        const storedTreeData = localStorage.getItem('musicSupplies_siteNavigationTreeData');
-        if (storedTreeData) {
-          const adminTreeNodes: LocalTreeNode[] = JSON.parse(storedTreeData);
-          if (adminTreeNodes && adminTreeNodes.length > 0) {
-            setCategories(transformAdminTreeToProductGroup(adminTreeNodes));
-            console.log('CategoryTree: Loaded data from localStorage (admin-configured)');
-            setLoading(false);
-            return;
-          } else {
-            console.warn('CategoryTree: Admin tree from localStorage is empty or invalid.');
-          }
-        } else {
-          console.warn('CategoryTree: musicSupplies_siteNavigationTreeData not found in localStorage, though use flag is true.');
-        }
-      }
-      
-      // Fallback to original data source
-      console.log('CategoryTree: Falling back to default category data source.');
+      // TEMPORARILY BYPASS localStorage check to force database fetch
+      console.log('CategoryTree: Fetching directly from database (bypassing localStorage)...');
       const data = await fetchCategoryData();
+      console.log('CategoryTree: Fetched data:', data);
       setCategories(data);
     } catch (err) {
       console.error('Error loading categories for CategoryTree:', err);
