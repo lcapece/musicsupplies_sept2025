@@ -519,21 +519,6 @@ const Dashboard: React.FC = () => {
         ) : null}
       </div>
 
-      <footer className="bg-gray-300 text-gray-700 py-6 px-4 sm:px-6 lg:px-8 text-sm">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
-          <div>
-            &copy; {new Date().getFullYear()} Lou Capece Music Distributors
-          </div>
-          <div>
-            <Link to="/sms-communications" className="hover:text-blue-600 hover:underline">
-              SMS Messaging Policy & Disclaimer
-            </Link>
-          </div>
-          <div className="font-semibold">
-            CONFIDENTIAL: Wholesale Only
-          </div>
-        </div>
-      </footer>
       {promoStatusData && (
         <PromotionalPopupModal
           isOpen={showPromoPopup}

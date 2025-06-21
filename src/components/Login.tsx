@@ -45,30 +45,6 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, user, navigate]);
 
-  useEffect(() => {
-    const scaleContent = () => {
-      if (contentRef.current) {
-        const contentWidth = contentRef.current.offsetWidth;
-        const contentHeight = contentRef.current.offsetHeight;
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        const scaleX = viewportWidth / contentWidth;
-        const scaleY = viewportHeight / contentHeight;
-        const scale = Math.min(scaleX, scaleY);
-
-        contentRef.current.style.transform = `scale(${scale})`;
-        contentRef.current.style.transformOrigin = 'center';
-      }
-    };
-
-    scaleContent();
-    window.addEventListener('resize', scaleContent);
-
-    return () => {
-      window.removeEventListener('resize', scaleContent);
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,24 +69,22 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen bg-white flex justify-center">
       <div ref={contentRef} className="bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top Bar */}
-        <div className="text-center pt-8">
-          <p className="text-red-600 text-2xl font-semibold">FOR WHOLESALE ACCOUNTS ONLY</p>
-        </div>
-
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
           {/* Main Content */}
-          <div className="flex flex-col md:flex-row items-center md:items-start mb-8">
+          <div className="flex flex-col md:flex-row items-center md:items-start mb-4">
             {/* Left Column */}
-            <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left mb-8 md:mb-0">
-              <img src={logo} alt="Music Supplies Logo" className="h-48 w-auto mb-6" />
-              <p className="text-gray-600 text-lg">Please call 1(800)321-5584 for help or any questions.</p>
+            <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left mb-4 md:mb-0">
+              <img src={logo} alt="Music Supplies Logo" className="h-32 w-auto mb-4" />
+              <div className="text-left w-full">
+                <p className="text-red-600 text-xl font-semibold">FOR WHOLESALE ACCOUNTS ONLY</p>
+              </div>
+              <p className="text-gray-600 text-base mt-2">Please call 1(800)321-5584 for help or any questions.</p>
             </div>
 
             {/* Right Column */}
-            <div className="w-full md:w-1/2 flex flex-col items-center">
+            <div className="w-full md:w-1/2 flex flex-col items-end">
               <form onSubmit={handleSubmit} className="w-full max-w-sm">
                 {error && (
                   <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -174,12 +148,11 @@ const Login: React.FC = () => {
           </div>
 
           {/* Brands Bar */}
-          <div className="my-12 text-center">
-            <p className="text-gray-700 font-semibold mb-4">Distributor of Exceptional Brands Including:</p>
+          <div className="my-6 text-center">
             <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
               {brandLogos.map((brandLogo, index) => (
                 <div key={index} className="flex justify-center items-center">
-                  <img src={brandLogo} alt={`Brand ${index + 1}`} className="max-h-12" />
+                  <img src={brandLogo} alt={`Brand ${index + 1}`} className="max-h-14" />
                 </div>
               ))}
             </div>

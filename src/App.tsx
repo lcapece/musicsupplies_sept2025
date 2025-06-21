@@ -114,9 +114,6 @@ function AppContent() {
           onClose={closeDiscountFormModal}
         />
       )}
-    <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8em', color: '#888' }}>
-        Version 119
-    </div>
     </>
   );
 }
