@@ -60,10 +60,12 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-4xl">
-        <div className="flex justify-start items-center mb-8 space-x-4"> {/* justify-start for left alignment */}
-          <img src={logo} alt="Music Supplies Logo" className="h-48 w-auto" /> {/* h-48 for 100% larger */}
-          <p className="text-gray-600 text-left"> {/* text-left for justification */}
-            Established 1987, wholesale supplier with over 80% of all independent music and online music stores. Personal, dedicated sales professionals want to help independent shops and online retailers thrive.
+        <div className="flex flex-col md:flex-row justify-start items-center mb-8 space-y-4 md:space-y-0 md:space-x-4">
+          <img src={logo} alt="Music Supplies Logo" className="h-32 md:h-48 w-auto" />
+          <p className="text-gray-600 text-center md:text-left">
+            Lou Capece Music Distributors, founded in 1987, has been proudly supporting independent music shops for nearly four decades. Despite the rise of Amazon, the national chains, and massive online retailers, you can still find a local music store in nearly every small city's downtown or Main Street—and we're part of the reason why. Trusted by over 2,000 independent brick-and-mortar and online musical instrument retailers in the USA. 
+
+With over 10 exclusive brands, including Cordovox, New York Pro, and Stadium, we provide dependable, low cost wholesale distribution and 100% personalized service. Our dedicated sales team works hand-in-hand with shop owners to help them stay competitive, well-stocked, and thriving in a challenging retail landscape.
           </p>
         </div>
 
@@ -74,8 +76,8 @@ const Login: React.FC = () => {
         )}
         
         <form onSubmit={handleSubmit}>
-          <div className="flex justify-center space-x-4 mb-6 items-end"> {/* Added items-end for vertical alignment */}
-            <div className="w-1/4">
+          <div className="flex flex-col md:flex-row justify-center md:space-x-4 mb-6 md:items-end">
+            <div className="w-full md:w-1/4 mb-4 md:mb-0">
               <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 Account Number
               </label>
@@ -95,7 +97,7 @@ const Login: React.FC = () => {
               </div>
             </div>
             
-            <div className="w-1/4">
+            <div className="w-full md:w-1/4 mb-4 md:mb-0">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
@@ -126,11 +128,10 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Sign In button moved to its own div for alignment */}
-            <div className="flex items-end"> {/* Use flex and items-end to align the button with the bottom of the inputs */}
+            <div className="w-full md:w-auto">
               <button
                 type="submit"
-                className="bg-blue-600 text-white py-1.5 px-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
+                className="w-full md:w-auto bg-blue-600 text-white py-1.5 px-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
                 disabled={isLoading}
               >
                 {isLoading ? '...' : 'Sign In'}
@@ -168,11 +169,11 @@ const Login: React.FC = () => {
           </div>
           
           {/* Building image and footer links */}
-          <div className="flex mt-2.5"> {/* Added 10px padding (mt-2.5) */}
-            <div className="w-1/2 text-left pr-2"> {/* 50% width, justified left, some right padding */}
-              <img src={building} alt="Lou Capece Music Building" className="max-w-full h-auto" />
+          <div className="flex flex-col md:flex-row mt-2.5">
+            <div className="w-full md:w-1/2 text-center md:text-left mb-4 md:mb-0 md:pr-2">
+              <img src={building} alt="Lou Capece Music Building" className="max-w-full h-auto mx-auto md:mx-0" />
             </div>
-            <div className="w-1/2 text-center text-sm pl-2"> {/* 50% width, text center, some left padding */}
+            <div className="w-full md:w-1/2 text-center text-sm md:pl-2">
               <p>&copy; {new Date().getFullYear()} MusicSupplies.com. A subsidiary of Lou Capece Music. All rights reserved.</p>
               <p>2555 North Jerusalem Road, East Meadow NY 11554</p>
               <p className="mt-2">
