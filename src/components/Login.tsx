@@ -5,8 +5,30 @@ import { Link, useNavigate } from 'react-router-dom';
 import PasswordChangeModal from './PasswordChangeModal';
 import { User } from '../types';
 import logo from '../images/music_supplies_logo.png';
-import brands from '../images/brands.png';
 import building from '../images/buildings.png';
+
+// Import all brand logos
+import logo1 from '../images/logo_1.png';
+import logo2 from '../images/logo_2.png';
+import logo3 from '../images/logo_3.png';
+import logo4 from '../images/logo_4.png';
+import logo5 from '../images/logo_5.png';
+import logo6 from '../images/logo_6.png';
+import logo7 from '../images/logo_7.png';
+import logo8 from '../images/logo_8.png';
+import logo9 from '../images/logo_9.png';
+import logo10 from '../images/logo_10.png';
+import logo11 from '../images/logo_11.png';
+import logo12 from '../images/logo_12.png';
+import logo13 from '../images/logo_13.png';
+import logo14 from '../images/logo_14.png';
+import logo15 from '../images/logo_15.png';
+import logo16 from '../images/logo_16.png';
+
+const brandLogos = [
+  logo1, logo2, logo3, logo4, logo5, logo6, logo7, logo8,
+  logo9, logo10, logo11, logo12, logo13, logo14, logo15, logo16
+];
 
 const Login: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
@@ -36,7 +58,7 @@ const Login: React.FC = () => {
         const scale = Math.min(scaleX, scaleY);
 
         contentRef.current.style.transform = `scale(${scale})`;
-        contentRef.current.style.transformOrigin = 'top left';
+        contentRef.current.style.transformOrigin = 'center';
       }
     };
 
@@ -73,11 +95,11 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div ref={contentRef} className="bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Top Bar */}
-          <div className="text-center mb-8">
-            <p className="text-red-600 text-2xl font-semibold">FOR WHOLESALE ACCOUNTS ONLY</p>
-          </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Top Bar */}
+        <div className="text-center pt-8">
+          <p className="text-red-600 text-2xl font-semibold">FOR WHOLESALE ACCOUNTS ONLY</p>
+        </div>
 
           {/* Main Content */}
           <div className="flex flex-col md:flex-row items-center md:items-start mb-8">
@@ -154,7 +176,13 @@ const Login: React.FC = () => {
           {/* Brands Bar */}
           <div className="my-12 text-center">
             <p className="text-gray-700 font-semibold mb-4">Distributor of Exceptional Brands Including:</p>
-            <img src={brands} alt="Music Supplies Brands" className="max-w-full h-auto mx-auto" />
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+              {brandLogos.map((brandLogo, index) => (
+                <div key={index} className="flex justify-center items-center">
+                  <img src={brandLogo} alt={`Brand ${index + 1}`} className="max-h-12" />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Bottom Section */}
