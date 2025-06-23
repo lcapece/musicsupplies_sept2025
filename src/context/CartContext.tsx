@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CartItem, User, Product } from '../types'; // Ensure Product is imported
+import { CartItem, User, Product, PromoCodeValidity } from '../types'; // Ensure Product is imported
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -25,6 +25,10 @@ interface CartContextType {
   totalPrice: number;
   placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string) => Promise<string>;
   applicableIntroPromo: IntroductoryPromo | null;
+  // Promo code features
+  applyPromoCode: (code: string) => Promise<PromoCodeValidity>;
+  removePromoCode: () => void;
+  appliedPromoCode: PromoCodeValidity | null;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -37,6 +41,10 @@ const CartContext = createContext<CartContextType>({
   totalPrice: 0,
   placeOrder: async () => '',
   applicableIntroPromo: null,
+  // Promo code features
+  applyPromoCode: async () => ({ is_valid: false, message: '', discount_amount: 0 }),
+  removePromoCode: () => {},
+  appliedPromoCode: null,
 });
 
 export const useCart = () => useContext(CartContext);
@@ -64,6 +72,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const { user, maxDiscountRate, currentDiscountInfo } = useAuth();
   const [applicableIntroPromo, setApplicableIntroPromo] = useState<IntroductoryPromo | null>(null);
+  const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCodeValidity | null>(null);
 
   useEffect(() => {
     const fetchIntroPromo = async () => {
@@ -136,7 +145,51 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (quantity <= 0) { removeFromCart(partnumber); return; }
     setItems(prevItems => prevItems.map(item => item.partnumber === partnumber ? { ...item, quantity } : item));
   };
-  const clearCart = () => { setItems([]); localStorage.removeItem('cart'); };
+  const clearCart = () => { 
+    setItems([]); 
+    localStorage.removeItem('cart');
+    setAppliedPromoCode(null); // Also clear any applied promo code when clearing the cart
+  };
+  
+  // Apply a promo code to the cart
+  const applyPromoCode = async (code: string): Promise<PromoCodeValidity> => {
+    if (!user || !user.accountNumber) {
+      return { 
+        is_valid: false, 
+        message: 'You must be logged in to apply a promo code' 
+      };
+    }
+    
+    try {
+      // Call the database function to check if the promo code is valid
+      const { data, error } = await supabase.rpc('check_promo_code_validity', {
+        p_code: code,
+        p_account_number: user.accountNumber,
+        p_order_value: totalPrice
+      });
+      
+      if (error) throw error;
+      
+      if (data && data.is_valid) {
+        setAppliedPromoCode(data);
+      } else {
+        setAppliedPromoCode(null);
+      }
+      
+      return data;
+    } catch (err: any) {
+      console.error('Error applying promo code:', err);
+      return { 
+        is_valid: false, 
+        message: 'An error occurred while applying the promo code' 
+      };
+    }
+  };
+  
+  // Remove the applied promo code
+  const removePromoCode = () => {
+    setAppliedPromoCode(null);
+  };
 
   const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string): Promise<string> => {
     const orderNumberGenerated = `WB${nextOrderNumber++}`;
@@ -156,9 +209,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let appliedDiscountRate = 0; // This will be a fraction, e.g., 0.05 for 5%
     let orderComments = `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`;
     let introPromoUsedInThisOrder = false;
+    let promoCodeUsedInThisOrder = false;
 
-    // Priority 1: Introductory Promo
-    if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && items.length > 0) {
+    // Priority 1: Promo Code (highest priority)
+    if (appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount && items.length > 0) {
+      finalDiscountAmount = appliedPromoCode.discount_amount;
+      discountPartNumber = `PROMO-${appliedPromoCode.promo_id?.slice(0, 8)}`;
+      discountDescription = `Promo Code Discount: ${appliedPromoCode.message}`;
+      orderComments += ` | ${discountDescription} ($${finalDiscountAmount.toFixed(2)})`;
+      promoCodeUsedInThisOrder = true;
+    }
+    // Priority 2: Introductory Promo
+    else if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && items.length > 0) {
       appliedDiscountRate = applicableIntroPromo.value / 100.0; 
       finalDiscountAmount = totalPrice * appliedDiscountRate;
       discountPartNumber = applicableIntroPromo.name || `INTRO-${applicableIntroPromo.value}P`; // Use a generic part number if name is missing
@@ -166,7 +228,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       orderComments += ` | Introductory Discount: ${discountDescription} (${applicableIntroPromo.value}%) ($${finalDiscountAmount.toFixed(2)})`;
       introPromoUsedInThisOrder = true;
     } 
-    // Priority 2: Other active discounts (if intro promo was not applied)
+    // Priority 3: Other active discounts (if intro promo and promo code were not applied)
     else if (currentDiscountInfo && maxDiscountRate !== null && maxDiscountRate > 0 && items.length > 0) {
       appliedDiscountRate = maxDiscountRate;
       finalDiscountAmount = totalPrice * appliedDiscountRate;
@@ -220,8 +282,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Order saved successfully:', insertedOrder);
 
       if (introPromoUsedInThisOrder && user && typeof user.id === 'number') {
-        // TEMPORARILY DISABLED due to CORS errors
-        console.log('Introductory promo recording temporarily disabled');
+      // Record promo code usage if applicable
+      if (promoCodeUsedInThisOrder && appliedPromoCode && appliedPromoCode.promo_id) {
+        try {
+          console.log(`Recording promo code usage for account: ${accountNumberInt}, order ID: ${insertedOrder.id}`);
+          await supabase.rpc('record_promo_code_usage', {
+            p_promo_id: appliedPromoCode.promo_id,
+            p_account_number: user.accountNumber,
+            p_order_id: insertedOrder.id,
+            p_order_value: totalPrice,
+            p_discount_amount: appliedPromoCode.discount_amount || 0
+          });
+          console.log('Promo code usage recorded.');
+          // Clear the applied promo code after successful order
+          setAppliedPromoCode(null);
+        } catch (promoCodeUsageError) {
+          console.error('Error recording promo code usage:', promoCodeUsageError);
+        }
+      }
+      
+      // TEMPORARILY DISABLED due to CORS errors
+      console.log('Introductory promo recording temporarily disabled');
         
         // ORIGINAL CODE (commented out until Edge Functions are deployed)
         /*
@@ -290,7 +371,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <CartContext.Provider value={{
       items, addToCart, removeFromCart, updateQuantity, clearCart,
-      totalItems, totalPrice, placeOrder, applicableIntroPromo
+      totalItems, totalPrice, placeOrder, applicableIntroPromo,
+      applyPromoCode, removePromoCode, appliedPromoCode
     }}>
       {children}
     </CartContext.Provider>

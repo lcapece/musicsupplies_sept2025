@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
+import { PromoCodeValidity } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { ShoppingCart as CartIcon, X, Minus, Plus, CreditCard, Trash2 } from 'lucide-react'; // Added Trash2
 import OrderConfirmationModal from './OrderConfirmationModal';
@@ -11,7 +12,19 @@ interface ShoppingCartProps {
 }
 
 const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
-  const { items, removeFromCart, updateQuantity, totalItems, totalPrice, clearCart, placeOrder, applicableIntroPromo } = useCart();
+  const { 
+    items, 
+    removeFromCart, 
+    updateQuantity, 
+    totalItems, 
+    totalPrice, 
+    clearCart, 
+    placeOrder, 
+    applicableIntroPromo,
+    applyPromoCode,
+    removePromoCode,
+    appliedPromoCode
+  } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string>(''); // Restored
@@ -20,6 +33,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const { user, maxDiscountRate } = useAuth(); // Use maxDiscountRate
   const [email, setEmail] = useState(user?.email || user?.email_address || '');
   const [phone, setPhone] = useState(user?.mobile_phone || '');
+  
+  // Promo code states
+  const [promoCode, setPromoCode] = useState<string>('');
+  const [applyingPromo, setApplyingPromo] = useState<boolean>(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   // console.log('[ShoppingCart] maxDiscountRate:', maxDiscountRate); 
   
@@ -219,25 +237,53 @@ Order Confirmation...`; // Truncated
   //   }
   // }, [items]);
 
+  // Handle applying promo code
+  const handleApplyPromoCode = async () => {
+    if (!promoCode.trim()) return;
+    
+    setApplyingPromo(true);
+    setPromoError(null);
+    
+    try {
+      const result = await applyPromoCode(promoCode.trim());
+      
+      if (!result.is_valid) {
+        setPromoError(result.message || 'Invalid promo code');
+      }
+    } catch (error) {
+      console.error('Error applying promo code:', error);
+      setPromoError('An error occurred while applying the promo code');
+    } finally {
+      setApplyingPromo(false);
+    }
+  };
+  
   if (!isOpen) return null;
 
   // Calculate effective discount to display
   let effectiveDiscountRate = 0;
   let discountDescriptionText = "Discount";
+  let displayDiscountAmount = 0;
 
-  if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0) {
+  // Priority 1: Applied Promo Code
+  if (appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount) {
+    displayDiscountAmount = appliedPromoCode.discount_amount;
+    discountDescriptionText = appliedPromoCode.message || "Promo Code Discount";
+  }
+  // Priority 2: Introductory Promo
+  else if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0) {
     effectiveDiscountRate = applicableIntroPromo.value / 100.0;
+    displayDiscountAmount = items.length > 0 ? totalPrice * effectiveDiscountRate : 0;
     discountDescriptionText = applicableIntroPromo.description || `Introductory ${applicableIntroPromo.value}% Off`;
-  } else if (maxDiscountRate && maxDiscountRate > 0) {
+  } 
+  // Priority 3: Other active discounts
+  else if (maxDiscountRate && maxDiscountRate > 0) {
     effectiveDiscountRate = maxDiscountRate;
-    // Keep existing logic for how maxDiscountRate description is formed or use a generic one
-    // For simplicity, let's use a generic one if currentDiscountInfo is not detailed enough here
+    displayDiscountAmount = items.length > 0 ? totalPrice * effectiveDiscountRate : 0;
     discountDescriptionText = `Volume/Promotional Discount (${(maxDiscountRate * 100).toFixed(0)}%)`;
   }
   
-  const displayDiscountAmount = items.length > 0 ? totalPrice * effectiveDiscountRate : 0;
   const displayGrandTotal = totalPrice - displayDiscountAmount;
-  const displayDiscountPercentage = effectiveDiscountRate * 100;
 
   const handleCloseConfirmationModal = () => {
     setOrderConfirmationDetails(null);
@@ -418,8 +464,49 @@ Order Confirmation...`; // Truncated
                 )}
               </div>
 
-              {!orderPlaced && (
+                {!orderPlaced && (
                 <div className="border-t border-gray-200 py-6 px-4 sm:px-6">
+                  {/* Promo Code Input */}
+                  {!isCheckingOut && items.length > 0 && (
+                    <div className="mb-4">
+                      <label htmlFor="promo-code" className="block text-sm font-medium text-gray-700">
+                        Promo Code
+                      </label>
+                      <div className="mt-1 flex rounded-md shadow-sm">
+                        <input
+                          type="text"
+                          name="promo-code"
+                          id="promo-code"
+                          className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          placeholder="Enter promo code"
+                          value={promoCode}
+                          onChange={(e) => setPromoCode(e.target.value)}
+                          disabled={applyingPromo || !!appliedPromoCode}
+                        />
+                        <button
+                          type="button"
+                          onClick={appliedPromoCode ? removePromoCode : handleApplyPromoCode}
+                          className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-r-md text-white ${
+                            appliedPromoCode 
+                              ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
+                              : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                          } focus:outline-none focus:ring-2 focus:ring-offset-2`}
+                          disabled={applyingPromo || (!appliedPromoCode && !promoCode.trim())}
+                        >
+                          {applyingPromo ? 'Applying...' : appliedPromoCode ? 'Remove' : 'Apply'}
+                        </button>
+                      </div>
+                      {promoError && (
+                        <p className="mt-2 text-sm text-red-600">{promoError}</p>
+                      )}
+                      {appliedPromoCode && appliedPromoCode.is_valid && (
+                        <p className="mt-2 text-sm text-green-600">
+                          Promo code applied successfully!
+                        </p>
+                      )}
+                    </div>
+                  )}
+                
                   <div className="flex justify-between text-base font-medium text-gray-900">
                     <p>Subtotal</p>
                     <p>${totalPrice.toFixed(2)}</p>
@@ -431,7 +518,7 @@ Order Confirmation...`; // Truncated
                     </div>
                   )}
                   {/* Display remaining uses for intro promo if applicable */}
-                  {applicableIntroPromo && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && (
+                  {!appliedPromoCode && applicableIntroPromo && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && (
                     <div className="flex justify-between text-xs font-medium text-blue-600 mt-1">
                       <p>Introductory promo uses remaining: {applicableIntroPromo.uses_remaining}</p>
                     </div>

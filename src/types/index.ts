@@ -70,3 +70,47 @@ export interface RtExtended {
   ext_descr?: string;
   image_name?: string;
 }
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  name: string;
+  type: 'percent_off' | 'dollars_off';
+  value: number;
+  min_order_value: number;
+  max_uses: number | null;
+  uses_remaining: number | null;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PromoCodeUsage {
+  id: string;
+  promo_code_id: string;
+  account_number: string;
+  order_id?: number;
+  used_at: string;
+  order_value: number;
+  discount_amount: number;
+}
+
+export interface PromoCodeValidity {
+  is_valid: boolean;
+  message: string;
+  promo_id?: string;
+  promo_type?: string;
+  promo_value?: number;
+  discount_amount?: number;
+}
+
+export interface PromoCodeSummary {
+  code: string;
+  name: string;
+  description: string;
+  type: string;
+  value: number;
+  min_order_value: number;
+}

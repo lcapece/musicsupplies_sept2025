@@ -11,7 +11,8 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import ImageComingSoon from '../images/coming-soon.png';
 import { useAuth } from '../context/AuthContext'; // Import useAuth
-import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/PromotionalPopupModal'; // Import the new modal
+import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/PromotionalPopupModal';
+import PromoCodePopup from '../components/PromoCodePopup'; // Import the PromoCodePopup component
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth(); // Get user from AuthContext
@@ -42,6 +43,7 @@ const Dashboard: React.FC = () => {
   });
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [promoStatusData, setPromoStatusData] = useState<PromotionalOffersStatus | null>(null);
+  const [showPromoCodePopup, setShowPromoCodePopup] = useState(false); // State for PromoCodePopup
 
   useEffect(() => {
     fetchProducts();
@@ -80,6 +82,26 @@ const Dashboard: React.FC = () => {
       */
     };
     fetchAndShowPromoPopup();
+  }, [user]);
+  
+  // Effect to check and show promo codes
+  useEffect(() => {
+    const checkForPromoCodes = async () => {
+      if (user && user.accountNumber !== '999') {
+        const promoCodeShownKey = `promoCodeShown_session_${user.accountNumber}`;
+        const alreadyShownThisSession = sessionStorage.getItem(promoCodeShownKey);
+        
+        if (!alreadyShownThisSession) {
+          // Show promo code popup after a short delay to avoid overwhelming the user
+          setTimeout(() => {
+            setShowPromoCodePopup(true);
+            sessionStorage.setItem(promoCodeShownKey, 'true');
+          }, 1000);
+        }
+      }
+    };
+    
+    checkForPromoCodes();
   }, [user]);
 
   // Effect to load product image with priority logic
@@ -526,6 +548,12 @@ const Dashboard: React.FC = () => {
           promoStatus={promoStatusData}
         />
       )}
+      
+      {/* Promo Code Popup */}
+      <PromoCodePopup
+        isOpen={showPromoCodePopup}
+        onClose={() => setShowPromoCodePopup(false)}
+      />
     </div>
   );
 };

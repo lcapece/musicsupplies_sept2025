@@ -8,9 +8,10 @@ import ClickSendTab from '../components/admin/ClickSendTab';
 import GeneralSettingsTab from '../components/admin/GeneralSettingsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import CategoryManagementTab from '../components/admin/CategoryManagementTab';
-import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; // Import the new tab component
+import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; 
+import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 
-type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview';
+type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -22,6 +23,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'accounts' as AdminTab, label: 'Accounts', icon: '👥' },
     { id: 'applications' as AdminTab, label: 'Applications', icon: '📝' },
     { id: 'categories' as AdminTab, label: 'Categories', icon: '🗂️' },
+    { id: 'promocodes' as AdminTab, label: 'Promo Codes', icon: '🏷️' },
     { id: 'history' as AdminTab, label: 'History', icon: '📊' },
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
@@ -48,6 +50,8 @@ const AdminDashboard: React.FC = () => {
         return <GeneralSettingsTab />;
       case 'managetreeview':
         return <ManageTreeviewTab />;
+      case 'promocodes':
+        return <PromoCodeManagementTab />;
       default:
         return <ManagementTab />;
     }
