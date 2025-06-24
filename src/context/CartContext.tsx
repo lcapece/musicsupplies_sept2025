@@ -1,19 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CartItem, User, Product, PromoCodeValidity } from '../types'; // Ensure Product is imported
+import { CartItem, User, Product, PromoCodeValidity, AvailablePromoCode } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-
-// Define a type for the introductory promo details we expect from the function
-interface IntroductoryPromo {
-  id: number;
-  name?: string;
-  description?: string;
-  discount_type: string;
-  value: number; // Percentage value, e.g., 5 for 5%
-  max_orders?: number;
-  is_active?: boolean;
-  uses_remaining?: number;
-}
 
 interface CartContextType {
   items: CartItem[];
@@ -24,11 +12,13 @@ interface CartContextType {
   totalItems: number;
   totalPrice: number;
   placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string) => Promise<string>;
-  applicableIntroPromo: IntroductoryPromo | null;
   // Promo code features
   applyPromoCode: (code: string) => Promise<PromoCodeValidity>;
   removePromoCode: () => void;
   appliedPromoCode: PromoCodeValidity | null;
+  availablePromoCodes: AvailablePromoCode[];
+  fetchAvailablePromoCodes: () => Promise<void>;
+  isLoadingPromoCodes: boolean;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -40,11 +30,13 @@ const CartContext = createContext<CartContextType>({
   totalItems: 0,
   totalPrice: 0,
   placeOrder: async () => '',
-  applicableIntroPromo: null,
   // Promo code features
   applyPromoCode: async () => ({ is_valid: false, message: '', discount_amount: 0 }),
   removePromoCode: () => {},
   appliedPromoCode: null,
+  availablePromoCodes: [],
+  fetchAvailablePromoCodes: async () => {},
+  isLoadingPromoCodes: false
 });
 
 export const useCart = () => useContext(CartContext);
@@ -70,47 +62,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return [];
   });
 
-  const { user, maxDiscountRate, currentDiscountInfo } = useAuth();
-  const [applicableIntroPromo, setApplicableIntroPromo] = useState<IntroductoryPromo | null>(null);
+  const { user } = useAuth();
   const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCodeValidity | null>(null);
-
-  useEffect(() => {
-    const fetchIntroPromo = async () => {
-      // TEMPORARILY DISABLED due to CORS errors
-      // Will be fixed when Edge Functions are properly deployed
-      console.log('Introductory promo functionality temporarily disabled');
-      setApplicableIntroPromo(null);
-      
-      // ORIGINAL CODE (commented out until Edge Functions are deployed)
-      /*
-      if (user && typeof user.id === 'number') { 
-        try {
-          console.log(`Fetching intro promo for account ID: ${user.id}`);
-          const { data, error } = await supabase.functions.invoke('get-applicable-intro-promo', {
-            body: { account_id: user.id }, 
-          });
-
-          if (error) throw error;
-          
-          if (data && data.applicable_promo) {
-            setApplicableIntroPromo(data.applicable_promo);
-            console.log('Applicable intro promo found:', data.applicable_promo);
-          } else {
-            setApplicableIntroPromo(null);
-            console.log('No applicable intro promo or uses exhausted for account ID:', user.id, data?.message);
-          }
-        } catch (err) {
-          console.error('Error fetching introductory promo for account ID:', user.id, err);
-          setApplicableIntroPromo(null);
-        }
-      } else {
-        setApplicableIntroPromo(null); 
-      }
-      */
-    };
-
-    fetchIntroPromo();
-  }, [user]);
+  const [availablePromoCodes, setAvailablePromoCodes] = useState<AvailablePromoCode[]>([]);
+  const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState<boolean>(false);
 
   useEffect(() => {
     const initializeOrderNumber = async () => {
@@ -129,6 +84,39 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
+
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
+  const totalPrice = items.reduce((total, item) => total + ((item.price || 0) * item.quantity), 0);
+
+  // Fetch available promo codes
+  const fetchAvailablePromoCodes = async () => {
+    if (!user || !user.accountNumber) {
+      setAvailablePromoCodes([]);
+      return;
+    }
+    
+    setIsLoadingPromoCodes(true);
+    try {
+      const { data, error } = await supabase.rpc('get_available_promo_codes', {
+        p_account_number: user.accountNumber,
+        p_order_value: totalPrice
+      });
+      
+      if (error) throw error;
+      
+      setAvailablePromoCodes(data || []);
+    } catch (err) {
+      console.error('Error fetching available promo codes:', err);
+      setAvailablePromoCodes([]);
+    } finally {
+      setIsLoadingPromoCodes(false);
+    }
+  };
+  
+  // Fetch promo codes when user changes or cart total changes
+  useEffect(() => {
+    fetchAvailablePromoCodes();
+  }, [user, totalPrice]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
     setItems(prevItems => {
@@ -208,10 +196,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let finalDiscountAmount = 0;
     let appliedDiscountRate = 0; // This will be a fraction, e.g., 0.05 for 5%
     let orderComments = `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`;
-    let introPromoUsedInThisOrder = false;
     let promoCodeUsedInThisOrder = false;
 
-    // Priority 1: Promo Code (highest priority)
+    // Apply Promo Code discount if available
     if (appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount && items.length > 0) {
       finalDiscountAmount = appliedPromoCode.discount_amount;
       discountPartNumber = `PROMO-${appliedPromoCode.promo_id?.slice(0, 8)}`;
@@ -219,50 +206,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       orderComments += ` | ${discountDescription} ($${finalDiscountAmount.toFixed(2)})`;
       promoCodeUsedInThisOrder = true;
     }
-    // Priority 2: Introductory Promo
-    else if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && items.length > 0) {
-      appliedDiscountRate = applicableIntroPromo.value / 100.0; 
-      finalDiscountAmount = totalPrice * appliedDiscountRate;
-      discountPartNumber = applicableIntroPromo.name || `INTRO-${applicableIntroPromo.value}P`; // Use a generic part number if name is missing
-      discountDescription = applicableIntroPromo.description || `Introductory ${applicableIntroPromo.value}% Discount`;
-      orderComments += ` | Introductory Discount: ${discountDescription} (${applicableIntroPromo.value}%) ($${finalDiscountAmount.toFixed(2)})`;
-      introPromoUsedInThisOrder = true;
-    } 
-    // Priority 3: Other active discounts (if intro promo and promo code were not applied)
-    else if (currentDiscountInfo && maxDiscountRate !== null && maxDiscountRate > 0 && items.length > 0) {
-      appliedDiscountRate = maxDiscountRate;
-      finalDiscountAmount = totalPrice * appliedDiscountRate;
-      
-      if (currentDiscountInfo.type === 'order_based') {
-        const orderMatch = currentDiscountInfo.source.match(/\((\d+)\/\d+\)/);
-        const orderNumText = orderMatch ? orderMatch[1] : '1';
-        const orderSuffix = orderNumText === '1' ? 'st' : orderNumText === '2' ? 'nd' : orderNumText === '3' ? 'rd' : 'th';
-        discountPartNumber = `WEB-DISCOUNT-5-ORDER${orderNumText}`; // This seems specific to a "5% off Nth order"
-        discountDescription = `${Math.round(appliedDiscountRate * 100)}% Discount for ${orderNumText}${orderSuffix} Order`;
-      } else if (currentDiscountInfo.type === 'date_based') {
-        const perc = Math.round(appliedDiscountRate * 100);
-        // This mapping needs to be robust or data-driven from lcmd_discount
-        if (perc === 1) { discountPartNumber = 'WEB-DISCOUNT-1'; discountDescription = '1% Discount (Limited Time)'; }
-        else if (perc === 2) { discountPartNumber = 'WEB-DISCOUNT-2'; discountDescription = '2% Discount (Limited Time)'; }
-        else if (perc === 3) { discountPartNumber = 'WEB-DISCOUNT-3'; discountDescription = '3% Discount (Limited Time)'; }
-        else if (perc === 4) { discountPartNumber = 'WEB-DISCOUNT-4'; discountDescription = '4% Discount (Limited Time)'; }
-        // Assuming WEB-DISCOUNT-5 is for a 5% discount, not 4% as previously commented
-        else if (perc === 5) { discountPartNumber = 'WEB-DISCOUNT-5'; discountDescription = '5% Discount (Limited Time)'; }
-        else { discountPartNumber = `WEB-DISCOUNT-${perc}`; discountDescription = `${perc}% Discount (Limited Time)`;}
-      }
-      if (discountPartNumber) {
-        orderComments += ` | Discount Applied: ${discountPartNumber} ($${finalDiscountAmount.toFixed(2)})`;
-      }
-    }
 
     const orderItems = items.map(item => ({ 
       partnumber: item.partnumber, description: item.description, quantity: item.quantity, 
       price: item.price || 0, extended_price: (item.price || 0) * item.quantity
     }));
 
-    if (discountPartNumber && finalDiscountAmount > 0) {
+    // Only add discount item if it's from a promo code
+    if (promoCodeUsedInThisOrder && discountPartNumber && finalDiscountAmount > 0) {
       orderItems.push({
-        partnumber: discountPartNumber, description: discountDescription || 'Discount Applied',
+        partnumber: discountPartNumber, description: discountDescription || 'Promo Code Discount',
         quantity: 1, price: -finalDiscountAmount, extended_price: -finalDiscountAmount
       });
     }
@@ -271,7 +224,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const orderPayload = {
       order_number: orderNumberForDb, account_number: accountNumberInt, order_comments: orderComments,
       order_items: orderItems, subtotal: totalPrice, 
-      discount_percentage: appliedDiscountRate * 100, // Store as percentage
+      discount_percentage: 0, // No percentage discounts, only fixed amount promo codes
       discount_amount: finalDiscountAmount, grand_total: grandTotal, status: 'Pending Confirmation'
     };
 
@@ -281,7 +234,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Order saved successfully:', insertedOrder);
 
-      if (introPromoUsedInThisOrder && user && typeof user.id === 'number') {
       // Record promo code usage if applicable
       if (promoCodeUsedInThisOrder && appliedPromoCode && appliedPromoCode.promo_id) {
         try {
@@ -301,62 +253,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // TEMPORARILY DISABLED due to CORS errors
-      console.log('Introductory promo recording temporarily disabled');
-        
-        // ORIGINAL CODE (commented out until Edge Functions are deployed)
-        /*
-        try {
-          console.log(`Recording intro promo usage for account ID: ${user.id}, order ID: ${insertedOrder.id}`);
-          await supabase.functions.invoke('record-intro-promo-usage', {
-            body: { account_id: user.id, order_id: insertedOrder.id }
-          });
-          console.log('Introductory promo usage recorded.');
-          // Refresh intro promo state to reflect usage
-          const { data: refreshedPromo, error: refreshError } = await supabase.functions.invoke('get-applicable-intro-promo', {
-            body: { account_id: user.id }
-          });
-          if (refreshError) console.error("Error refreshing intro promo state after usage:", refreshError);
-          else setApplicableIntroPromo(refreshedPromo?.applicable_promo || null);
-        } catch (promoUsageError) {
-          console.error('Error in record-intro-promo-usage call or state refresh:', promoUsageError);
-        }
-        */
-      } else if (currentDiscountInfo && currentDiscountInfo.type === 'order_based' && maxDiscountRate !== null && maxDiscountRate > 0) {
-        // Existing logic for other order_based discounts (non-introductory)
-        try {
-          const { data: discountTiers, error: tierError } = await supabase
-            .from('discount_tiers')
-            .select('id')
-            .eq('discount_type', 'order_based') // Ensure this targets only non-intro order_based
-            .eq('value', maxDiscountRate * 100) // Assuming 'value' in discount_tiers is percentage, maxDiscountRate is fraction
-            .limit(1)
-            .single();
-
-          if (tierError) throw tierError;
-          if (discountTiers) {
-            const discountTierId = discountTiers.id;
-            const { data: existingUsage, error: usageError } = await supabase
-              .from('account_order_discounts')
-              .select('orders_used')
-              .eq('account_number', user.accountNumber) // Uses string account_number
-              .eq('discount_tier_id', discountTierId)
-              .single();
-            if (usageError && usageError.code !== 'PGRST116') throw usageError; // PGRST116: single row not found
-            
-            const currentUsage = existingUsage?.orders_used || 0;
-            const { error: upsertError } = await supabase
-              .from('account_order_discounts')
-              .upsert({ account_number: user.accountNumber, discount_tier_id: discountTierId, orders_used: currentUsage + 1 }, 
-                      { onConflict: 'account_number,discount_tier_id' });
-            if (upsertError) throw upsertError;
-            console.log('Standard order-based discount usage updated.');
-          }
-        } catch (err) {
-          console.error('Exception updating standard order discount usage:', err);
-        }
-      }
-      
       clearCart();
       return orderNumberGenerated;
     } catch (error: any) {
@@ -365,14 +261,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
-  const totalPrice = items.reduce((total, item) => total + ((item.price || 0) * item.quantity), 0);
 
   return (
     <CartContext.Provider value={{
       items, addToCart, removeFromCart, updateQuantity, clearCart,
-      totalItems, totalPrice, placeOrder, applicableIntroPromo,
-      applyPromoCode, removePromoCode, appliedPromoCode
+      totalItems, totalPrice, placeOrder,
+      applyPromoCode, removePromoCode, appliedPromoCode,
+      availablePromoCodes, fetchAvailablePromoCodes, isLoadingPromoCodes
     }}>
       {children}
     </CartContext.Provider>

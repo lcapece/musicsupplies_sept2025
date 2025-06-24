@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
-import { PromoCodeValidity } from '../types';
+import { PromoCodeValidity, AvailablePromoCode } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingCart as CartIcon, X, Minus, Plus, CreditCard, Trash2 } from 'lucide-react'; // Added Trash2
+import { ShoppingCart as CartIcon, X, Minus, Plus, CreditCard, Trash2, RefreshCw } from 'lucide-react';
 import OrderConfirmationModal from './OrderConfirmationModal';
 import { OrderConfirmationDetails } from '../types';
 
@@ -20,26 +20,26 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     totalPrice, 
     clearCart, 
     placeOrder, 
-    applicableIntroPromo,
     applyPromoCode,
     removePromoCode,
-    appliedPromoCode
+    appliedPromoCode,
+    availablePromoCodes,
+    fetchAvailablePromoCodes,
+    isLoadingPromoCodes
   } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
-  const [orderNumber, setOrderNumber] = useState<string>(''); // Restored
+  const [orderNumber, setOrderNumber] = useState<string>('');
   const [orderConfirmationDetails, setOrderConfirmationDetails] = useState<OrderConfirmationDetails | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'net10'>('net10');
-  const { user, maxDiscountRate } = useAuth(); // Use maxDiscountRate
+  const { user } = useAuth();
   const [email, setEmail] = useState(user?.email || user?.email_address || '');
   const [phone, setPhone] = useState(user?.mobile_phone || '');
   
   // Promo code states
-  const [promoCode, setPromoCode] = useState<string>('');
+  const [selectedPromoCode, setSelectedPromoCode] = useState<string>('');
   const [applyingPromo, setApplyingPromo] = useState<boolean>(false);
   const [promoError, setPromoError] = useState<string | null>(null);
-
-  // console.log('[ShoppingCart] maxDiscountRate:', maxDiscountRate); 
   
   useEffect(() => {
     if (isOpen && user) {
@@ -48,10 +48,28 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     }
     if (!isOpen) {
       setIsCheckingOut(false);
-      setOrderPlaced(false); // Restored
-      // setOrderConfirmationDetails(null); // Reverted
+      setOrderPlaced(false);
     }
   }, [isOpen, user]);
+
+  // When available promo codes change, pre-select the best one
+  useEffect(() => {
+    if (availablePromoCodes.length > 0) {
+      // Find the best promo code (the one marked as is_best)
+      const bestPromo = availablePromoCodes.find(promo => promo.is_best);
+      if (bestPromo) {
+        setSelectedPromoCode(bestPromo.code);
+      } else {
+        // If no best code is marked, select the one with the highest discount
+        const sortedPromos = [...availablePromoCodes].sort((a, b) => b.discount_amount - a.discount_amount);
+        if (sortedPromos.length > 0) {
+          setSelectedPromoCode(sortedPromos[0].code);
+        }
+      }
+    } else {
+      setSelectedPromoCode('');
+    }
+  }, [availablePromoCodes]);
 
   const handleCheckout = () => {
     setIsCheckingOut(true);
@@ -66,20 +84,15 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     try {
       const newOrderNumber = await placeOrder(paymentMethod, email, phone);
       
-      // const currentTotal = maxDiscountRate && maxDiscountRate > 0 && items.length > 0 
-      //   ? totalPrice * (1 - maxDiscountRate) 
-      //   : totalPrice;
-
-      // setOrderConfirmationDetails({ // Reverted
       setOrderConfirmationDetails({
         webOrderNumber: newOrderNumber,
         items: [...items], 
-        total: maxDiscountRate && maxDiscountRate > 0 && items.length > 0 
-          ? totalPrice * (1 - maxDiscountRate) 
-          : totalPrice, 
+        total: appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount
+          ? totalPrice - appliedPromoCode.discount_amount
+          : totalPrice,
       });
-      setOrderNumber(newOrderNumber); // Restored
-      setOrderPlaced(true); // Restored
+      setOrderNumber(newOrderNumber);
+      setOrderPlaced(true);
 
       const seller = {
         name: "Lou Capece Music Distributors",
@@ -173,15 +186,17 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     <td>Subtotal:</td>
                     <td class="numeric">$${totalPrice.toFixed(2)}</td>
                 </tr>
-                ${maxDiscountRate && maxDiscountRate > 0 && items.length > 0 ? `
+                ${appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount ? `
                 <tr>
-                    <td>Customer Discount (${(maxDiscountRate * 100).toFixed(0)}%):</td>
-                    <td class="numeric">-$${(totalPrice * maxDiscountRate).toFixed(2)}</td>
+                    <td>Promo Code Discount:</td>
+                    <td class="numeric">-$${appliedPromoCode.discount_amount.toFixed(2)}</td>
                 </tr>
                 ` : ''}
                 <tr class="total">
                     <td>TOTAL:</td>
-                    <td class="numeric">$${maxDiscountRate && maxDiscountRate > 0 && items.length > 0 ? (totalPrice * (1 - maxDiscountRate)).toFixed(2) : totalPrice.toFixed(2)}</td>
+                    <td class="numeric">$${appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount 
+                      ? (totalPrice - appliedPromoCode.discount_amount).toFixed(2) 
+                      : totalPrice.toFixed(2)}</td>
                 </tr>
             </table>
         </div>
@@ -202,50 +217,21 @@ Order Confirmation...`; // Truncated
       } catch (emailError) {
         console.error('Error preparing to send email:', emailError);
       }
-      // setTimeout(() => { // Removed timeout logic
-      //   setOrderPlaced(false);
-      //   setIsCheckingOut(false);
-      //   clearCart(); // Clear cart after order
-      //   onClose(); 
-      // }, 3000); 
     } catch (error) {
       console.error('Failed to place order:', error);
       alert('Failed to place order. Please try again.');
     }
   };
   
-  
-  console.log('[ShoppingCart] items from useCart():', items); 
-
-  // const sortedCartItems = useMemo(() => { // Removing sorting as per user request for debugging
-  //   try {
-  //     // console.log('[ShoppingCart] Attempting to sort items inside useMemo. Items length:', items.length);
-  //     if (!Array.isArray(items) || items.length === 0) {
-  //       // console.log('[ShoppingCart] Items is not an array or is empty, returning empty array for sortedCartItems.');
-  //       return [];
-  //     }
-  //     const sorted = [...items].sort((a, b) => {
-  //       const partA = String(a.partnumber || ''); 
-  //       const partB = String(b.partnumber || ''); 
-  //       return partA.localeCompare(partB);
-  //     });
-  //     // console.log('[ShoppingCart] sortedCartItems successfully created:', sorted);
-  //     return sorted;
-  //   } catch (error) {
-  //     // console.error('[ShoppingCart] Error during sorting in useMemo:', error);
-  //     return [...items]; 
-  //   }
-  // }, [items]);
-
   // Handle applying promo code
   const handleApplyPromoCode = async () => {
-    if (!promoCode.trim()) return;
+    if (!selectedPromoCode.trim()) return;
     
     setApplyingPromo(true);
     setPromoError(null);
     
     try {
-      const result = await applyPromoCode(promoCode.trim());
+      const result = await applyPromoCode(selectedPromoCode.trim());
       
       if (!result.is_valid) {
         setPromoError(result.message || 'Invalid promo code');
@@ -258,41 +244,30 @@ Order Confirmation...`; // Truncated
     }
   };
   
+  // Refresh available promo codes
+  const handleRefreshPromoCodes = () => {
+    fetchAvailablePromoCodes();
+  };
+  
   if (!isOpen) return null;
 
-  // Calculate effective discount to display
-  let effectiveDiscountRate = 0;
-  let discountDescriptionText = "Discount";
-  let displayDiscountAmount = 0;
+  // Calculate the discount amount from the applied promo code
+  const discountAmount = appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount
+    ? appliedPromoCode.discount_amount
+    : 0;
+    
+  // Calculate the grand total after discount
+  const displayGrandTotal = totalPrice - discountAmount;
 
-  // Priority 1: Applied Promo Code
-  if (appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount) {
-    displayDiscountAmount = appliedPromoCode.discount_amount;
-    discountDescriptionText = appliedPromoCode.message || "Promo Code Discount";
-  }
-  // Priority 2: Introductory Promo
-  else if (applicableIntroPromo && applicableIntroPromo.is_active && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0) {
-    effectiveDiscountRate = applicableIntroPromo.value / 100.0;
-    displayDiscountAmount = items.length > 0 ? totalPrice * effectiveDiscountRate : 0;
-    discountDescriptionText = applicableIntroPromo.description || `Introductory ${applicableIntroPromo.value}% Off`;
-  } 
-  // Priority 3: Other active discounts
-  else if (maxDiscountRate && maxDiscountRate > 0) {
-    effectiveDiscountRate = maxDiscountRate;
-    displayDiscountAmount = items.length > 0 ? totalPrice * effectiveDiscountRate : 0;
-    discountDescriptionText = `Volume/Promotional Discount (${(maxDiscountRate * 100).toFixed(0)}%)`;
-  }
+  // Get the selected promo code details
+  const selectedPromoDetails = availablePromoCodes.find(promo => promo.code === selectedPromoCode);
   
-  const displayGrandTotal = totalPrice - displayDiscountAmount;
-
   const handleCloseConfirmationModal = () => {
     setOrderConfirmationDetails(null);
     setIsCheckingOut(false);
     clearCart(); 
     onClose();
   };
-
-  if (!isOpen) return null; // Keep this guard
 
   return (
     <div className="fixed inset-0 overflow-hidden z-50">
@@ -319,7 +294,6 @@ Order Confirmation...`; // Truncated
                     <h3 className="text-2xl font-semibold text-green-600">Order Placed Successfully!</h3>
                     <p className="mt-2 text-lg text-gray-700">Your order number is: <strong>{orderNumber}</strong></p>
                     <p className="mt-4 text-gray-600">You will receive an email confirmation shortly.</p>
-                    {/* <p className="mt-1 text-sm text-gray-500">This window will close automatically.</p> */}
                     <button
                       onClick={() => {
                         setOrderPlaced(false);
@@ -464,65 +438,81 @@ Order Confirmation...`; // Truncated
                 )}
               </div>
 
-                {!orderPlaced && (
+              {!orderPlaced && (
                 <div className="border-t border-gray-200 py-6 px-4 sm:px-6">
-                  {/* Promo Code Input */}
-                  {!isCheckingOut && items.length > 0 && (
-                    <div className="mb-4">
-                      <label htmlFor="promo-code" className="block text-sm font-medium text-gray-700">
-                        Promo Code
-                      </label>
-                      <div className="mt-1 flex rounded-md shadow-sm">
-                        <input
-                          type="text"
-                          name="promo-code"
-                          id="promo-code"
-                          className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          placeholder="Enter promo code"
-                          value={promoCode}
-                          onChange={(e) => setPromoCode(e.target.value)}
-                          disabled={applyingPromo || !!appliedPromoCode}
-                        />
-                        <button
-                          type="button"
-                          onClick={appliedPromoCode ? removePromoCode : handleApplyPromoCode}
-                          className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-r-md text-white ${
-                            appliedPromoCode 
-                              ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
-                              : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
-                          } focus:outline-none focus:ring-2 focus:ring-offset-2`}
-                          disabled={applyingPromo || (!appliedPromoCode && !promoCode.trim())}
-                        >
-                          {applyingPromo ? 'Applying...' : appliedPromoCode ? 'Remove' : 'Apply'}
-                        </button>
-                      </div>
-                      {promoError && (
-                        <p className="mt-2 text-sm text-red-600">{promoError}</p>
-                      )}
-                      {appliedPromoCode && appliedPromoCode.is_valid && (
-                        <p className="mt-2 text-sm text-green-600">
-                          Promo code applied successfully!
-                        </p>
-                      )}
-                    </div>
-                  )}
-                
                   <div className="flex justify-between text-base font-medium text-gray-900">
                     <p>Subtotal</p>
                     <p>${totalPrice.toFixed(2)}</p>
                   </div>
-                  {displayDiscountAmount > 0 && (
-                    <div className="flex justify-between text-sm font-medium text-green-600">
-                      <p>{discountDescriptionText}</p>
-                      <p>-${displayDiscountAmount.toFixed(2)}</p>
+
+                  {/* Promo Code Dropdown - Moved up to the totals section */}
+                  {!isCheckingOut && items.length > 0 && (
+                    <div className="mt-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex-grow">
+                          <div className="flex items-center">
+                            <select
+                              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                              value={selectedPromoCode}
+                              onChange={(e) => setSelectedPromoCode(e.target.value)}
+                              disabled={appliedPromoCode !== null || isLoadingPromoCodes}
+                            >
+                              <option value="">Select a promo code</option>
+                              {availablePromoCodes.map((promo) => (
+                                <option key={promo.code} value={promo.code}>
+                                  {promo.code} - {promo.description} (Save ${promo.discount_amount.toFixed(2)})
+                                  {promo.is_best ? ' - Best Value!' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={handleRefreshPromoCodes}
+                              className="inline-flex items-center p-2 border border-gray-300 bg-gray-50 text-gray-500 hover:bg-gray-100"
+                              title="Refresh promo codes"
+                              disabled={isLoadingPromoCodes}
+                            >
+                              <RefreshCw size={16} className={isLoadingPromoCodes ? "animate-spin" : ""} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={appliedPromoCode ? removePromoCode : handleApplyPromoCode}
+                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-r-md text-white ${
+                                appliedPromoCode 
+                                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
+                                  : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                              } focus:outline-none focus:ring-2 focus:ring-offset-2`}
+                              disabled={applyingPromo || (!appliedPromoCode && !selectedPromoCode)}
+                            >
+                              {applyingPromo ? 'Applying...' : appliedPromoCode ? 'Remove' : 'Apply'}
+                            </button>
+                          </div>
+                          {promoError && (
+                            <p className="mt-1 text-sm text-red-600">{promoError}</p>
+                          )}
+                          {appliedPromoCode && appliedPromoCode.is_valid && (
+                            <p className="mt-1 text-sm text-green-600">
+                              Promo code applied successfully!
+                            </p>
+                          )}
+                          {!appliedPromoCode && selectedPromoDetails && (
+                            <p className="mt-1 text-xs text-blue-600">
+                              Potential savings: ${selectedPromoDetails.discount_amount.toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
-                  {/* Display remaining uses for intro promo if applicable */}
-                  {!appliedPromoCode && applicableIntroPromo && applicableIntroPromo.uses_remaining && applicableIntroPromo.uses_remaining > 0 && (
-                    <div className="flex justify-between text-xs font-medium text-blue-600 mt-1">
-                      <p>Introductory promo uses remaining: {applicableIntroPromo.uses_remaining}</p>
+
+                  {/* Applied discount display */}
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-sm font-medium text-green-600 mt-2">
+                      <p>{appliedPromoCode?.message || "Promo Code Discount"}</p>
+                      <p>-${discountAmount.toFixed(2)}</p>
                     </div>
                   )}
+
                   <div className="flex justify-between text-lg font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">
                     <p>Grand Total</p>
                     <p>${displayGrandTotal.toFixed(2)}</p>

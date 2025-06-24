@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import ManagementTab from '../components/admin/ManagementTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import AccountsTab from '../components/admin/AccountsTab';
 import HistoryTab from '../components/admin/HistoryTab';
@@ -11,14 +10,13 @@ import CategoryManagementTab from '../components/admin/CategoryManagementTab';
 import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; 
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 
-type AdminTab = 'management' | 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes';
+type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<AdminTab>('management');
+  const [activeTab, setActiveTab] = useState<AdminTab>('orderhistory');
 
   const tabs = [
-    { id: 'management' as AdminTab, label: 'Management', icon: '⚙️' },
     { id: 'orderhistory' as AdminTab, label: 'Order History', icon: '📋' },
     { id: 'accounts' as AdminTab, label: 'Accounts', icon: '👥' },
     { id: 'applications' as AdminTab, label: 'Applications', icon: '📝' },
@@ -32,8 +30,6 @@ const AdminDashboard: React.FC = () => {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'management':
-        return <ManagementTab />;
       case 'orderhistory':
         return <OrderHistoryTab />;
       case 'accounts':
@@ -53,7 +49,7 @@ const AdminDashboard: React.FC = () => {
       case 'promocodes':
         return <PromoCodeManagementTab />;
       default:
-        return <ManagementTab />;
+        return <OrderHistoryTab />;
     }
   };
 

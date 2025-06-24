@@ -114,3 +114,14 @@ export interface PromoCodeSummary {
   value: number;
   min_order_value: number;
 }
+
+export interface AvailablePromoCode {
+  code: string;
+  name: string;
+  description: string;
+  type: string;
+  value: number;
+  min_order_value: number;
+  discount_amount: number;
+  is_best: boolean;
+}
