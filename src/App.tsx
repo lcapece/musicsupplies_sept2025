@@ -14,6 +14,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'; // Import new page
 import SmsCommunicationsPage from './pages/SmsCommunicationsPage'; // Import new page
 import EmailCommunicationsPage from './pages/EmailCommunicationsPage'; // Import new page
 import CustomerAccountPage from './pages/CustomerAccountPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage'; // Import forgot password page
 import ErrorBoundary from './components/ErrorBoundary';
 
 
@@ -63,6 +64,7 @@ function AppContent() {
     <>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route 
           path="/" 
           element={

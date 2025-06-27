@@ -11,7 +11,7 @@ interface DiscountInfo {
 
 interface AuthContextType {
   user: User | null;
-  login: (accountNumber: string, password: string) => Promise<boolean>;
+  login: (identifier: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean; 
@@ -184,32 +184,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkUserAndFetchMaxDiscount();
   }, []);
 
-  const login = async (accountNumber: string, password: string): Promise<boolean> => {
+  const login = async (identifier: string, password: string): Promise<boolean> => {
     setError(null);
     
     try {
-      const accountNumberInt = parseInt(accountNumber, 10);
-      
-      if (isNaN(accountNumberInt)) {
-        setError('Invalid account number format');
-        // Log failed attempt due to invalid account number format before returning
-        try {
-          await supabase.from('login_activity_log').insert({
-            account_number: accountNumberInt, // or a placeholder if parsing failed badly
-            login_success: false,
-            ip_address: null, 
-            user_agent: null,
-            // Add a note about the failure reason if your table supports it
-          });
-        } catch (logError) {
-          console.error('Failed to log login attempt (invalid format):', logError);
-        }
-        return false;
-      }
-
       // Call the authenticate_user_lcmd PL/pgSQL function
       const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_lcmd', {
-        p_account_number: accountNumberInt,
+        p_identifier: identifier,
         p_password: password
       });
 
@@ -219,7 +200,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Log failed attempt (RPC error)
         try {
           await supabase.from('login_activity_log').insert({
-            account_number: accountNumberInt, login_success: false, ip_address: null, user_agent: null
+            account_number: null, // Identifier could be email, so account_number might not be available
+            login_success: false, 
+            ip_address: null, 
+            user_agent: null,
+            identifier_used: identifier // Log the identifier used for login attempt
           });
         } catch (logError) { console.error('Failed to log login attempt (RPC error):', logError); }
         return false;
@@ -232,11 +217,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                   : null;
 
       if (!authenticatedUserData) {
-        setError('Invalid account number or password.');
+        setError('Invalid account number/email or password.');
         // Log failed attempt (no user data returned from function)
         try {
           await supabase.from('login_activity_log').insert({
-            account_number: accountNumberInt, login_success: false, ip_address: null, user_agent: null
+            account_number: null, // Identifier could be email
+            login_success: false, 
+            ip_address: null, 
+            user_agent: null,
+            identifier_used: identifier
           });
         } catch (logError) { console.error('Failed to log login attempt (no data from RPC):', logError); }
         return false;
@@ -245,7 +234,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Log successful attempt
       try {
         await supabase.from('login_activity_log').insert({
-          account_number: accountNumberInt, login_success: true, ip_address: null, user_agent: null
+          account_number: authenticatedUserData.account_number, 
+          login_success: true, 
+          ip_address: null, 
+          user_agent: null,
+          identifier_used: identifier
         });
       } catch (logError) { console.error('Failed to log successful login attempt:', logError); }
 
@@ -285,18 +278,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Login error:', err);
       setError('An unexpected error occurred. Please try again later.');
       // Log failed attempt (generic catch block)
-      // Avoid logging if accountNumberInt is not reliable here, or log with a placeholder
-      if (accountNumber && !isNaN(parseInt(accountNumber,10))) {
-        try {
-          await supabase.from('login_activity_log').insert({
-            account_number: parseInt(accountNumber, 10), // Attempt to parse again or use previously parsed
-            login_success: false,
-            ip_address: null,
-            user_agent: null
-          });
-        } catch (logError) {
-          console.error('Failed to log login attempt (catch block):', logError);
-        }
+      // Avoid logging if identifier is not reliable here, or log with a placeholder
+      try {
+        await supabase.from('login_activity_log').insert({
+          account_number: null, // Identifier could be email
+          login_success: false,
+          ip_address: null,
+          user_agent: null,
+          identifier_used: identifier
+        });
+      } catch (logError) {
+        console.error('Failed to log login attempt (catch block):', logError);
       }
       return false;
     }
@@ -324,21 +316,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const openDiscountFormModal = () => setShowDiscountFormModal(true);
   const closeDiscountFormModal = () => setShowDiscountFormModal(false);
 
-  const fetchUserAccount = async (accountNumber: string): Promise<User | null> => {
+  const fetchUserAccount = async (identifier: string): Promise<User | null> => {
     setIsLoading(true);
     setError(null);
     try {
-      const accountNumberInt = parseInt(accountNumber, 10);
-      if (isNaN(accountNumberInt)) {
-        setError('Invalid account number format for fetching.');
-        return null;
+      let query = supabase
+        .from('accounts_lcmd')
+        .select('*');
+
+      // Check if the identifier is a number (account number) or string (email)
+      if (!isNaN(Number(identifier))) {
+        query = query.eq('account_number', parseInt(identifier, 10));
+      } else {
+        query = query.eq('email_address', identifier);
       }
 
-      const { data, error: queryError } = await supabase
-        .from('accounts_lcmd')
-        .select('*')
-        .eq('account_number', accountNumberInt)
-        .single();
+      const { data, error: queryError } = await query.single();
 
       if (queryError) {
         console.error('Error fetching user account:', queryError);

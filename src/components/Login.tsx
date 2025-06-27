@@ -31,7 +31,7 @@ const brandLogos = [
 ];
 
 const Login: React.FC = () => {
-  const [accountNumber, setAccountNumber] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -50,7 +50,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const loginSuccess = await login(accountNumber, password);
+      const loginSuccess = await login(identifier, password);
       if (loginSuccess && !user?.requires_password_change) {
         navigate('/dashboard');
       }
@@ -92,8 +92,8 @@ const Login: React.FC = () => {
                   </div>
                 )}
                 <div className="mb-4">
-                  <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                    Account Number
+                  <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
+                    Account Number or Email
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -101,11 +101,11 @@ const Login: React.FC = () => {
                     </div>
                     <input
                       type="text"
-                      id="accountNumber"
+                      id="identifier"
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Account Number"
-                      value={accountNumber}
-                      onChange={(e) => setAccountNumber(e.target.value)}
+                      placeholder="Account Number or Email"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
                       required
                     />
                   </div>
@@ -143,6 +143,11 @@ const Login: React.FC = () => {
                 >
                   {isLoading ? 'Signing In...' : 'Sign In'}
                 </button>
+                <div className="text-center mt-4">
+                  <Link to="/forgot-password" className="text-blue-600 hover:underline text-sm">
+                    Forgot Password?
+                  </Link>
+                </div>
               </form>
             </div>
           </div>

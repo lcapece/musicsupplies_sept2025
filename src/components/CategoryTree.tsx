@@ -551,7 +551,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc((100vh-12rem)*0.67)] p-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc((100vh-12rem)*0.9)] p-4">
         <div className="flex items-center justify-center h-full">
           <div className="text-gray-500">Loading categories...</div>
         </div>
@@ -561,7 +561,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc((100vh-12rem)*0.67)] p-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc((100vh-12rem)*0.9)] p-4">
         <div className="flex items-center justify-center h-full">
           <div className="text-red-500">Error: {error}</div>
         </div>
@@ -570,7 +570,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc((100vh-12rem)*0.67)] overflow-y-auto w-full flex flex-col">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc((100vh-12rem)*0.9)] overflow-y-auto w-full flex flex-col">
       <div className="p-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
         <h3 className="font-medium text-gray-700">Product Categories</h3>
       </div>
