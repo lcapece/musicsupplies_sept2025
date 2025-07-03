@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useNotification } from '../context/NotificationContext';
 import { FaPrint, FaShoppingCart } from 'react-icons/fa';
 
 // --- Interfaces for the new Invoice Structure ---
@@ -58,6 +59,7 @@ const OrderHistory: React.FC = () => {
   const [inventoryWarnings, setInventoryWarnings] = useState<{[key: string]: boolean}>({});
   const { user } = useAuth();
   const { addToCart, items } = useCart();
+  const { showNotification } = useNotification();
 
   const safeParseFloat = (value: any, defaultValue = 0): number => {
     if (value === null || value === undefined || String(value).trim() === '') {
@@ -239,39 +241,79 @@ const OrderHistory: React.FC = () => {
       };
       
       if (!testStorage()) {
-        alert('Error: Browser storage is not available. Please enable cookies and try again.');
+        showNotification('error', 'Browser storage is not available. Please enable cookies and try again.');
         return false;
       }
+      
+      console.log(`Starting reorder process for invoice ${order.invoiceNumber}, ${order.lineItems.length} items`);
       
       // Check inventory for each line item
       for (const item of order.lineItems) {
         try {
-          // Fetch current inventory for this part number
-          const { data, error } = await supabase
+          console.log(`Processing item: ${item.partNumber}, qty: ${item.qtyOrdered}`);
+          
+          // Try case-sensitive search first
+          let { data, error } = await supabase
             .from('products')
-            .select('inventory, price, description')
+            .select('inventory, price, description, partnumber')
             .eq('partnumber', item.partNumber)
             .single();
           
-          if (error) {
-            console.error(`Error checking inventory for ${item.partNumber}:`, error);
-            continue;
+          // If not found, try case-insensitive search
+          if (error || !data) {
+            console.log(`No exact match for ${item.partNumber}, trying case-insensitive search`);
+            const { data: caseInsensitiveData, error: caseInsensitiveError } = await supabase
+              .from('products')
+              .select('inventory, price, description, partnumber')
+              .ilike('partnumber', item.partNumber)
+              .single();
+              
+            if (!caseInsensitiveError && caseInsensitiveData) {
+              data = caseInsensitiveData;
+              error = null;
+              console.log(`Found case-insensitive match: ${caseInsensitiveData.partnumber}`);
+            }
           }
           
-          // Check if inventory is sufficient
-          const inventory = data?.inventory || 0;
-          if (inventory < item.qtyOrdered) {
-            warnings[item.lineKey] = true;
+          let inventory = 0;
+          let productToAdd;
+          
+          if (error || !data) {
+            console.log(`Could not find product ${item.partNumber} in database, using fallback data`);
+            // Use fallback data from the order if database lookup fails
+            productToAdd = {
+              partnumber: item.partNumber,
+              description: item.description,
+              price: item.unitNet,
+              inventory: 0 // Assume no inventory as a fallback
+            };
             hasWarnings = true;
+            warnings[item.lineKey] = true;
+          } else {
+            // Use data from the database
+            inventory = data.inventory || 0;
+            console.log(`Product ${item.partNumber}: Inventory=${inventory}, OrderQty=${item.qtyOrdered}`);
+            
+            // Only set warning if we don't have enough inventory (but we have some)
+            if (inventory > 0 && inventory < item.qtyOrdered) {
+              warnings[item.lineKey] = true;
+              hasWarnings = true;
+              console.log(`Warning: Not enough inventory for ${item.partNumber}. Have ${inventory}, need ${item.qtyOrdered}`);
+            } else if (inventory === 0) {
+              warnings[item.lineKey] = true;
+              hasWarnings = true;
+              console.log(`Warning: No inventory available for ${item.partNumber}`);
+            } else {
+              console.log(`Sufficient inventory for ${item.partNumber}. Have ${inventory}, need ${item.qtyOrdered}`);
+            }
+            
+            productToAdd = {
+              partnumber: data.partnumber || item.partNumber,
+              description: data.description || item.description,
+              price: data.price || item.unitNet,
+              inventory: inventory
+            };
           }
-          
-          // Create a proper product object with all required fields
-          const productToAdd = {
-            partnumber: item.partNumber,
-            description: data?.description || item.description,
-            price: data?.price || item.unitNet,
-            inventory: inventory
-          };
           
           console.log(`Adding to cart: ${JSON.stringify(productToAdd)}, qty: ${item.qtyOrdered}`);
           
@@ -280,7 +322,7 @@ const OrderHistory: React.FC = () => {
           addedItems++;
           
           // Force a small delay to ensure state updates properly
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
           console.error(`Error processing item ${item.partNumber}:`, err);
         }
@@ -289,14 +331,14 @@ const OrderHistory: React.FC = () => {
       // Update inventory warnings state
       setInventoryWarnings(warnings);
       
-      // If successful (even with warnings), show appropriate alert
+      // If successful (even with warnings), show appropriate notification
       if (addedItems === 0) {
-        alert('Error: No items could be added to your cart.');
+        showNotification('error', 'No items could be added to your cart.');
         return false;
       } else if (hasWarnings) {
-        alert(`${addedItems} item(s) added to your cart. NOTE: Not enough inventory available for some items.`);
+        showNotification('warning', `${addedItems} item(s) added to your cart. NOTE: Not enough inventory available for some items.`);
       } else {
-        alert(`${addedItems} item(s) have been added to your cart.`);
+        showNotification('success', `${addedItems} item(s) have been added to your cart.`);
       }
       
       // No need to manually save to localStorage - CartContext handles this
@@ -305,12 +347,12 @@ const OrderHistory: React.FC = () => {
       // Use programmatic navigation or a controlled way to return to Dashboard
       setTimeout(() => {
         window.location.href = '/?cart=open';
-      }, 100);
+      }, 200);
       
       return true;
     } catch (error) {
       console.error('Error in reorder process:', error);
-      alert('An error occurred while processing your order. Please try again.');
+      showNotification('error', 'An error occurred while processing your order. Please try again.');
       return false;
     }
   };
@@ -319,14 +361,9 @@ const OrderHistory: React.FC = () => {
     // Create a new window for printing
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('Please allow pop-ups to print invoices');
+      showNotification('error', 'Please allow pop-ups to print invoices');
       return;
     }
-
-    // Load the CSS file
-    const styleLink = document.createElement('link');
-    styleLink.rel = 'stylesheet';
-    styleLink.href = '/src/invoices/invoice.css';
 
     // Generate the HTML content for the invoice
     let content = `
@@ -471,6 +508,17 @@ const OrderHistory: React.FC = () => {
               .no-print {
                 display: none;
               }
+              .print-button {
+                position: absolute;
+                bottom: 20px;
+                left: 20px;
+                padding: 5px 10px;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+              }
             }
           </style>
       </head>
@@ -562,6 +610,8 @@ const OrderHistory: React.FC = () => {
                       </table>
                   </div>
               </section>
+              
+              <button class="print-button" onclick="window.print()">Print Invoice</button>
           </div>
       </body>
       </html>
@@ -578,7 +628,16 @@ const OrderHistory: React.FC = () => {
       <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">Order History</h1>
       <div className="space-y-8 max-w-4xl mx-auto">
         {orders.map((order) => (
-          <div key={order.invoiceNumber} className="bg-white shadow-lg rounded-lg p-6 sm:p-8">
+          <div key={order.invoiceNumber} className="bg-white shadow-lg rounded-lg p-6 sm:p-8 relative">
+            {/* Print button positioned in lower left corner */}
+            <button 
+              onClick={() => handlePrint(order)}
+              className="absolute bottom-3 left-3 flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-150 text-sm"
+            >
+              <FaPrint className="mr-1" /> Print
+            </button>
+            
+            {/* Header with company and invoice info */}
             <div className="flex flex-col sm:flex-row justify-between items-start mb-6 pb-6 border-b">
               <div className="mb-4 sm:mb-0">
                 <h2 className="text-2xl font-bold text-blue-700">{CompanyInfo.name}</h2>
@@ -595,10 +654,10 @@ const OrderHistory: React.FC = () => {
                 <p><strong>Invoice Date:</strong> {order.invoiceDate}</p>
                 <p><strong>Terms:</strong> {order.terms}</p>
                 <p><strong>Sales Rep:</strong> {order.salesRep}</p>
-                {/* {order.customerPO && <p><strong>Your PO:</strong> {order.customerPO}</p>} Removed */}
               </div>
             </div>
 
+            {/* Bill To section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6 pb-6 border-b">
               <div>
                 <h4 className="font-semibold text-gray-800 mb-1">Bill To:</h4>
@@ -613,22 +672,9 @@ const OrderHistory: React.FC = () => {
                   </>
                 ) : <p>N/A</p>}
               </div>
-              {/* Ship To section removed as per requirement to not display ship to fields
-              <div>
-                <h4 className="font-semibold text-gray-800 mb-1">Ship To:</h4>
-                {order.shipToAddress ? (
-                  <>
-                    <p>{order.shipToAddress.name}</p>
-                    {order.shipToAddress.attn && <p>Attn: {order.shipToAddress.attn}</p>}
-                    <p>{order.shipToAddress.address1}</p>
-                    {order.shipToAddress.address2 && <p>{order.shipToAddress.address2}</p>}
-                    <p>{order.shipToAddress.city}, {order.shipToAddress.state} {order.shipToAddress.zip}</p>
-                  </>
-                ) : <p>N/A</p>}
-              </div>
-              */}
             </div>
 
+            {/* Line items table */}
             <div className="overflow-x-auto mb-6">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-100">
@@ -659,53 +705,54 @@ const OrderHistory: React.FC = () => {
               </table>
             </div>
 
-            <div className="flex justify-between items-end">
-              <div className="flex space-x-2">
+            {/* Action buttons and totals */}
+            <div className="flex flex-col md:flex-row justify-between items-start">
+              {/* Print and reorder buttons */}
+              <div className="flex space-x-2 mb-4 md:mb-0">
                 <button 
                   onClick={() => handlePrint(order)}
-                  className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-150 mb-2"
+                  className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-150"
                 >
                   <FaPrint className="mr-2" /> Print Invoice
                 </button>
                 <button 
                   onClick={() => handleReorder(order)}
-                  className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition duration-150 mb-2"
+                  className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition duration-150"
                 >
                   <FaShoppingCart className="mr-2" /> Reorder
                 </button>
               </div>
-              <div className="w-full sm:w-1/2 md:w-1/3 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span className="text-gray-800">${order.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Shipping Charges:</span>
-                  <span className="text-gray-800">${order.shippingCharges.toFixed(2)}</span>
-                </div>
-                {order.paymentsReceived !== 0 && (
+              
+              {/* Order totals */}
+              <div className="w-full md:w-1/3">
+                <div className="space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Payments Received:</span>
-                    <span className="text-gray-800">(${Math.abs(order.paymentsReceived).toFixed(2)})</span>
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-semibold">${order.subtotal.toFixed(2)}</span>
                   </div>
-                )}
-                {order.interestCharges !== 0 && ( 
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Interest Charges on Overdue Invoice:</span>
-                    <span className="text-gray-800">${order.interestCharges.toFixed(2)}</span>
+                    <span className="text-gray-600">Shipping:</span>
+                    <span className="font-semibold">${order.shippingCharges.toFixed(2)}</span>
                   </div>
-                )}
-                <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2">
-                  <span className="text-gray-800">TOTAL AMOUNT DUE:</span>
-                  <span className="text-red-600">${order.totalAmountDue.toFixed(2)}</span>
+                  {order.paymentsReceived !== 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Payments Received:</span>
+                      <span className="font-semibold text-green-600">(${Math.abs(order.paymentsReceived).toFixed(2)})</span>
+                    </div>
+                  )}
+                  {order.interestCharges !== 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Interest Charges:</span>
+                      <span className="font-semibold">${order.interestCharges.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-1 mt-1">
+                    <span className="text-gray-800 font-semibold">Total Due:</span>
+                    <span className="font-bold text-red-600">${order.totalAmountDue.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             </div>
-            {inventoryWarnings && Object.keys(inventoryWarnings).length > 0 && (
-              <div className="mt-2 p-2 bg-yellow-100 text-yellow-800 rounded">
-                <strong>NOTE:</strong> Not enough inventory available to fulfill repeat order
-              </div>
-            )}
           </div>
         ))}
       </div>

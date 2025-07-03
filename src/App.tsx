@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { NotificationProvider } from './context/NotificationContext';
 import ActiveDiscountDisplayModal from './components/ActiveDiscountDisplayModal';
 import LoginFixBanner from './components/LoginFixBanner';
 import Login from './components/Login';
@@ -237,7 +238,9 @@ function App() {
       <ErrorBoundary>
         <AuthProvider>
           <CartProvider>
-            <AppContent />
+            <NotificationProvider>
+              <AppContent />
+            </NotificationProvider>
           </CartProvider>
         </AuthProvider>
       </ErrorBoundary>

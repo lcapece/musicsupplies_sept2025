@@ -172,9 +172,9 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[calc((100vh-12rem)*0.9)] overflow-y-auto w-full flex flex-col">
-      <div className="p-2 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-        <h3 className="font-medium text-gray-700 text-sm">Product Categories</h3>
+    <div className="bg-white rounded-lg shadow border border-gray-200 h-auto overflow-y-auto w-64 flex flex-col">
+      <div className="p-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+        <h3 className="font-medium text-gray-700">Product Categories</h3>
       </div>
       <div className="p-2 flex-grow overflow-y-auto">
         {categories.map(category => (
