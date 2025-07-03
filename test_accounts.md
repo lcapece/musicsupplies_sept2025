@@ -1,5 +1,11 @@
 # Test Accounts for New Login System
 
+## Test Account 99 (SKU Import Admin)
+- Account Number: 99
+- Account Name: SKU Import Admin
+- Password: sku_import_admin
+- Special: This account has access to the SKU Import functionality
+
 ## Test Account 101 (All Music)
 - Account Number: 101
 - Account Name: All Music

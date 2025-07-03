@@ -24,7 +24,8 @@ interface AuthContextType {
   handlePasswordModalClose: (wasSuccess: boolean) => void; 
   showDiscountFormModal: boolean; 
   openDiscountFormModal: () => void; 
-  closeDiscountFormModal: () => void; 
+  closeDiscountFormModal: () => void;
+  isSpecialAdmin: boolean; 
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -43,6 +44,7 @@ const AuthContext = createContext<AuthContextType>({
   showDiscountFormModal: false,
   openDiscountFormModal: () => {},
   closeDiscountFormModal: () => {},
+  isSpecialAdmin: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -56,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentDiscountInfo, setCurrentDiscountInfo] = useState<DiscountInfo | null>(null);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState<boolean>(false);
   const [showDiscountFormModal, setShowDiscountFormModal] = useState<boolean>(false);
+  const [isSpecialAdmin, setIsSpecialAdmin] = useState<boolean>(false);
 
   // Function to calculate the highest eligible discount for a user
   const calculateBestDiscount = async (accountNumber: string): Promise<void> => {
@@ -172,11 +175,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const parsedUser = JSON.parse(savedUser);
           setUser(parsedUser);
           setIsAuthenticated(true);
+          
+          // Restore the special admin status from the saved user object
+          if (parsedUser.is_special_admin === true) {
+            setIsSpecialAdmin(true);
+            console.log('[AuthContext] Restored special admin status');
+          }
         }
       } catch (e) {
         localStorage.removeItem('user');
         setUser(null);
         setIsAuthenticated(false);
+        setIsSpecialAdmin(false);
       }
 
       setIsLoading(false);
@@ -216,8 +226,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                   ? authFunctionResponse[0] 
                                   : null;
 
-      if (!authenticatedUserData) {
-        setError('Invalid account number/email or password.');
+      // Debug info might be returned even when authentication fails
+      if (authenticatedUserData && authenticatedUserData.debug_info) {
+        console.log('Authentication debug info:', authenticatedUserData.debug_info);
+      }
+      
+      // Check if this is the special admin account (99)
+      const isSpecialAdminAccount = authenticatedUserData && authenticatedUserData.is_special_admin === true;
+      setIsSpecialAdmin(isSpecialAdminAccount);
+
+      // Check if we have a valid account (account_number will be null on auth failure)
+      if (!authenticatedUserData || authenticatedUserData.account_number === null) {
+        const errorMessage = 'Invalid account number/email or password.';
+        console.error(errorMessage, authenticatedUserData?.debug_info || 'No debug info');
+        setError(errorMessage);
+        
         // Log failed attempt (no user data returned from function)
         try {
           await supabase.from('login_activity_log').insert({
@@ -243,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (logError) { console.error('Failed to log successful login attempt:', logError); }
 
       // Map data from PL/pgSQL function to User type
-      // The function returns columns: account_number, acct_name, address, city, state, zip, id (UUID), email_address, mobile_phone, requires_password_change
+      // The function returns columns: account_number, acct_name, address, city, state, zip, id (UUID), email_address, mobile_phone, requires_password_change, is_special_admin, debug_info
       const userData: User = {
         accountNumber: String(authenticatedUserData.account_number), // This is BIGINT from function
         acctName: authenticatedUserData.acct_name || '',
@@ -258,9 +281,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: authenticatedUserData.email_address || '', 
         mobile_phone: authenticatedUserData.mobile_phone || '',
         requires_password_change: authenticatedUserData.requires_password_change === true,
+        is_special_admin: authenticatedUserData.is_special_admin === true,
         // If the UUID id from auth.users is needed on User type, add it:
         // auth_user_id: authenticatedUserData.id 
       };
+      
+      // Store debug info in console but don't save it to localStorage
+      if (authenticatedUserData.debug_info) {
+        console.log('Authentication successful with debug info:', authenticatedUserData.debug_info);
+      }
       
       setUser(userData);
       setIsAuthenticated(true);
@@ -297,6 +326,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
+    setIsSpecialAdmin(false); // Make sure to reset the special admin status on logout
     localStorage.removeItem('user');
   };
 
@@ -380,7 +410,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handlePasswordModalClose, 
       showDiscountFormModal,
       openDiscountFormModal,
-      closeDiscountFormModal
+      closeDiscountFormModal,
+      isSpecialAdmin
     }}>
       {children}
     </AuthContext.Provider>

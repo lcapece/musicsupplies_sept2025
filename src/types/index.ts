@@ -16,6 +16,9 @@ export interface Product {
   prdsubcat?: string; // Product sub category (level 2)
   webmsrp?: number | null; // List price (corrected spelling)
   longdescription?: string; // Long description that may contain HTML
+  brand?: string; // Manufacturer/brand name
+  map?: number | null; // Manufacturer's Advertised Price
+  upc?: string; // Universal Product Code
 }
 
 export interface CartItem extends Product {
@@ -45,6 +48,7 @@ export interface User {
   requires_password_change?: boolean; // Flag to indicate if user needs to change password
   sms_consent_given?: boolean; // SMS consent flag
   sms_consent_date?: string; // Date when SMS consent was given
+  is_special_admin?: boolean; // Flag for special admin account (99)
 }
 
 export interface ProductGroup {

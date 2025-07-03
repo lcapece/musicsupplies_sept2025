@@ -411,14 +411,14 @@ const Dashboard: React.FC = () => {
             
             <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-6">
               <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-12 lg:col-span-3">
+                <div className="col-span-12 lg:col-span-2">
                   <CategoryTree 
                     onSelectCategory={handleCategorySelect}
                     selectedCategoryId={selectedCategoryId}
                   />
                 </div>
                 
-                <div className="col-span-12 lg:col-span-9">
+                <div className="col-span-12 lg:col-span-10">
                   <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700">
                     {(() => {
                       const path = [];
@@ -489,6 +489,7 @@ const Dashboard: React.FC = () => {
                           sortConfig={sortConfig}
                           title={searchQuery ? `Search Results for "${searchQuery}"` : (selectedMainCategoryName || 'Products')}
                           onRowClick={(product) => setSelectedProductForImage(product)} // Handle row click
+                          showUpcColumn={!showImageAndSpecs} // Show UPC column when images are hidden
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (
@@ -508,8 +509,12 @@ const Dashboard: React.FC = () => {
                             <h4 className="font-medium mb-1">Specifications:</h4>
                             <p className="text-sm text-gray-600 mb-2">{selectedProductForImage.description}</p>
                             <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                              <li>Brand: {selectedProductForImage.brand ?? 'N/A'}</li>
+                              <li>UPC: {selectedProductForImage.upc ?? 'N/A'}</li>
                               <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
                               <li>List Price: ${selectedProductForImage.webmsrp !== undefined && selectedProductForImage.webmsrp !== null ? selectedProductForImage.webmsrp.toFixed(2) : 'N/A'}</li>
+                              <li>MAP: {selectedProductForImage.map !== undefined && selectedProductForImage.map !== null ? 
+                                `$${selectedProductForImage.map.toFixed(2)}` : 'N/A'}</li>
                               <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>
                             </ul>
                             

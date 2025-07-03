@@ -9,8 +9,9 @@ import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import CategoryManagementTab from '../components/admin/CategoryManagementTab';
 import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; 
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
+import { applyPromoCodeFunctionMigration, applyBrandMapColumnsMigration } from '../utils/applyMigration';
 
-type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes';
+type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes' | 'database';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -26,6 +27,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
     { id: 'managetreeview' as AdminTab, label: 'Manage Treeview', icon: '🌲' },
+    { id: 'database' as AdminTab, label: 'Database', icon: '🔧' },
   ];
 
   const renderTabContent = () => {
@@ -48,6 +50,8 @@ const AdminDashboard: React.FC = () => {
         return <ManageTreeviewTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
+      case 'database':
+        return <DatabaseAdminTab />;
       default:
         return <OrderHistoryTab />;
     }
@@ -102,6 +106,109 @@ const AdminDashboard: React.FC = () => {
       {/* Tab Content */}
       <div className="flex-1 p-6">
         {renderTabContent()}
+      </div>
+    </div>
+  );
+};
+
+// Database Admin Tab for applying migrations
+const DatabaseAdminTab: React.FC = () => {
+  const [migrationResults, setMigrationResults] = useState<{ [key: string]: { success: boolean; message: string } }>({});
+  const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
+
+  const handleApplyPromoCodeFunction = async () => {
+    setIsLoading(prev => ({ ...prev, promoCode: true }));
+    try {
+      const result = await applyPromoCodeFunctionMigration();
+      setMigrationResults(prev => ({ ...prev, promoCode: result }));
+    } catch (error) {
+      setMigrationResults(prev => ({ 
+        ...prev, 
+        promoCode: { 
+          success: false, 
+          message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        } 
+      }));
+    } finally {
+      setIsLoading(prev => ({ ...prev, promoCode: false }));
+    }
+  };
+
+  const handleApplyBrandMapColumns = async () => {
+    setIsLoading(prev => ({ ...prev, brandMap: true }));
+    try {
+      const result = await applyBrandMapColumnsMigration();
+      setMigrationResults(prev => ({ ...prev, brandMap: result }));
+    } catch (error) {
+      setMigrationResults(prev => ({ 
+        ...prev, 
+        brandMap: { 
+          success: false, 
+          message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        } 
+      }));
+    } finally {
+      setIsLoading(prev => ({ ...prev, brandMap: false }));
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">Database Administration</h2>
+      <p className="text-gray-600 mb-6">
+        Apply database migrations and fixes. Use these options with caution.
+      </p>
+
+      <div className="space-y-6">
+        <div className="border rounded-lg p-4">
+          <h3 className="font-medium text-gray-900 mb-2">Promo Code Function</h3>
+          <p className="text-sm text-gray-600 mb-3">
+            Adds the <code>get_best_promo_code</code> function needed for the promo code popup to work correctly.
+          </p>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleApplyPromoCodeFunction}
+              disabled={isLoading.promoCode}
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                isLoading.promoCode
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {isLoading.promoCode ? 'Applying...' : 'Apply Migration'}
+            </button>
+            {migrationResults.promoCode && (
+              <div className={`text-sm ${migrationResults.promoCode.success ? 'text-green-600' : 'text-red-600'}`}>
+                {migrationResults.promoCode.message}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border rounded-lg p-4">
+          <h3 className="font-medium text-gray-900 mb-2">Brand & MAP Columns</h3>
+          <p className="text-sm text-gray-600 mb-3">
+            Adds the <code>brand</code> and <code>map</code> (Manufacturer's Advertised Price) columns to the products table.
+          </p>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleApplyBrandMapColumns}
+              disabled={isLoading.brandMap}
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                isLoading.brandMap
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {isLoading.brandMap ? 'Applying...' : 'Apply Migration'}
+            </button>
+            {migrationResults.brandMap && (
+              <div className={`text-sm ${migrationResults.brandMap.success ? 'text-green-600' : 'text-red-600'}`}>
+                {migrationResults.brandMap.message}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

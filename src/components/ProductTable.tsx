@@ -10,6 +10,7 @@ interface ProductTableProps {
   sortConfig: { key: keyof Product | null; direction: 'ascending' | 'descending' };
   onRowClick?: (product: Product) => void; // Added onRowClick prop
   className?: string; // Added className prop
+  showUpcColumn?: boolean; // Whether to display the UPC column
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
@@ -18,7 +19,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
   requestSort,
   sortConfig,
   onRowClick, // Destructure onRowClick
-  className // Destructure className
+  className, // Destructure className
+  showUpcColumn = false // Default to false
 }) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +63,18 @@ const ProductTable: React.FC<ProductTableProps> = ({
     return `$${msrp.toFixed(2)}`;
   };
 
+  const formatMapPrice = (map: number | null | undefined) => {
+    if (map === null || map === undefined) {
+      return <span className="text-gray-500">---</span>;
+    }
+    try {
+      return `$${map.toFixed(2)}`;
+    } catch (error) {
+      console.error('Error formatting MAP price:', error, map);
+      return <span className="text-gray-500">Error</span>;
+    }
+  };
+
   // Calculate pagination
   const totalPages = Math.ceil(products.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -75,15 +89,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow overflow-hidden ${className || ''}`}>
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+    <div className={`bg-white rounded-lg shadow-sm overflow-hidden ${className || ''}`}>
+      <div className="px-4 py-3 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
       </div>
       
       {products && products.length > 0 ? (
         <>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th 
@@ -105,6 +119,26 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => requestSort('brand')}
+                  >
+                    Brand
+                    {sortConfig.key === 'brand' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
+                  </th>
+                  {showUpcColumn && (
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => requestSort('upc')}
+                    >
+                      UPC
+                      {sortConfig.key === 'upc' && (
+                        <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                      )}
+                    </th>
+                  )}
+                  <th 
                     className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('webmsrp')}
                   >
@@ -114,11 +148,20 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50"
                     onClick={() => requestSort('price')}
                   >
-                    Price
+                    Your Price
                     {sortConfig.key === 'price' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => requestSort('map')}
+                  >
+                    MAP
+                    {sortConfig.key === 'map' && (
                       <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
                     )}
                   </th>
@@ -149,11 +192,22 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {product.description}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {product && product.brand ? product.brand : '---'}
+                    </td>
+                    {showUpcColumn && (
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {product && product.upc ? product.upc : '---'}
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
                       {formatListPrice(product.webmsrp)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium bg-blue-50 text-blue-800 font-bold">
                       {formatPrice(product.price)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                      {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                       {getInventoryDisplay(product.inventory)}
