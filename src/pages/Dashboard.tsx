@@ -26,6 +26,8 @@ const Dashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [inStockOnly, setInStockOnly] = useState(false);
   const [showImageAndSpecs, setShowImageAndSpecs] = useState(true); // Changed to true for default checked
+  const [showMsrp, setShowMsrp] = useState(true); // New state for showing MSRP column
+  const [showMapPrice, setShowMapPrice] = useState(true); // New state for showing MAP Price column
   const [selectedProductForImage, setSelectedProductForImage] = useState<Product | null>(null);
   const [rtExtendedData, setRtExtendedData] = useState<RtExtended | null>(null); // New state for rt_extended data
   const [currentImageUrl, setCurrentImageUrl] = useState<string>(ImageComingSoon); // State for the image URL to display
@@ -435,10 +437,10 @@ const Dashboard: React.FC = () => {
                     })()}
                   </div>
 
-                  {/* Toggles Container */}
-                  <div className="mb-4 flex items-center space-x-6">
-                    {/* Toggle for Show Images & Specs */}
-                    <div className="flex items-center">
+                  {/* Toggles Container - Single row layout */}
+                  <div className="mb-4 flex items-center flex-wrap">
+                    {/* Show Images & Specs checkbox */}
+                    <div className="mr-8 flex items-center">
                       <input
                         type="checkbox"
                         id="showImageAndSpecs"
@@ -456,7 +458,38 @@ const Dashboard: React.FC = () => {
                       </label>
                     </div>
 
-                    {/* Toggle for Show In-Stock Items Only */}
+                    {/* Conditional checkboxes that appear only when showImageAndSpecs is off */}
+                    {!showImageAndSpecs && (
+                      <>
+                        <div className="mr-8 flex items-center">
+                          <input
+                            type="checkbox"
+                            id="showMsrp"
+                            checked={showMsrp}
+                            onChange={(e) => setShowMsrp(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="showMsrp" className="ml-2 block text-sm text-gray-900">
+                            Show MSRP
+                          </label>
+                        </div>
+                        
+                        <div className="mr-8 flex items-center">
+                          <input
+                            type="checkbox"
+                            id="showMapPrice"
+                            checked={showMapPrice}
+                            onChange={(e) => setShowMapPrice(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="showMapPrice" className="ml-2 block text-sm text-gray-900">
+                            Show MAP Price
+                          </label>
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Show In-Stock Items Only checkbox */}
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -490,6 +523,8 @@ const Dashboard: React.FC = () => {
                           title={searchQuery ? `Search Results for "${searchQuery}"` : (selectedMainCategoryName || 'Products')}
                           onRowClick={(product) => setSelectedProductForImage(product)} // Handle row click
                           showUpcColumn={!showImageAndSpecs} // Show UPC column when images are hidden
+                          showMsrp={!showImageAndSpecs && showMsrp} // Only show MSRP when in wide view mode and checkbox is checked
+                          showMapPrice={!showImageAndSpecs && showMapPrice} // Only show MAP when in wide view mode and checkbox is checked
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (
@@ -512,7 +547,7 @@ const Dashboard: React.FC = () => {
                               <li>Brand: {selectedProductForImage.brand ?? 'N/A'}</li>
                               <li>UPC: {selectedProductForImage.upc ?? 'N/A'}</li>
                               <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
-                              <li>List Price: ${selectedProductForImage.webmsrp !== undefined && selectedProductForImage.webmsrp !== null ? selectedProductForImage.webmsrp.toFixed(2) : 'N/A'}</li>
+                              <li>MSRP: ${selectedProductForImage.webmsrp !== undefined && selectedProductForImage.webmsrp !== null ? selectedProductForImage.webmsrp.toFixed(2) : 'N/A'}</li>
                               <li>MAP: {selectedProductForImage.map !== undefined && selectedProductForImage.map !== null ? 
                                 `$${selectedProductForImage.map.toFixed(2)}` : 'N/A'}</li>
                               <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>

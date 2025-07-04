@@ -11,6 +11,8 @@ interface ProductTableProps {
   onRowClick?: (product: Product) => void; // Added onRowClick prop
   className?: string; // Added className prop
   showUpcColumn?: boolean; // Whether to display the UPC column
+  showMsrp?: boolean; // Whether to display the MSRP column
+  showMapPrice?: boolean; // Whether to display the MAP Price column
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
@@ -20,7 +22,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
   sortConfig,
   onRowClick, // Destructure onRowClick
   className, // Destructure className
-  showUpcColumn = false // Default to false
+  showUpcColumn = false, // Default to false
+  showMsrp = true, // Default to true
+  showMapPrice = true // Default to true
 }) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
@@ -138,15 +142,17 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       )}
                     </th>
                   )}
-                  <th 
-                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => requestSort('webmsrp')}
-                  >
-                    List Price
-                    {sortConfig.key === 'webmsrp' && (
-                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
-                    )}
-                  </th>
+                  {showMsrp && (
+                    <th 
+                      className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => requestSort('webmsrp')}
+                    >
+                      MSRP
+                      {sortConfig.key === 'webmsrp' && (
+                        <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                      )}
+                    </th>
+                  )}
                   <th 
                     className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50"
                     onClick={() => requestSort('price')}
@@ -156,15 +162,17 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
                     )}
                   </th>
-                  <th 
-                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => requestSort('map')}
-                  >
-                    MAP
-                    {sortConfig.key === 'map' && (
-                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
-                    )}
-                  </th>
+                  {showMapPrice && (
+                    <th 
+                      className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => requestSort('map')}
+                    >
+                      MAP
+                      {sortConfig.key === 'map' && (
+                        <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                      )}
+                    </th>
+                  )}
                   <th 
                     className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('inventory')}
@@ -200,15 +208,19 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         {product && product.upc ? product.upc : '---'}
                       </td>
                     )}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
-                      {formatListPrice(product.webmsrp)}
-                    </td>
+                    {showMsrp && (
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
+                        {formatListPrice(product.webmsrp)}
+                      </td>
+                    )}
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium bg-blue-50 text-blue-800 font-bold">
                       {formatPrice(product.price)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
-                      {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
-                    </td>
+                    {showMapPrice && (
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
+                        {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
+                      </td>
+                    )}
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
                       {getInventoryDisplay(product.inventory)}
                     </td>
