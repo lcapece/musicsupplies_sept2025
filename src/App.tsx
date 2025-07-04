@@ -63,14 +63,32 @@ const SpecialAdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children })
     return <Navigate to="/login" replace />;
   }
 
-  // Log for debugging purposes
-  console.log('SpecialAdminProtectedRoute: ', { 
-    accountNumber: user?.accountNumber, 
-    isSpecialAdmin, 
-    user
-  });
+  // Only log once during development, not on every render
+  React.useEffect(() => {
+    console.log('SpecialAdminProtectedRoute mounted: ', { 
+      accountNumber: user?.accountNumber, 
+      isSpecialAdmin, 
+      user
+    });
+  }, []);
 
-  return isSpecialAdmin ? children : <Navigate to="/" replace />; // Redirect non-special-admins to dashboard
+  // Use a state variable to prevent infinite redirects
+  const [redirectAttempted, setRedirectAttempted] = React.useState(false);
+  
+  React.useEffect(() => {
+    // Reset redirect flag if user or isSpecialAdmin changes
+    if (user?.accountNumber || isSpecialAdmin !== undefined) {
+      setRedirectAttempted(false);
+    }
+  }, [user?.accountNumber, isSpecialAdmin]);
+
+  // If not a special admin and haven't attempted redirect yet
+  if (!isSpecialAdmin && !redirectAttempted) {
+    setRedirectAttempted(true);
+    return <Navigate to="/" replace />;
+  }
+
+  return isSpecialAdmin ? children : <div>Redirecting...</div>;
 };
 
 

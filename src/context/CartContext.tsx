@@ -97,19 +97,48 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setIsLoadingPromoCodes(true);
     try {
-      const { data, error } = await supabase.rpc('get_available_promo_codes', {
-        p_account_number: user.accountNumber,
-        p_order_value: totalPrice
+      // Try to use get_best_promo_code function instead of get_available_promo_codes
+      const { data, error } = await supabase.rpc('get_best_promo_code', {
+        p_account_number: user.accountNumber
       });
       
-      if (error) throw error;
+      if (error) {
+        console.warn('Error fetching best promo code, falling back to empty list:', error);
+        setAvailablePromoCodes([]);
+        return;
+      }
       
-      setAvailablePromoCodes(data || []);
+      // Convert the single best promo code to the expected format
+      if (data) {
+        const promoCode: AvailablePromoCode = {
+          code: data.code,
+          name: data.name,
+          description: data.description,
+          type: data.type || 'percent_off', // Default to percent_off if not provided
+          value: data.value || 0,
+          min_order_value: data.min_order_value || 0,
+          discount_amount: calculateDiscountAmount(data.type, data.value, totalPrice),
+          is_best: true,
+          uses_remaining_for_account: null // Optional field
+        };
+        setAvailablePromoCodes([promoCode]);
+      } else {
+        setAvailablePromoCodes([]);
+      }
     } catch (err) {
       console.error('Error fetching available promo codes:', err);
       setAvailablePromoCodes([]);
     } finally {
       setIsLoadingPromoCodes(false);
+    }
+  };
+  
+  // Helper function to calculate discount amount
+  const calculateDiscountAmount = (type: string, value: number, orderValue: number): number => {
+    if (type === 'percent_off') {
+      return orderValue * (value / 100);
+    } else { // dollars_off
+      return Math.min(value, orderValue);
     }
   };
   

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PromoCode } from '../../types';
-import { Plus, Filter } from 'lucide-react';
+import { Plus, Filter, Edit, Trash2 } from 'lucide-react';
 import AddPromoCodeModal from './AddPromoCodeModal';
+import EditPromoCodeModal from './EditPromoCodeModal';
 
 const PromoCodeManagementTab: React.FC = () => {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
@@ -10,6 +11,12 @@ const PromoCodeManagementTab: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming'>('active');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedPromoCode, setSelectedPromoCode] = useState<PromoCode | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    promoCode: PromoCode | null;
+  }>({ isOpen: false, promoCode: null });
 
   // Fetch promo codes from the database
   useEffect(() => {
@@ -82,6 +89,72 @@ const PromoCodeManagementTab: React.FC = () => {
     }
   };
 
+  // Handle edit promo code
+  const handleEditPromoCode = (promo: PromoCode) => {
+    setSelectedPromoCode(promo);
+    setIsEditModalOpen(true);
+  };
+
+  // Handle delete promo code
+  const handleDeletePromoCode = (promo: PromoCode) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      promoCode: promo
+    });
+  };
+
+  // Confirm delete promo code
+  const confirmDelete = async () => {
+    if (!deleteConfirmation.promoCode) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase
+        .from('promo_codes')
+        .delete()
+        .eq('id', deleteConfirmation.promoCode.id);
+
+      if (error) throw error;
+
+      // Refresh the promo codes list
+      const { data, error: fetchError } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setPromoCodes(data || []);
+
+      setDeleteConfirmation({ isOpen: false, promoCode: null });
+    } catch (err: any) {
+      console.error('Error deleting promo code:', err);
+      setError(err.message || 'Failed to delete promo code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh promo codes list
+  const refreshPromoCodes = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setPromoCodes(data || []);
+    } catch (err: any) {
+      console.error('Error refreshing promo codes:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-6">
@@ -134,12 +207,13 @@ const PromoCodeManagementTab: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per-Account Limit</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Range</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPromoCodes.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={10} className="px-6 py-4 text-center text-sm text-gray-500">
                     No promo codes found
                   </td>
                 </tr>
@@ -183,6 +257,24 @@ const PromoCodeManagementTab: React.FC = () => {
                           {statusInfo.label}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEditPromoCode(promo)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Edit promo code"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePromoCode(promo)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete promo code"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -195,29 +287,45 @@ const PromoCodeManagementTab: React.FC = () => {
       <AddPromoCodeModal 
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSuccess={() => {
-          // Refresh the promo codes list
-          const fetchPromoCodes = async () => {
-            setLoading(true);
-            try {
-              const { data, error } = await supabase
-                .from('promo_codes')
-                .select('*')
-                .order('created_at', { ascending: false });
-              
-              if (error) throw error;
-              setPromoCodes(data || []);
-            } catch (err: any) {
-              console.error('Error refreshing promo codes:', err);
-              setError(err.message);
-            } finally {
-              setLoading(false);
-            }
-          };
-          
-          fetchPromoCodes();
-        }}
+        onSuccess={refreshPromoCodes}
       />
+
+      <EditPromoCodeModal 
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedPromoCode(null);
+        }}
+        promoCode={selectedPromoCode}
+        onSuccess={refreshPromoCodes}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Delete Promo Code</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete the promo code "{deleteConfirmation.promoCode?.code}"? 
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setDeleteConfirmation({ isOpen: false, promoCode: null })}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
