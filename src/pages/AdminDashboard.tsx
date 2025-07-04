@@ -10,6 +10,7 @@ import CategoryManagementTab from '../components/admin/CategoryManagementTab';
 import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; 
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 import { applyPromoCodeFunctionMigration, applyBrandMapColumnsMigration } from '../utils/applyMigration';
+import { applyPromoCodeLimitsUpdates } from '../utils/applyPromoCodeLimitsUpdates';
 
 type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes' | 'database';
 
@@ -116,6 +117,24 @@ const DatabaseAdminTab: React.FC = () => {
   const [migrationResults, setMigrationResults] = useState<{ [key: string]: { success: boolean; message: string } }>({});
   const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
 
+  const handleApplyPromoCodeLimits = async () => {
+    setIsLoading(prev => ({ ...prev, promoCodeLimits: true }));
+    try {
+      const result = await applyPromoCodeLimitsUpdates();
+      setMigrationResults(prev => ({ ...prev, promoCodeLimits: result }));
+    } catch (error) {
+      setMigrationResults(prev => ({ 
+        ...prev, 
+        promoCodeLimits: { 
+          success: false, 
+          message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        } 
+      }));
+    } finally {
+      setIsLoading(prev => ({ ...prev, promoCodeLimits: false }));
+    }
+  };
+
   const handleApplyPromoCodeFunction = async () => {
     setIsLoading(prev => ({ ...prev, promoCode: true }));
     try {
@@ -205,6 +224,31 @@ const DatabaseAdminTab: React.FC = () => {
             {migrationResults.brandMap && (
               <div className={`text-sm ${migrationResults.brandMap.success ? 'text-green-600' : 'text-red-600'}`}>
                 {migrationResults.brandMap.message}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border rounded-lg p-4">
+          <h3 className="font-medium text-gray-900 mb-2">Promo Code Account Limits</h3>
+          <p className="text-sm text-gray-600 mb-3">
+            Adds per-account usage limit functionality to promo codes, allowing for one-time use codes and other restrictions.
+          </p>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleApplyPromoCodeLimits}
+              disabled={isLoading.promoCodeLimits}
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                isLoading.promoCodeLimits
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {isLoading.promoCodeLimits ? 'Applying...' : 'Apply Migration'}
+            </button>
+            {migrationResults.promoCodeLimits && (
+              <div className={`text-sm ${migrationResults.promoCodeLimits.success ? 'text-green-600' : 'text-red-600'}`}>
+                {migrationResults.promoCodeLimits.message}
               </div>
             )}
           </div>

@@ -457,6 +457,20 @@ const Dashboard: React.FC = () => {
                         Show Images & Specs
                       </label>
                     </div>
+                    
+                    {/* Show In-Stock Items Only checkbox */}
+                    <div className="mr-8 flex items-center">
+                      <input
+                        type="checkbox"
+                        id="inStockOnly"
+                        checked={inStockOnly}
+                        onChange={(e) => setInStockOnly(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="inStockOnly" className="ml-2 block text-sm text-gray-900">
+                        Show In-Stock Items Only
+                      </label>
+                    </div>
 
                     {/* Conditional checkboxes that appear only when showImageAndSpecs is off */}
                     {!showImageAndSpecs && (
@@ -474,7 +488,7 @@ const Dashboard: React.FC = () => {
                           </label>
                         </div>
                         
-                        <div className="mr-8 flex items-center">
+                        <div className="flex items-center">
                           <input
                             type="checkbox"
                             id="showMapPrice"
@@ -488,20 +502,6 @@ const Dashboard: React.FC = () => {
                         </div>
                       </>
                     )}
-                    
-                    {/* Show In-Stock Items Only checkbox */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="inStockOnly"
-                        checked={inStockOnly}
-                        onChange={(e) => setInStockOnly(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="inStockOnly" className="ml-2 block text-sm text-gray-900">
-                        Show In-Stock Items Only
-                      </label>
-                    </div>
                   </div>
 
                   {loading ? (

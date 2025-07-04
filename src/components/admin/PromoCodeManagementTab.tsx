@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PromoCode } from '../../types';
 import { Plus, Filter } from 'lucide-react';
+import AddPromoCodeModal from './AddPromoCodeModal';
 
 const PromoCodeManagementTab: React.FC = () => {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming'>('active');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Fetch promo codes from the database
   useEffect(() => {
@@ -99,7 +101,7 @@ const PromoCodeManagementTab: React.FC = () => {
             </select>
           </div>
           <button
-            onClick={() => alert('Add Promo Code functionality is being implemented')}
+            onClick={() => setIsAddModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
           >
             <Plus size={16} className="mr-2" />
@@ -129,6 +131,7 @@ const PromoCodeManagementTab: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min Order</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uses</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per-Account Limit</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Range</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
@@ -136,7 +139,7 @@ const PromoCodeManagementTab: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPromoCodes.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                     No promo codes found
                   </td>
                 </tr>
@@ -164,6 +167,15 @@ const PromoCodeManagementTab: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {!promo.uses_per_account_tracking ? (
+                          'Not Tracked'
+                        ) : promo.max_uses_per_account === null ? (
+                          'Unlimited'
+                        ) : (
+                          `${promo.max_uses_per_account} per account`
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(promo.start_date)} - {formatDate(promo.end_date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -179,6 +191,33 @@ const PromoCodeManagementTab: React.FC = () => {
           </table>
         </div>
       )}
+      
+      <AddPromoCodeModal 
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => {
+          // Refresh the promo codes list
+          const fetchPromoCodes = async () => {
+            setLoading(true);
+            try {
+              const { data, error } = await supabase
+                .from('promo_codes')
+                .select('*')
+                .order('created_at', { ascending: false });
+              
+              if (error) throw error;
+              setPromoCodes(data || []);
+            } catch (err: any) {
+              console.error('Error refreshing promo codes:', err);
+              setError(err.message);
+            } finally {
+              setLoading(false);
+            }
+          };
+          
+          fetchPromoCodes();
+        }}
+      />
     </div>
   );
 };

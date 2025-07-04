@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { PromoCodeSummary } from '../types';
+import { PromoCodeSummary, AvailablePromoCode } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
@@ -10,8 +10,13 @@ interface PromoCodePopupProps {
   onClose: () => void;
 }
 
+// Extended PromoCodeSummary with account usage information
+type ExtendedPromoCodeSummary = PromoCodeSummary & {
+  uses_remaining_for_account?: number | null;
+};
+
 const PromoCodePopup: React.FC<PromoCodePopupProps> = ({ isOpen, onClose }) => {
-  const [bestPromoCode, setBestPromoCode] = useState<PromoCodeSummary | null>(null);
+  const [bestPromoCode, setBestPromoCode] = useState<ExtendedPromoCodeSummary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
@@ -49,14 +54,15 @@ const PromoCodePopup: React.FC<PromoCodePopupProps> = ({ isOpen, onClose }) => {
             // Find the best promo code (should be marked with is_best)
             const bestCode = allCodesData.find((code: { is_best: boolean }) => code.is_best) || allCodesData[0];
             
-            // Transform to expected format
+            // Transform to expected format, including uses_remaining_for_account if available
             setBestPromoCode({
               code: bestCode.code,
               name: bestCode.name,
               description: bestCode.description,
               type: bestCode.type,
               value: bestCode.value,
-              min_order_value: bestCode.min_order_value
+              min_order_value: bestCode.min_order_value,
+              uses_remaining_for_account: bestCode.uses_remaining_for_account
             });
           } else {
             // No promo codes available
@@ -66,6 +72,8 @@ const PromoCodePopup: React.FC<PromoCodePopupProps> = ({ isOpen, onClose }) => {
         }
         
         if (data) {
+          // If we're using the primary function, we might not have uses_remaining_for_account
+          // In that case, we'll just use the data as is
           setBestPromoCode(data);
         } else {
           // No promo code available
@@ -131,11 +139,20 @@ const PromoCodePopup: React.FC<PromoCodePopupProps> = ({ isOpen, onClose }) => {
               <div className="text-gray-700">
                 {bestPromoCode.description}
               </div>
-              {bestPromoCode.min_order_value > 0 && (
-                <div className="mt-2 text-sm text-gray-500">
-                  *Minimum order value: ${bestPromoCode.min_order_value.toFixed(2)}
-                </div>
-              )}
+              <div className="mt-3 space-y-1">
+                {bestPromoCode.min_order_value > 0 && (
+                  <div className="text-sm text-gray-500">
+                    *Minimum order value: ${bestPromoCode.min_order_value.toFixed(2)}
+                  </div>
+                )}
+                {/* Show usage limits if it exists in the data */}
+                {bestPromoCode.uses_remaining_for_account !== undefined && 
+                 bestPromoCode.uses_remaining_for_account !== null && (
+                  <div className="text-sm font-medium text-blue-600">
+                    You can use this code {bestPromoCode.uses_remaining_for_account} more time{bestPromoCode.uses_remaining_for_account !== 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
             </div>
             <p className="text-gray-600 text-sm mb-4">
               Use this code at checkout to receive your discount.

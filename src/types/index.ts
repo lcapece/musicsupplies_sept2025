@@ -89,6 +89,8 @@ export interface PromoCode {
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
+  max_uses_per_account?: number | null;
+  uses_per_account_tracking?: boolean;
 }
 
 export interface PromoCodeUsage {
@@ -128,4 +130,5 @@ export interface AvailablePromoCode {
   min_order_value: number;
   discount_amount: number;
   is_best: boolean;
+  uses_remaining_for_account?: number | null;
 }
