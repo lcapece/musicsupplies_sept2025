@@ -410,8 +410,8 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-6">
-              <div className="flex gap-6">
-                <div>
+              <div className="flex gap-2">
+                <div className="w-48">
                   <CategoryTree 
                     onSelectCategory={handleCategorySelect}
                     selectedCategoryId={selectedCategoryId}
@@ -481,8 +481,8 @@ const Dashboard: React.FC = () => {
                     </div>
                   ) : (
                     // Product Table and Image/Specs Area
-                    <div className={`flex flex-col ${showImageAndSpecs ? 'lg:flex-row' : ''} gap-6`}>
-                      <div className={`${showImageAndSpecs ? 'lg:w-2/3' : 'w-full'}`}>
+                    <div className={`flex flex-col ${showImageAndSpecs ? 'lg:flex-row' : ''} gap-2`}>
+                      <div className={`${showImageAndSpecs ? 'lg:w-3/4' : 'w-full'}`}>
                         <ProductTable 
                           products={sortedProducts}
                           requestSort={requestSort}
@@ -493,7 +493,7 @@ const Dashboard: React.FC = () => {
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (
-                        <div className="lg:w-1/3 bg-white p-4 rounded-lg shadow">
+                        <div className="lg:w-1/4 bg-white p-3 rounded-lg shadow">
                           <h3 className="text-lg font-semibold mb-2">
                             {selectedProductForImage.partnumber} - Image & Specs
                           </h3>
@@ -529,7 +529,7 @@ const Dashboard: React.FC = () => {
                         </div>
                       )}
                        {showImageAndSpecs && !selectedProductForImage && (
-                        <div className="lg:w-1/3 bg-white p-4 rounded-lg shadow flex items-center justify-center">
+                        <div className="lg:w-1/4 bg-white p-3 rounded-lg shadow flex items-center justify-center">
                           <p className="text-gray-500">Select a product to view its image and specs.</p>
                         </div>
                       )}

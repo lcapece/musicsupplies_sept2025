@@ -101,7 +101,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
               <thead className="bg-gray-50">
                 <tr>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('partnumber')}
                   >
                     Part Number 
@@ -110,7 +110,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('description')}
                   >
                     Description
@@ -119,7 +119,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('brand')}
                   >
                     Brand
@@ -129,7 +129,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   </th>
                   {showUpcColumn && (
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => requestSort('upc')}
                     >
                       UPC
@@ -139,7 +139,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </th>
                   )}
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('webmsrp')}
                   >
                     List Price
@@ -148,7 +148,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50"
+                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50"
                     onClick={() => requestSort('price')}
                   >
                     Your Price
@@ -157,7 +157,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('map')}
                   >
                     MAP
@@ -166,7 +166,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('inventory')}
                   >
                     Inventory
@@ -174,7 +174,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
                     )}
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -186,36 +186,36 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''}`}
                     onClick={() => onRowClick && onRowClick(product)} // Call onRowClick if provided
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
                       {product.partnumber}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
+                    <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-[150px]">
                       {product.description}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
+                    <td className="px-3 py-2 text-sm text-gray-500">
                       {product && product.brand ? product.brand : '---'}
                     </td>
                     {showUpcColumn && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-3 py-2 text-sm text-gray-500">
                         {product && product.upc ? product.upc : '---'}
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
                       {formatListPrice(product.webmsrp)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium bg-blue-50 text-blue-800 font-bold">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium bg-blue-50 text-blue-800 font-bold">
                       {formatPrice(product.price)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
                       {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
                       {getInventoryDisplay(product.inventory)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="px-2 py-2 whitespace-nowrap text-center">
                       <button
                         onClick={() => handleAddToCart(product)}
-                        className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md ${
+                        className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md ${
                           product.inventory && product.inventory > 0
                             ? 'text-white bg-blue-600 hover:bg-blue-700'
                             : 'text-gray-400 bg-gray-100 cursor-not-allowed'

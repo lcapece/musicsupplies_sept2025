@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useNotification } from '../context/NotificationContext';
 import { FaPrint, FaShoppingCart } from 'react-icons/fa';
+import LogoImage from '../images/music_supplies_logo.png';
 
 // --- Interfaces for the new Invoice Structure ---
 interface AddressInfo {
@@ -345,9 +346,10 @@ const OrderHistory: React.FC = () => {
       console.log('Items added to cart:', addedItems);
       
       // Use programmatic navigation or a controlled way to return to Dashboard
+      // Wait for 3 seconds to give users time to read the notification before redirecting
       setTimeout(() => {
         window.location.href = '/?cart=open';
-      }, 200);
+      }, 3000);
       
       return true;
     } catch (error) {
@@ -625,7 +627,10 @@ const OrderHistory: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">Order History</h1>
+      <div className="flex items-center mb-8">
+        <img src={LogoImage} alt="Music Supplies Logo" className="h-16 mr-4" />
+        <h1 className="text-3xl font-bold text-gray-800 flex-1 text-center">Order History</h1>
+      </div>
       <div className="space-y-8 max-w-4xl mx-auto">
         {orders.map((order) => (
           <div key={order.invoiceNumber} className="bg-white shadow-lg rounded-lg p-6 sm:p-8 relative">

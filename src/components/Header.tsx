@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import ShoppingCartComponent from './ShoppingCart';
 import ProductImportModal, { ImportStepStatus } from './ProductImportModal'; // Import new modal
 import DiscountFormModal from './DiscountFormModal'; // Import DiscountFormModal
+import LogoImage from '../images/music-supplies-2.png'; // Import the new logo
 
 interface HeaderProps {
   onViewChange: (view: 'products' | 'orders' | 'weborders') => void;
@@ -144,7 +145,12 @@ interface SupabaseFunctionError {
     <header className="bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-4">
+            {/* Logo with 50% reduced left and right padding and hyperlink to main page */}
+            <Link to="/" className="flex items-center">
+              <img src={LogoImage} alt="Music Supplies Logo" className="h-16 -ml-2 sm:-ml-3 lg:-ml-4 -mr-2 sm:-mr-3 lg:-mr-4" />
+            </Link>
+            
             <div className="bg-red-50 p-3 rounded-lg border border-red-100">
               <p className="font-bold text-red-700">{user?.acctName} ({user?.accountNumber})</p>
               <p className="text-sm text-red-600">{user?.address}</p>

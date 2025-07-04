@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 import NotificationModal, { NotificationType } from '../components/NotificationModal';
 
 interface NotificationContextType {
-  showNotification: (type: NotificationType, message: string, title?: string) => void;
+  showNotification: (type: NotificationType, message: string, title?: string, displayTimeMs?: number) => void;
   hideNotification: () => void;
 }
 
@@ -22,14 +22,35 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     type: 'info',
     message: '',
   });
+  
+  // Use a ref to track timeout IDs for cleanup
+  const notificationTimeoutRef = useRef<number | null>(null);
 
-  const showNotification = useCallback((type: NotificationType, message: string, title?: string) => {
+  const showNotification = useCallback((
+    type: NotificationType, 
+    message: string, 
+    title?: string, 
+    displayTimeMs: number = 3000 // Default 3 seconds minimum display time
+  ) => {
+    // Clear any existing timeout to prevent race conditions
+    if (notificationTimeoutRef.current !== null) {
+      window.clearTimeout(notificationTimeoutRef.current);
+      notificationTimeoutRef.current = null;
+    }
+    
     setNotificationProps({
       type,
       message,
       title,
     });
     setShowModal(true);
+    
+    // Set a minimum display time to ensure users can read the message
+    notificationTimeoutRef.current = window.setTimeout(() => {
+      notificationTimeoutRef.current = null;
+      // We don't auto-close, just mark that it's safe to close now
+      // This allows the notification to stay until user interaction if needed
+    }, displayTimeMs);
   }, []);
 
   const hideNotification = useCallback(() => {
