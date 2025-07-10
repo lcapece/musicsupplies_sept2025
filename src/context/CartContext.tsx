@@ -97,32 +97,78 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setIsLoadingPromoCodes(true);
     try {
-      // Try to use get_best_promo_code function instead of get_available_promo_codes
-      const { data, error } = await supabase.rpc('get_best_promo_code', {
-        p_account_number: user.accountNumber
-      });
+      // First try direct query to get all active promo codes
+      const { data: allPromos, error: queryError } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .eq('is_active', true)
+        .lte('start_date', new Date().toISOString())
+        .gte('end_date', new Date().toISOString())
+        .or('max_uses.is.null,uses_remaining.gt.0');
       
-      if (error) {
-        console.warn('Error fetching best promo code, falling back to empty list:', error);
-        setAvailablePromoCodes([]);
+      if (!queryError && allPromos && allPromos.length > 0) {
+        // Convert to expected format and find the best one
+        const promoCodes: AvailablePromoCode[] = allPromos.map((promo) => ({
+          code: promo.code,
+          name: promo.name,
+          description: `Save ${promo.type === 'percent_off' ? promo.value + '%' : '$' + promo.value}${promo.min_order_value > 0 ? ' on orders over $' + promo.min_order_value : ''}`,
+          type: promo.type,
+          value: promo.value,
+          min_order_value: promo.min_order_value || 0,
+          discount_amount: calculateDiscountAmount(promo.type, promo.value, totalPrice),
+          is_best: false, // Will be set below
+          uses_remaining_for_account: null
+        }));
+        
+        // Find the best promo code (highest value for percentage, or highest dollar amount)
+        let bestPromo = promoCodes[0];
+        promoCodes.forEach(promo => {
+          if (promo.type === 'percent_off' && bestPromo.type === 'percent_off') {
+            if (promo.value > bestPromo.value) bestPromo = promo;
+          } else if (promo.type === 'dollars_off' && bestPromo.type === 'dollars_off') {
+            if (promo.value > bestPromo.value) bestPromo = promo;
+          } else if (promo.type === 'percent_off' && bestPromo.type === 'dollars_off') {
+            // Prefer percentage discounts generally
+            bestPromo = promo;
+          }
+        });
+        
+        // Mark the best promo
+        if (bestPromo) {
+          bestPromo.is_best = true;
+        }
+        
+        // Sort so best is first
+        promoCodes.sort((a, b) => {
+          if (a.is_best && !b.is_best) return -1;
+          if (!a.is_best && b.is_best) return 1;
+          return 0;
+        });
+        
+        setAvailablePromoCodes(promoCodes);
         return;
       }
       
-      // Convert the single best promo code to the expected format
-      if (data) {
+      // Fallback to get_best_promo_code function
+      const { data: bestPromo, error: bestError } = await supabase.rpc('get_best_promo_code', {
+        p_account_number: user.accountNumber
+      });
+      
+      if (!bestError && bestPromo) {
         const promoCode: AvailablePromoCode = {
-          code: data.code,
-          name: data.name,
-          description: data.description,
-          type: data.type || 'percent_off', // Default to percent_off if not provided
-          value: data.value || 0,
-          min_order_value: data.min_order_value || 0,
-          discount_amount: calculateDiscountAmount(data.type, data.value, totalPrice),
+          code: bestPromo.code,
+          name: bestPromo.name,
+          description: bestPromo.description,
+          type: bestPromo.type || 'percent_off',
+          value: bestPromo.value || 0,
+          min_order_value: bestPromo.min_order_value || 0,
+          discount_amount: calculateDiscountAmount(bestPromo.type, bestPromo.value, totalPrice),
           is_best: true,
-          uses_remaining_for_account: null // Optional field
+          uses_remaining_for_account: null
         };
         setAvailablePromoCodes([promoCode]);
       } else {
+        console.warn('Could not fetch any promo codes');
         setAvailablePromoCodes([]);
       }
     } catch (err) {

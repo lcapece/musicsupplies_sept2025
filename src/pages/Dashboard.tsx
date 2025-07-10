@@ -438,7 +438,7 @@ const Dashboard: React.FC = () => {
                   </div>
 
                   {/* Toggles Container - Single row layout */}
-                  <div className="mb-4 flex items-center flex-wrap">
+                  <div className="mb-4 flex items-center flex-wrap ml-28">
                     {/* Show Images & Specs checkbox */}
                     <div className="mr-8 flex items-center">
                       <input
