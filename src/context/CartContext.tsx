@@ -97,53 +97,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setIsLoadingPromoCodes(true);
     try {
-      // First try direct query to get all active promo codes
-      const { data: allPromos, error: queryError } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .eq('is_active', true)
-        .lte('start_date', new Date().toISOString())
-        .gte('end_date', new Date().toISOString())
-        .or('max_uses.is.null,uses_remaining.gt.0');
+      // Use the new get_all_promo_codes function which handles everything correctly
+      const { data: allPromos, error: queryError } = await supabase.rpc('get_all_promo_codes', {
+        p_account_number: user.accountNumber
+      });
       
       if (!queryError && allPromos && allPromos.length > 0) {
-        // Convert to expected format and find the best one
-        const promoCodes: AvailablePromoCode[] = allPromos.map((promo) => ({
+        // Convert to expected format with calculated discount amounts based on current cart total
+        const promoCodes: AvailablePromoCode[] = allPromos.map((promo: any) => ({
           code: promo.code,
           name: promo.name,
-          description: `Save ${promo.type === 'percent_off' ? promo.value + '%' : '$' + promo.value}${promo.min_order_value > 0 ? ' on orders over $' + promo.min_order_value : ''}`,
+          description: promo.description,
           type: promo.type,
           value: promo.value,
           min_order_value: promo.min_order_value || 0,
           discount_amount: calculateDiscountAmount(promo.type, promo.value, totalPrice),
-          is_best: false, // Will be set below
+          is_best: promo.is_best,
           uses_remaining_for_account: null
         }));
-        
-        // Find the best promo code (highest value for percentage, or highest dollar amount)
-        let bestPromo = promoCodes[0];
-        promoCodes.forEach(promo => {
-          if (promo.type === 'percent_off' && bestPromo.type === 'percent_off') {
-            if (promo.value > bestPromo.value) bestPromo = promo;
-          } else if (promo.type === 'dollars_off' && bestPromo.type === 'dollars_off') {
-            if (promo.value > bestPromo.value) bestPromo = promo;
-          } else if (promo.type === 'percent_off' && bestPromo.type === 'dollars_off') {
-            // Prefer percentage discounts generally
-            bestPromo = promo;
-          }
-        });
-        
-        // Mark the best promo
-        if (bestPromo) {
-          bestPromo.is_best = true;
-        }
-        
-        // Sort so best is first
-        promoCodes.sort((a, b) => {
-          if (a.is_best && !b.is_best) return -1;
-          if (!a.is_best && b.is_best) return 1;
-          return 0;
-        });
         
         setAvailablePromoCodes(promoCodes);
         return;

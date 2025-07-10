@@ -46,9 +46,11 @@ const Dashboard: React.FC = () => {
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [promoStatusData, setPromoStatusData] = useState<PromotionalOffersStatus | null>(null);
   const [showPromoCodePopup, setShowPromoCodePopup] = useState(false); // State for PromoCodePopup
+  const [inventoryRefreshTimestamp, setInventoryRefreshTimestamp] = useState<string | null>(null); // State for inventory refresh timestamp
 
   useEffect(() => {
     fetchProducts();
+    fetchInventoryRefreshTimestamp();
     setSelectedProductForImage(null);
   }, [selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly]);
 
@@ -290,6 +292,35 @@ const Dashboard: React.FC = () => {
     return sortableProducts;
   }, [products, sortConfig]);
 
+  const fetchInventoryRefreshTimestamp = async () => {
+    try {
+      const { data, error } = await supabase
+        .rpc('exec_sql', {
+          sql_query: 'select min(inventory_refreshed) as last_refresh from products_supabase'
+        });
+
+      if (error) {
+        console.error('Error fetching inventory refresh timestamp:', error);
+        return;
+      }
+
+      if (data && data.length > 0 && data[0].last_refresh) {
+        const timestamp = new Date(data[0].last_refresh);
+        const formatted = timestamp.toLocaleString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        setInventoryRefreshTimestamp(formatted);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -306,8 +337,8 @@ const Dashboard: React.FC = () => {
         query = query.filter('prdmaincat', 'ilike', selectedMainCategory);
       }
 
-      // Filter out test products
-      query = query.not('partnumber', 'ilike', 'TEST-%');
+      // Filter out test products - COMMENTED OUT to allow TEST products in search results
+      // query = query.not('partnumber', 'ilike', 'TEST-%');
 
       // Apply search terms by checking partnumber and description
       if (searchTerms.primary) {
@@ -422,19 +453,26 @@ const Dashboard: React.FC = () => {
                 
                 <div className="flex-1 min-w-0">
                   <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 w-full overflow-visible">
-                    {(() => {
-                      const path = [];
-                      if (selectedMainCategoryName) path.push(selectedMainCategoryName);
-                      if (selectedSubCategoryName) path.push(selectedSubCategoryName);
+                    <div className="flex justify-between items-center">
+                      <div>
+                        {(() => {
+                          const path = [];
+                          if (selectedMainCategoryName) path.push(selectedMainCategoryName);
+                          if (selectedSubCategoryName) path.push(selectedSubCategoryName);
 
-                      if (path.length > 0) {
-                        return `Current Path: ${path.join(' > ')}`;
-                      }
-                      if (searchTerms.primary || searchTerms.additional || searchTerms.exclude) {
-                        return `Search results for: "${searchTerms.primary}${searchTerms.additional ? ' + ' + searchTerms.additional : ''}${searchTerms.exclude ? ' - ' + searchTerms.exclude : ''}"`;
-                      }
-                      return "Showing all product groups";
-                    })()}
+                          if (path.length > 0) {
+                            return `Current Path: ${path.join(' > ')}`;
+                          }
+                          if (searchTerms.primary || searchTerms.additional || searchTerms.exclude) {
+                            return `Search results for: "${searchTerms.primary}${searchTerms.additional ? ' + ' + searchTerms.additional : ''}${searchTerms.exclude ? ' - ' + searchTerms.exclude : ''}"`;
+                          }
+                          return "Showing all product groups";
+                        })()}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {inventoryRefreshTimestamp ? `Inventory as of: ${inventoryRefreshTimestamp}` : 'Loading inventory timestamp...'}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Toggles Container - Single row layout */}
@@ -563,7 +601,7 @@ const Dashboard: React.FC = () => {
                           </div>
                         </div>
                       )}
-                       {showImageAndSpecs && !selectedProductForImage && (
+                      {showImageAndSpecs && !selectedProductForImage && (
                         <div className="lg:w-1/4 bg-white p-3 rounded-lg shadow flex items-center justify-center">
                           <p className="text-gray-500">Select a product to view its image and specs.</p>
                         </div>
