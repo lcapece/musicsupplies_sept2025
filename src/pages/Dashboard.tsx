@@ -412,16 +412,16 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-6">
-              <div className="flex gap-2">
-                <div className="w-48">
+              <div className="flex gap-6">
+                <div className="w-48 flex-shrink-0">
                   <CategoryTree 
                     onSelectCategory={handleCategorySelect}
                     selectedCategoryId={selectedCategoryId}
                   />
                 </div>
                 
-                <div className="flex-1">
-                  <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700">
+                <div className="flex-1 min-w-0">
+                  <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 w-full overflow-visible">
                     {(() => {
                       const path = [];
                       if (selectedMainCategoryName) path.push(selectedMainCategoryName);

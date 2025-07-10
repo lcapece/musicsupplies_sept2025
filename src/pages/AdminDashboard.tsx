@@ -4,6 +4,7 @@ import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import AccountsTab from '../components/admin/AccountsTab';
 import HistoryTab from '../components/admin/HistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
+import EmailTab from '../components/admin/EmailTab';
 import GeneralSettingsTab from '../components/admin/GeneralSettingsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import CategoryManagementTab from '../components/admin/CategoryManagementTab';
@@ -12,7 +13,7 @@ import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 import { applyPromoCodeFunctionMigration, applyBrandMapColumnsMigration } from '../utils/applyMigration';
 import { applyPromoCodeLimitsUpdates } from '../utils/applyPromoCodeLimitsUpdates';
 
-type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes' | 'database';
+type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'email' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes' | 'database';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -26,6 +27,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'promocodes' as AdminTab, label: 'Promo Codes', icon: '🏷️' },
     { id: 'history' as AdminTab, label: 'History', icon: '📊' },
     { id: 'clicksend' as AdminTab, label: 'ClickSend SMS', icon: '📱' },
+    { id: 'email' as AdminTab, label: 'Email', icon: '📧' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
     { id: 'managetreeview' as AdminTab, label: 'Manage Treeview', icon: '🌲' },
     { id: 'database' as AdminTab, label: 'Database', icon: '🔧' },
@@ -45,6 +47,8 @@ const AdminDashboard: React.FC = () => {
         return <HistoryTab />;
       case 'clicksend':
         return <ClickSendTab />;
+      case 'email':
+        return <EmailTab />;
       case 'generalsettings':
         return <GeneralSettingsTab />;
       case 'managetreeview':

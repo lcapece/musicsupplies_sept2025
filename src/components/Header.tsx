@@ -151,12 +151,6 @@ interface SupabaseFunctionError {
               <img src={LogoImage} alt="Music Supplies Logo" className="h-16 -ml-2 sm:-ml-3 lg:-ml-4 -mr-2 sm:-mr-3 lg:-mr-4" />
             </Link>
             
-            <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-              <p className="font-bold text-red-700">{user?.acctName} ({user?.accountNumber})</p>
-              <p className="text-sm text-red-600">{user?.address}</p>
-              <p className="text-sm text-red-600">{user?.city}, {user?.state} {user?.zip}</p>
-            </div>
-            
             <div className="flex items-center space-x-6">
               <label className="inline-flex items-center">
                 <input
@@ -241,6 +235,12 @@ interface SupabaseFunctionError {
               <LogOut className="h-5 w-5 mr-2" />
               Logout
             </button>
+            
+            <div className="bg-red-50 p-3 rounded-lg border border-red-100">
+              <p className="font-bold text-red-700">{user?.acctName} ({user?.accountNumber})</p>
+              <p className="text-sm text-red-600">{user?.address}</p>
+              <p className="text-sm text-red-600">{user?.city}, {user?.state} {user?.zip}</p>
+            </div>
             {/* Shopping cart button is moved outside the main header flow to be fixed */}
           </div>
         </div>

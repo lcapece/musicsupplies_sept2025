@@ -105,7 +105,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
               <thead className="bg-gray-50">
                 <tr>
                   <th 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[12%]"
                     onClick={() => requestSort('partnumber')}
                   >
                     Part Number 
@@ -114,7 +114,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[40%]"
                     onClick={() => requestSort('description')}
                   >
                     Description
@@ -154,7 +154,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </th>
                   )}
                   <th 
-                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50"
+                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]"
                     onClick={() => requestSort('price')}
                   >
                     Your Price
@@ -194,10 +194,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''}`}
                     onClick={() => onRowClick && onRowClick(product)} // Call onRowClick if provided
                   >
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 w-[12%]">
                       {product.partnumber}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-[150px]">
+                    <td className="px-3 py-2 text-sm text-gray-500 w-[40%]">
                       {product.description}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-500">
@@ -213,7 +213,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         {formatListPrice(product.webmsrp)}
                       </td>
                     )}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium bg-blue-50 text-blue-800 font-bold">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%]">
                       {formatPrice(product.price)}
                     </td>
                     {showMapPrice && (
