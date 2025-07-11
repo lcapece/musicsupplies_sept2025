@@ -231,6 +231,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
+      console.log('Applying promo code:', code, 'for account:', user.accountNumber, 'order value:', totalPrice);
+      
       // Call the database function to check if the promo code is valid
       const { data, error } = await supabase.rpc('check_promo_code_validity', {
         p_code: code,
@@ -238,15 +240,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         p_order_value: totalPrice
       });
       
-      if (error) throw error;
-      
-      if (data && data.is_valid) {
-        setAppliedPromoCode(data);
-      } else {
-        setAppliedPromoCode(null);
+      if (error) {
+        console.error('Supabase RPC error:', error);
+        throw error;
       }
       
-      return data;
+      console.log('Raw response from database:', data);
+      
+      // The database function returns an array with a single object
+      const result = Array.isArray(data) ? data[0] : data;
+      
+      console.log('Processed result:', result);
+      
+      if (result && result.is_valid) {
+        setAppliedPromoCode(result);
+        console.log('Promo code applied successfully:', result);
+      } else {
+        setAppliedPromoCode(null);
+        console.log('Promo code validation failed:', result?.message);
+      }
+      
+      return result || { is_valid: false, message: 'No response from server' };
     } catch (err: any) {
       console.error('Error applying promo code:', err);
       return { 

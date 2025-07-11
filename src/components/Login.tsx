@@ -69,7 +69,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex justify-center">
+    <div className="min-h-screen bg-white flex justify-center relative">
       <div ref={contentRef} className="bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
           {/* Main Content */}
@@ -198,6 +198,11 @@ const Login: React.FC = () => {
           accountData={user}
         />
       )}
+      
+      {/* Version info in lower left corner */}
+      <div className="absolute bottom-2 left-2 text-xs text-gray-400">
+        Version: RC12a
+      </div>
     </div>
   );
 };
