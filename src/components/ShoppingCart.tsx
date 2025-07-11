@@ -25,7 +25,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     appliedPromoCode,
     availablePromoCodes,
     fetchAvailablePromoCodes,
-    isLoadingPromoCodes
+    isLoadingPromoCodes,
+    isPromoCodeAutoApplied
   } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -542,13 +543,16 @@ Order Confirmation...`; // Truncated
                               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                               value={selectedPromoCode}
                               onChange={(e) => setSelectedPromoCode(e.target.value)}
-                              disabled={appliedPromoCode !== null || isLoadingPromoCodes}
+                              disabled={isLoadingPromoCodes}
                             >
-                              <option value="">Select a promo code</option>
+                              <option value="">
+                                {appliedPromoCode ? 'Switch to a different promo code' : 'Select a promo code'}
+                              </option>
                               {availablePromoCodes.map((promo) => (
                                 <option key={promo.code} value={promo.code}>
                                   {promo.code} - {promo.description} (Save ${promo.discount_amount.toFixed(2)})
                                   {promo.is_best ? ' - Best Value!' : ''}
+                                  {appliedPromoCode && appliedPromoCode.promo_id === promo.code ? ' - Currently Applied' : ''}
                                 </option>
                               ))}
                             </select>

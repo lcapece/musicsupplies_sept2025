@@ -13,12 +13,13 @@ interface CartContextType {
   totalPrice: number;
   placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string) => Promise<string>;
   // Promo code features
-  applyPromoCode: (code: string) => Promise<PromoCodeValidity>;
+  applyPromoCode: (code: string, isAutoApplied?: boolean) => Promise<PromoCodeValidity>;
   removePromoCode: () => void;
   appliedPromoCode: PromoCodeValidity | null;
   availablePromoCodes: AvailablePromoCode[];
   fetchAvailablePromoCodes: () => Promise<void>;
   isLoadingPromoCodes: boolean;
+  isPromoCodeAutoApplied: boolean;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -36,7 +37,8 @@ const CartContext = createContext<CartContextType>({
   appliedPromoCode: null,
   availablePromoCodes: [],
   fetchAvailablePromoCodes: async () => {},
-  isLoadingPromoCodes: false
+  isLoadingPromoCodes: false,
+  isPromoCodeAutoApplied: false
 });
 
 export const useCart = () => useContext(CartContext);
@@ -66,6 +68,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCodeValidity | null>(null);
   const [availablePromoCodes, setAvailablePromoCodes] = useState<AvailablePromoCode[]>([]);
   const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState<boolean>(false);
+  const [isPromoCodeAutoApplied, setIsPromoCodeAutoApplied] = useState<boolean>(false);
 
   useEffect(() => {
     const initializeOrderNumber = async () => {
@@ -185,7 +188,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (bestPromo) {
         try {
           console.log('Auto-applying best promo code:', bestPromo.code);
-          const result = await applyPromoCode(bestPromo.code);
+          const result = await applyPromoCode(bestPromo.code, true); // Pass true for isAutoApplied
           if (result.is_valid) {
             console.log('Auto-applied promo code successfully:', bestPromo.code);
           }
@@ -222,7 +225,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Apply a promo code to the cart
-  const applyPromoCode = async (code: string): Promise<PromoCodeValidity> => {
+  const applyPromoCode = async (code: string, isAutoApplied: boolean = false): Promise<PromoCodeValidity> => {
     if (!user || !user.accountNumber) {
       return { 
         is_valid: false, 
@@ -231,7 +234,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      console.log('Applying promo code:', code, 'for account:', user.accountNumber, 'order value:', totalPrice);
+      console.log('Applying promo code:', code, 'for account:', user.accountNumber, 'order value:', totalPrice, 'auto-applied:', isAutoApplied);
       
       // Call the database function to check if the promo code is valid
       const { data, error } = await supabase.rpc('check_promo_code_validity', {
@@ -253,10 +256,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Processed result:', result);
       
       if (result && result.is_valid) {
-        setAppliedPromoCode(result);
-        console.log('Promo code applied successfully:', result);
+        // Customize the message based on whether it was auto-applied
+        const customizedResult = {
+          ...result,
+          message: isAutoApplied 
+            ? `Promo code ${code} has been automatically applied`
+            : result.message
+        };
+        
+        setAppliedPromoCode(customizedResult);
+        setIsPromoCodeAutoApplied(isAutoApplied);
+        console.log('Promo code applied successfully:', customizedResult);
+        
+        return customizedResult;
       } else {
         setAppliedPromoCode(null);
+        setIsPromoCodeAutoApplied(false);
         console.log('Promo code validation failed:', result?.message);
       }
       
@@ -363,7 +378,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       items, addToCart, removeFromCart, updateQuantity, clearCart,
       totalItems, totalPrice, placeOrder,
       applyPromoCode, removePromoCode, appliedPromoCode,
-      availablePromoCodes, fetchAvailablePromoCodes, isLoadingPromoCodes
+      availablePromoCodes, fetchAvailablePromoCodes, isLoadingPromoCodes,
+      isPromoCodeAutoApplied
     }}>
       {children}
     </CartContext.Provider>
