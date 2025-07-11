@@ -1,3 +1,41 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Hide common chat widgets and floating elements */
+[id*="crisp"], [class*="crisp"],
+[id*="intercom"], [class*="intercom"],
+[id*="zendesk"], [class*="zendesk"],
+[id*="tawk"], [class*="tawk"],
+[id*="livechat"], [class*="livechat"],
+[id*="chat"], [class*="chat-widget"],
+[id*="support"], [class*="support-widget"],
+[data-widget*="chat"],
+.widget-container,
+.chat-widget,
+.support-widget,
+.floating-widget,
+.envelope-widget {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  z-index: -1 !important;
+}
+
+/* Hide any fixed positioned elements with envelope-like content */
+*[style*="position: fixed"]:has([class*="envelope"]),
+*[style*="position: fixed"]:has([class*="mail"]),
+*[style*="position: fixed"]:has([class*="chat"]) {
+  display: none !important;
+}
+
+/* Block common chat widget iframe sources */
+iframe[src*="crisp.chat"],
+iframe[src*="intercom.io"],
+iframe[src*="zendesk.com"],
+iframe[src*="tawk.to"],
+iframe[src*="livechat.com"] {
+  display: none !important;
+}

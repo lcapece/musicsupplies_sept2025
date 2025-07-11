@@ -40,6 +40,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const [selectedPromoCode, setSelectedPromoCode] = useState<string>('');
   const [applyingPromo, setApplyingPromo] = useState<boolean>(false);
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [showPromoWarning, setShowPromoWarning] = useState<boolean>(false);
   
   useEffect(() => {
     if (isOpen && user) {
@@ -72,6 +73,44 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   }, [availablePromoCodes]);
 
   const handleCheckout = () => {
+    // Check if there are available promo codes but none is applied
+    const hasUnusedPromoCodes = availablePromoCodes.length > 0 && !appliedPromoCode;
+    const hasEligiblePromoCodes = availablePromoCodes.some(promo => totalPrice >= promo.min_order_value);
+    
+    if (hasUnusedPromoCodes && hasEligiblePromoCodes) {
+      setShowPromoWarning(true);
+      return;
+    }
+    
+    setIsCheckingOut(true);
+  };
+  
+  const handleProceedWithoutPromo = () => {
+    setShowPromoWarning(false);
+    setIsCheckingOut(true);
+  };
+  
+  const handleApplyBestPromoAndCheckout = async () => {
+    setShowPromoWarning(false);
+    
+    // Find the best eligible promo code
+    const bestEligiblePromo = availablePromoCodes.find(promo => 
+      promo.is_best && totalPrice >= promo.min_order_value
+    ) || availablePromoCodes.find(promo => 
+      totalPrice >= promo.min_order_value
+    );
+    
+    if (bestEligiblePromo) {
+      try {
+        const result = await applyPromoCode(bestEligiblePromo.code);
+        if (result.is_valid) {
+          console.log('Best promo code applied, proceeding to checkout');
+        }
+      } catch (error) {
+        console.error('Error applying best promo code:', error);
+      }
+    }
+    
     setIsCheckingOut(true);
   };
   
@@ -225,20 +264,28 @@ Order Confirmation...`; // Truncated
   
   // Handle applying promo code
   const handleApplyPromoCode = async () => {
-    if (!selectedPromoCode.trim()) return;
+    if (!selectedPromoCode.trim()) {
+      setPromoError('Please select a promo code first');
+      return;
+    }
     
     setApplyingPromo(true);
     setPromoError(null);
     
     try {
+      console.log('Applying promo code:', selectedPromoCode.trim());
       const result = await applyPromoCode(selectedPromoCode.trim());
       
       if (!result.is_valid) {
         setPromoError(result.message || 'Invalid promo code');
+        console.error('Promo code application failed:', result.message);
+      } else {
+        console.log('Promo code applied successfully:', result);
+        setSelectedPromoCode(''); // Clear selection after successful application
       }
     } catch (error) {
       console.error('Error applying promo code:', error);
-      setPromoError('An error occurred while applying the promo code');
+      setPromoError('An error occurred while applying the promo code. Please try again.');
     } finally {
       setApplyingPromo(false);
     }
@@ -270,10 +317,50 @@ Order Confirmation...`; // Truncated
   };
 
   return (
-    <div className="fixed inset-0 overflow-hidden z-50">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
-        <div className="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+    <>
+      {/* Promo Code Warning Modal */}
+      {showPromoWarning && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-60">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Save Money with Available Promo Codes!
+            </h3>
+            <p className="text-gray-600 mb-4">
+              You have available promo codes that could save you money on this order. Would you like to apply the best discount before checking out?
+            </p>
+            {availablePromoCodes.length > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <strong>Best Available:</strong> {availablePromoCodes.find(p => p.is_best)?.code || availablePromoCodes[0].code}
+                  <br />
+                  <span className="text-blue-600">
+                    Save ${(availablePromoCodes.find(p => p.is_best)?.discount_amount || availablePromoCodes[0].discount_amount).toFixed(2)}
+                  </span>
+                </p>
+              </div>
+            )}
+            <div className="flex space-x-3">
+              <button
+                onClick={handleApplyBestPromoAndCheckout}
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                Apply & Checkout
+              </button>
+              <button
+                onClick={handleProceedWithoutPromo}
+                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              >
+                Skip Discount
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="fixed inset-0 overflow-hidden z-50">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+          <div className="fixed inset-y-0 right-0 pl-10 max-w-full flex">
           <div className="w-screen max-w-4xl">
             <div className="h-full flex flex-col bg-white shadow-xl">
               <div className="flex-1 py-6 overflow-y-auto px-4 sm:px-6">
@@ -557,9 +644,10 @@ Order Confirmation...`; // Truncated
               )}
             </div>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

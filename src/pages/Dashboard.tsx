@@ -294,18 +294,22 @@ const Dashboard: React.FC = () => {
 
   const fetchInventoryRefreshTimestamp = async () => {
     try {
+      // Replace exec_sql with direct query to avoid function dependency
       const { data, error } = await supabase
-        .rpc('exec_sql', {
-          sql_query: 'select min(inventory_refreshed) as last_refresh from products_supabase'
-        });
+        .from('products_supabase')
+        .select('inventory_refreshed')
+        .not('inventory_refreshed', 'is', null)
+        .order('inventory_refreshed', { ascending: true })
+        .limit(1)
+        .single();
 
       if (error) {
         console.error('Error fetching inventory refresh timestamp:', error);
         return;
       }
 
-      if (data && data.length > 0 && data[0].last_refresh) {
-        const timestamp = new Date(data[0].last_refresh);
+      if (data && data.inventory_refreshed) {
+        const timestamp = new Date(data.inventory_refreshed);
         const formatted = timestamp.toLocaleString('en-US', {
           month: '2-digit',
           day: '2-digit',
@@ -317,7 +321,7 @@ const Dashboard: React.FC = () => {
         setInventoryRefreshTimestamp(formatted);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching inventory refresh timestamp:', error);
     }
   };
 

@@ -127,17 +127,32 @@ serve(async (req) => {
     if (testCredentials) {
       logWithContext('INFO', 'Credential test requested', { requestId });
       
+      // Check if credentials exist
       if (!MAILGUN_API_KEY || !MAILGUN_SENDING_KEY) {
+        logWithContext('WARN', 'Missing Mailgun credentials for test', {
+          requestId,
+          hasApiKey: !!MAILGUN_API_KEY,
+          hasSendingKey: !!MAILGUN_SENDING_KEY,
+          hasDomain: !!MAILGUN_DOMAIN
+        });
+
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'Mailgun credentials not configured',
+            error: 'Mailgun credentials not configured in Supabase Edge Vault',
             environment: environmentInfo,
             suggestions: [
-              'Add MAILGUN_API_KEY to Supabase Edge Function secrets',
-              'Add MAILGUN_SENDING_KEY to Supabase Edge Function secrets',
-              'Verify MAILGUN_DOMAIN is set correctly'
-            ]
+              'Go to Supabase Dashboard → Edge Functions → Settings',
+              'Add MAILGUN_API_KEY with your Mailgun private API key',
+              'Add MAILGUN_SENDING_KEY with your Mailgun sending key',
+              'Ensure MAILGUN_DOMAIN is set to mg.musicsupplies.com',
+              'Deploy the Edge Function after adding credentials'
+            ],
+            troubleshooting: {
+              step1: 'Verify credentials are saved in Supabase Edge Vault',
+              step2: 'Ensure Edge Function is deployed after adding credentials',
+              step3: 'Check Mailgun dashboard for correct API keys'
+            }
           }),
           { 
             status: 200, 
@@ -146,50 +161,164 @@ serve(async (req) => {
         );
       }
 
+      // Log credential check attempt
+      logWithContext('INFO', 'Testing Mailgun API connectivity', {
+        requestId,
+        domain: MAILGUN_DOMAIN,
+        apiKeyLength: MAILGUN_API_KEY.length,
+        sendingKeyLength: MAILGUN_SENDING_KEY.length
+      });
+
       // Test Mailgun domain verification endpoint
       try {
         const testUrl = `https://api.mailgun.net/v3/domains/${MAILGUN_DOMAIN}`;
+        
+        logWithContext('INFO', 'Making request to Mailgun API', {
+          requestId,
+          url: testUrl,
+          method: 'GET'
+        });
+
         const testResponse = await fetch(testUrl, {
           method: 'GET',
           headers: {
             'Authorization': `Basic ${btoa(`api:${MAILGUN_API_KEY}`)}`,
+            'User-Agent': 'MusicSupplies-EdgeFunction/1.0'
           },
         });
 
-        const testResult = await testResponse.json();
+        let testResult: any = {};
+        let responseText = '';
         
-        logWithContext('INFO', 'Credential test completed', {
+        try {
+          responseText = await testResponse.text();
+          if (responseText) {
+            testResult = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          logWithContext('WARN', 'Could not parse Mailgun response as JSON', {
+            requestId,
+            responseText: responseText.substring(0, 500)
+          });
+          testResult = { rawResponse: responseText };
+        }
+        
+        logWithContext('INFO', 'Mailgun API response received', {
           requestId,
           status: testResponse.status,
-          domainVerified: testResult?.domain?.state === 'active'
+          statusText: testResponse.statusText,
+          ok: testResponse.ok,
+          responseLength: responseText.length
         });
+
+        // Determine success based on status
+        const isSuccess = testResponse.ok && testResponse.status === 200;
+        let message = '';
+        let errorDetails: any = null;
+
+        if (isSuccess) {
+          const domainState = testResult?.domain?.state || 'unknown';
+          message = `Credentials valid! Domain state: ${domainState}`;
+          
+          if (domainState !== 'active') {
+            message += ` (Note: Domain should be "active" for full functionality)`;
+          }
+        } else {
+          // Analyze specific error types
+          if (testResponse.status === 401) {
+            message = 'Authentication failed - Invalid API key';
+            errorDetails = {
+              issue: 'Invalid or expired API key',
+              solutions: [
+                'Verify MAILGUN_API_KEY in Supabase Edge Vault',
+                'Generate new API key in Mailgun dashboard if needed',
+                'Ensure API key has domain access permissions'
+              ]
+            };
+          } else if (testResponse.status === 404) {
+            message = 'Domain not found in Mailgun account';
+            errorDetails = {
+              issue: 'Domain mg.musicsupplies.com not found',
+              solutions: [
+                'Add domain mg.musicsupplies.com to your Mailgun account',
+                'Verify MAILGUN_DOMAIN environment variable is correct',
+                'Check domain spelling and configuration'
+              ]
+            };
+          } else if (testResponse.status === 403) {
+            message = 'Access forbidden - Check domain permissions';
+            errorDetails = {
+              issue: 'Insufficient permissions for domain access',
+              solutions: [
+                'Verify API key has access to the domain',
+                'Check domain ownership in Mailgun dashboard',
+                'Ensure proper domain verification'
+              ]
+            };
+          } else {
+            message = `Mailgun API error: ${testResponse.status} ${testResponse.statusText}`;
+            errorDetails = {
+              issue: `HTTP ${testResponse.status} error`,
+              solutions: [
+                'Check Mailgun service status',
+                'Verify API endpoint availability',
+                'Try again in a few minutes'
+              ]
+            };
+          }
+        }
 
         return new Response(
           JSON.stringify({
-            success: testResponse.ok,
+            success: isSuccess,
             status: testResponse.status,
+            statusText: testResponse.statusText,
+            message,
             environment: environmentInfo,
             domainInfo: testResult,
-            credentialsValid: testResponse.ok,
-            message: testResponse.ok ? 'Credentials are valid' : 'Credentials test failed'
+            credentialsValid: isSuccess,
+            errorDetails,
+            responseBody: testResult,
+            timestamp: new Date().toISOString(),
+            requestId
           }),
           { 
             status: 200, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
+        
       } catch (credTestError) {
-        logWithContext('ERROR', 'Credential test failed', {
+        const errorMessage = credTestError instanceof Error ? credTestError.message : 'Unknown network error';
+        
+        logWithContext('ERROR', 'Network error during credential test', {
           requestId,
-          error: credTestError instanceof Error ? credTestError.message : 'Unknown error'
+          error: errorMessage,
+          stack: credTestError instanceof Error ? credTestError.stack : undefined
         });
 
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'Failed to test credentials',
-            details: credTestError instanceof Error ? credTestError.message : 'Unknown error',
-            environment: environmentInfo
+            error: 'Network error while testing credentials',
+            details: errorMessage,
+            environment: environmentInfo,
+            troubleshooting: {
+              possibleCauses: [
+                'Network connectivity issues',
+                'Mailgun API service unavailable',
+                'Edge Function timeout',
+                'DNS resolution problems'
+              ],
+              nextSteps: [
+                'Check internet connectivity',
+                'Verify Mailgun service status',
+                'Try the test again in a few minutes',
+                'Check Edge Function logs for more details'
+              ]
+            },
+            timestamp: new Date().toISOString(),
+            requestId
           }),
           { 
             status: 200, 

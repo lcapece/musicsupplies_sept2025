@@ -164,6 +164,42 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchAvailablePromoCodes();
   }, [user, totalPrice]);
 
+  // Auto-apply best promo code when conditions are met (but not immediately when items change)
+  useEffect(() => {
+    const autoApplyBestPromoCode = async () => {
+      // Only auto-apply if:
+      // 1. User is logged in
+      // 2. Cart has items
+      // 3. No promo code is currently applied
+      // 4. Available promo codes exist
+      // 5. Cart has been stable for a bit (not just added items)
+      if (!user || !user.accountNumber || items.length === 0 || appliedPromoCode || availablePromoCodes.length === 0) {
+        return;
+      }
+
+      // Find the best promo code that meets the minimum order requirement
+      const bestPromo = availablePromoCodes.find(promo => 
+        promo.is_best && totalPrice >= promo.min_order_value
+      );
+
+      if (bestPromo) {
+        try {
+          console.log('Auto-applying best promo code:', bestPromo.code);
+          const result = await applyPromoCode(bestPromo.code);
+          if (result.is_valid) {
+            console.log('Auto-applied promo code successfully:', bestPromo.code);
+          }
+        } catch (error) {
+          console.error('Error auto-applying promo code:', error);
+        }
+      }
+    };
+
+    // Add a longer delay to avoid interfering with cart operations
+    const timeoutId = setTimeout(autoApplyBestPromoCode, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [availablePromoCodes, appliedPromoCode, user]); // Removed items.length and totalPrice dependencies
+
   const addToCart = (product: Product, quantity: number = 1) => {
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
