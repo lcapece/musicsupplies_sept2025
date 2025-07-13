@@ -201,7 +201,7 @@ const Login: React.FC = () => {
       
       {/* Version info in lower left corner */}
       <div className="absolute bottom-2 left-2 text-xs text-gray-400">
-        Version: RC13
+        Version: RC14
       </div>
     </div>
   );
