@@ -169,6 +169,9 @@ const Login: React.FC = () => {
               <img src={building} alt="Lou Capece Music Building" className="max-w-full h-auto rounded-lg shadow-md" />
             </div>
             <div className="w-full md:w-1/2 md:pl-8">
+              <div className="flex flex-col items-center md:items-start mb-4">
+                <img src={logo} alt="Music Supplies Logo" className="h-24 w-auto mb-2" />
+              </div>
               <p className="text-gray-600">
                 Lou Capece Music Distributors, founded in 1987, has been proudly supporting independent music shops for nearly four decades. Despite the rise of Amazon, the national chains, and massive online retailers, you can still find a local music store in nearly every small city's downtown or Main Street—and we're part of the reason why. Trusted by over 2,000 independent brick-and-mortar and online musical instrument retailers in the USA.
                 <br /><br />
