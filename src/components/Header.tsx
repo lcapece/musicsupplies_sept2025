@@ -146,9 +146,9 @@ interface SupabaseFunctionError {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-4">
-            {/* Logo with 50% reduced left and right padding and hyperlink to main page */}
-            <Link to="/" className="flex items-center">
-              <img src={LogoImage} alt="Music Supplies Logo" className="h-16 -ml-2 sm:-ml-3 lg:-ml-4 -mr-2 sm:-mr-3 lg:-mr-4" />
+            {/* Logo image moved to the far left with 20px left padding */}
+            <Link to="/" className="flex items-center" style={{ paddingLeft: '20px' }}>
+              <img src={LogoImage} alt="Music Supplies Logo" className="h-16" />
             </Link>
             
             <div className="flex items-center space-x-6">
