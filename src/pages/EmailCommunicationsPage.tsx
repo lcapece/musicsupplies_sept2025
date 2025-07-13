@@ -39,7 +39,7 @@ const EmailCommunicationsPage: React.FC = () => {
           </p>
           <ul>
             <li>Updating your email preferences in your account settings page on our website.</li>
-            <li>Contacting us directly at <a href="mailto:info@loucapecemusic.com" className="text-blue-600 hover:underline">info@loucapecemusic.com</a> with your request to update preferences.</li>
+            <li>Contacting us directly at <a href="mailto:marketing@musicsupplies.com" className="text-blue-600 hover:underline">marketing@musicsupplies.com</a> with your request to update preferences.</li>
           </ul>
           <p>
             Please note that even if you opt-out of certain communications, you may still receive essential transactional emails related to your account and our services.
@@ -68,7 +68,7 @@ const EmailCommunicationsPage: React.FC = () => {
             If you have any questions about our email communications policy, or if you are having trouble unsubscribing, please contact us at:
           </p>
           <p>
-            Email: <a href="mailto:info@loucapecemusic.com" className="text-blue-600 hover:underline">info@loucapecemusic.com</a><br />
+            Email: <a href="mailto:marketing@musicsupplies.com" className="text-blue-600 hover:underline">marketing@musicsupplies.com</a><br />
             Physical Address: 2555 North Jerusalem Road, East Meadow NY 11554
           </p>
         </div>

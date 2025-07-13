@@ -39,3 +39,29 @@ iframe[src*="tawk.to"],
 iframe[src*="livechat.com"] {
   display: none !important;
 }
+
+/* Remove any highlighting or overlay effects from images */
+img {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Specifically target logo images to prevent highlighting */
+img[alt*="Logo"], img[alt*="logo"] {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: transparent !important;
+  position: relative !important;
+}
+
+/* Remove any pseudo-elements that might create overlays */
+img[alt*="Logo"]::before, 
+img[alt*="Logo"]::after,
+img[alt*="logo"]::before, 
+img[alt*="logo"]::after {
+  display: none !important;
+  content: none !important;
+}

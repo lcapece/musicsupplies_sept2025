@@ -28,7 +28,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
 }) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 12;
 
   const handleAddToCart = (product: Product) => {
     if (product.inventory && product.inventory > 0) {

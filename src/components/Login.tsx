@@ -206,6 +206,13 @@ const Login: React.FC = () => {
       <div className="absolute bottom-2 left-2 text-xs text-gray-400">
         Version: RC81
       </div>
+      
+      {/* Contact info in lower right corner */}
+      <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+        <a href="tel:18003215584" className="hover:text-gray-600">1 (800) 321-5584</a>
+        {' '}
+        <a href="mailto:marketing@musicsupplies.com" className="hover:text-gray-600">marketing@musicsupplies.com</a>
+      </div>
     </div>
   );
 };

@@ -88,24 +88,10 @@ const Dashboard: React.FC = () => {
     fetchAndShowPromoPopup();
   }, [user]);
   
-  // Effect to check and show promo codes
+  // Effect to check and show promo codes - DISABLED
   useEffect(() => {
-    const checkForPromoCodes = async () => {
-      if (user && user.accountNumber !== '999') {
-        const promoCodeShownKey = `promoCodeShown_session_${user.accountNumber}`;
-        const alreadyShownThisSession = sessionStorage.getItem(promoCodeShownKey);
-        
-        if (!alreadyShownThisSession) {
-          // Show promo code popup after a short delay to avoid overwhelming the user
-          setTimeout(() => {
-            setShowPromoCodePopup(true);
-            sessionStorage.setItem(promoCodeShownKey, 'true');
-          }, 1000);
-        }
-      }
-    };
-    
-    checkForPromoCodes();
+    // Popup disabled per user request
+    console.log('Promo code popup disabled');
   }, [user]);
 
   // Effect to load product image with priority logic
@@ -436,19 +422,24 @@ const Dashboard: React.FC = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-100 flex flex-col relative">
       <Header onViewChange={handleViewChange} activeView={activeView} />
+      
+      {/* Version info in upper right corner */}
+      <div className="absolute top-2 right-2 text-xs text-gray-400 z-10">
+        Version: RC81
+      </div>
       
       <div className="flex-grow flex flex-col">
         {activeView === 'products' ? (
           <>
-            <div className="py-4 px-4 sm:px-6 lg:px-8">
+            <div className="py-2 px-4 sm:px-6 lg:px-8">
               <SearchBar onSearch={handleSearch} />
             </div>
             
-            <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-6">
-              <div className="flex gap-6">
-                <div className="w-48 flex-shrink-0">
+            <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-2">
+              <div className="flex">
+                <div className="w-64 flex-shrink-0 pr-8">
                   <CategoryTree 
                     onSelectCategory={handleCategorySelect}
                     selectedCategoryId={selectedCategoryId}
@@ -480,7 +471,7 @@ const Dashboard: React.FC = () => {
                   </div>
 
                   {/* Toggles Container - Single row layout */}
-                  <div className="mb-4 flex items-center flex-wrap ml-28">
+                  <div className="mb-2 flex items-center flex-wrap ml-0">
                     {/* Show Images & Specs checkbox */}
                     <div className="mr-8 flex items-center">
                       <input
@@ -556,8 +547,8 @@ const Dashboard: React.FC = () => {
                     </div>
                   ) : (
                     // Product Table and Image/Specs Area
-                    <div className={`flex flex-col ${showImageAndSpecs ? 'lg:flex-row' : ''} gap-2`}>
-                      <div className={`${showImageAndSpecs ? 'lg:w-3/4' : 'w-full'}`}>
+                    <div className={`flex flex-col ${showImageAndSpecs ? 'lg:flex-row' : ''} gap-4`}>
+                      <div className={`${showImageAndSpecs ? 'lg:w-4/5' : 'w-full'}`}>
                         <ProductTable 
                           products={sortedProducts}
                           requestSort={requestSort}
@@ -570,7 +561,7 @@ const Dashboard: React.FC = () => {
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (
-                        <div className="lg:w-1/4 bg-white p-3 rounded-lg shadow">
+                        <div className="lg:w-1/5 bg-white p-3 rounded-lg shadow">
                           <h3 className="text-lg font-semibold mb-2">
                             {selectedProductForImage.partnumber} - Image & Specs
                           </h3>
@@ -606,7 +597,7 @@ const Dashboard: React.FC = () => {
                         </div>
                       )}
                       {showImageAndSpecs && !selectedProductForImage && (
-                        <div className="lg:w-1/4 bg-white p-3 rounded-lg shadow flex items-center justify-center">
+                        <div className="lg:w-1/5 bg-white p-3 rounded-lg shadow flex items-center justify-center">
                           <p className="text-gray-500">Select a product to view its image and specs.</p>
                         </div>
                       )}
