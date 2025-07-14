@@ -12,7 +12,7 @@ const PrivacyPolicyPage: React.FC = () => {
 
           <h2 className="text-xl font-semibold mt-6 mb-2">1. Introduction</h2>
           <p>
-            Welcome to MusicSupplies.com ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. If you have any questions or concerns about this privacy notice, or our practices with regards to your personal information, please contact us at <a href="mailto:info@loucapecemusic.com" className="text-blue-600 hover:underline">info@loucapecemusic.com</a>.
+            Welcome to MusicSupplies.com ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. If you have any questions or concerns about this privacy notice, or our practices with regards to your personal information, please contact us at <a href="mailto:marketing@musicsupplies.com" className="text-blue-600 hover:underline">marketing@musicsupplies.com</a>.
           </p>
           <p>
             This privacy notice describes how we might use your information if you:
@@ -47,7 +47,7 @@ const PrivacyPolicyPage: React.FC = () => {
           <p>We use the information we collect or receive:</p>
           <ul>
             <li><strong>To facilitate account creation and logon process.</strong> If you choose to link your account with us to a third-party account (such as your Google or Facebook account), we use the information you allowed us to collect from those third parties to facilitate account creation and logon process.</li>
-            <li><strong>To post testimonials.</strong> We post testimonials on our Website that may contain personal information. Prior to posting a testimonial, we will obtain your consent to use your name and the content of the testimonial. If you wish to update, or delete your testimonial, please contact us at <a href="mailto:info@loucapecemusic.com" className="text-blue-600 hover:underline">info@loucapecemusic.com</a> and be sure to include your name, testimonial location, and contact information.</li>
+            <li><strong>To post testimonials.</strong> We post testimonials on our Website that may contain personal information. Prior to posting a testimonial, we will obtain your consent to use your name and the content of the testimonial. If you wish to update, or delete your testimonial, please contact us at <a href="mailto:marketing@musicsupplies.com" className="text-blue-600 hover:underline">marketing@musicsupplies.com</a> and be sure to include your name, testimonial location, and contact information.</li>
             <li><strong>Request feedback.</strong> We may use your information to request feedback and to contact you about your use of our Website.</li>
             <li><strong>To enable user-to-user communications.</strong> We may use your information in order to enable user-to-user communications with each user's consent.</li>
             <li><strong>To manage user accounts.</strong> We may use your information for the purposes of managing our account and keeping it in working order.</li>
@@ -120,7 +120,7 @@ const PrivacyPolicyPage: React.FC = () => {
 
           <h2 className="text-xl font-semibold mt-6 mb-2">10. How Can You Contact Us About This Notice?</h2>
           <p>
-            If you have questions or comments about this notice, you may email us at <a href="mailto:info@loucapecemusic.com" className="text-blue-600 hover:underline">info@loucapecemusic.com</a> or by post to:
+            If you have questions or comments about this notice, you may email us at <a href="mailto:marketing@musicsupplies.com" className="text-blue-600 hover:underline">marketing@musicsupplies.com</a> or by post to:
             Lou Capece Music Distributors
             2555 North Jerusalem Road, East Meadow NY 11554
           </p>

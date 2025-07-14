@@ -7,7 +7,7 @@ import { useCart } from '../context/CartContext';
 import ShoppingCartComponent from './ShoppingCart';
 import ProductImportModal, { ImportStepStatus } from './ProductImportModal'; // Import new modal
 import DiscountFormModal from './DiscountFormModal'; // Import DiscountFormModal
-import LogoImage from '../images/music-supplies-2.png'; // Import the new logo
+import LogoImage from '../images/ms-wide.png'; // Import the new logo
 
 interface HeaderProps {
   onViewChange: (view: 'products' | 'orders' | 'weborders') => void;

@@ -16,8 +16,10 @@ import DiscountFormModal from './components/DiscountFormModal';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'; // Import new page
 import SmsCommunicationsPage from './pages/SmsCommunicationsPage'; // Import new page
 import EmailCommunicationsPage from './pages/EmailCommunicationsPage'; // Import new page
+import TermsAndConditionsPage from './pages/TermsAndConditionsPage'; // Import Terms & Conditions page
 import CustomerAccountPage from './pages/CustomerAccountPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage'; // Import forgot password page
+import SmsConsentPreviewPage from './pages/SmsConsentPreviewPage'; // Import SMS consent preview page
 import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
 
@@ -218,6 +220,8 @@ function AppContent() {
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/sms-communications" element={<SmsCommunicationsPage />} />
         <Route path="/email-communications" element={<EmailCommunicationsPage />} />
+        <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
+        <Route path="/gduej83hd68386bxsd-ejdhgdsw22" element={<SmsConsentPreviewPage />} />
         <Route 
           path="/account" 
           element={

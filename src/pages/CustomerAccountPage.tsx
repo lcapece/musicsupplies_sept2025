@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import SmsConsentModal from '../components/SmsConsentModal';
 
 interface AccountInfo {
   account_number: number;
@@ -23,6 +24,7 @@ const CustomerAccountPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showSmsConsentModal, setShowSmsConsentModal] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   useEffect(() => {
@@ -118,6 +120,57 @@ const CustomerAccountPage: React.FC = () => {
     } catch (error) {
       console.error('Error:', error);
       setMessage({type: 'error', text: 'Error updating account information'});
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSmsConsent = async (consented: boolean, marketingConsent?: boolean, phoneNumber?: string) => {
+    if (!user) return;
+
+    try {
+      setSaving(true);
+      
+      // Update SMS consent and phone number in the database
+      const updateData: any = {
+        sms_consent: consented,
+        marketing_sms_consent: marketingConsent || false,
+        is_dirty: true
+      };
+
+      // If phone number is provided, update it
+      if (phoneNumber && phoneNumber.trim()) {
+        updateData.mobile_phone = phoneNumber.trim();
+      }
+
+      const { error } = await supabase
+        .from('accounts_lcmd')
+        .update(updateData)
+        .eq('account_number', user.accountNumber);
+
+      if (error) {
+        console.error('Error updating SMS consent:', error);
+        setMessage({type: 'error', text: 'Error updating SMS consent'});
+        return;
+      }
+
+      // Refresh account info
+      await fetchAccountInfo();
+      
+      if (consented) {
+        setMessage({
+          type: 'success', 
+          text: `SMS consent updated successfully! ${marketingConsent ? 'You will receive both transactional and marketing messages.' : 'You will receive transactional messages only.'}`
+        });
+      } else {
+        setMessage({type: 'success', text: 'SMS consent declined. You will not receive SMS messages.'});
+      }
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error) {
+      console.error('Error:', error);
+      setMessage({type: 'error', text: 'Error updating SMS consent'});
     } finally {
       setSaving(false);
     }
@@ -311,6 +364,13 @@ const CustomerAccountPage: React.FC = () => {
                 className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
                 placeholder="+1234567890"
               />
+              <button
+                type="button"
+                onClick={() => setShowSmsConsentModal(true)}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md whitespace-nowrap"
+              >
+                SMS Consent
+              </button>
               {formData.mobile_phone && (
                 <button
                   type="button"
@@ -323,7 +383,7 @@ const CustomerAccountPage: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Include country code (e.g., +1 for US/Canada). You'll receive order notifications via SMS.
+              Include country code (e.g., +1 for US/Canada). Click "SMS Consent" to set up SMS notifications with proper consent.
             </p>
           </div>
         </div>
@@ -529,6 +589,15 @@ const CustomerAccountPage: React.FC = () => {
 
       {/* Password Change Modal */}
       {showPasswordModal && <PasswordChangeModal />}
+      
+      {/* SMS Consent Modal */}
+      {showSmsConsentModal && (
+        <SmsConsentModal
+          isOpen={showSmsConsentModal}
+          onClose={() => setShowSmsConsentModal(false)}
+          onConsent={handleSmsConsent}
+        />
+      )}
     </div>
   );
 };
