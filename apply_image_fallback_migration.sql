@@ -39,10 +39,9 @@ BEGIN
             SELECT COALESCE(p.groupedimage, r.image_name)
             INTO fallback_image
             FROM products_supabase p
-            LEFT JOIN rt_extended r ON p.partnumber = r.partnumber
+            LEFT JOIN rt_extended r ON p.partnumber = r.part_number
             WHERE p.brand = input_brand
               AND p.prdmaincat = input_prdmaincat
-              AND p.prdsubcat = input_prdsubcat
               AND p.partnumber != input_partnumber  -- Don't match the same product
               AND p.partnumber LIKE (base_partnumber || '%')
               AND (p.groupedimage IS NOT NULL OR r.image_name IS NOT NULL)
@@ -61,10 +60,9 @@ BEGIN
         SELECT COALESCE(p.groupedimage, r.image_name)
         INTO fallback_image
         FROM products_supabase p
-        LEFT JOIN rt_extended r ON p.partnumber = r.partnumber
+        LEFT JOIN rt_extended r ON p.partnumber = r.part_number
         WHERE p.brand = input_brand
           AND p.prdmaincat = input_prdmaincat
-          AND p.prdsubcat = input_prdsubcat
           AND p.partnumber != input_partnumber  -- Don't match the same product
           AND p.partnumber LIKE (first_part || '%')
           AND (p.groupedimage IS NOT NULL OR r.image_name IS NOT NULL)
@@ -83,10 +81,9 @@ BEGIN
     SELECT COALESCE(p.groupedimage, r.image_name)
     INTO fallback_image
     FROM products_supabase p
-    LEFT JOIN rt_extended r ON p.partnumber = r.partnumber
+    LEFT JOIN rt_extended r ON p.partnumber = r.part_number
     WHERE p.brand = input_brand
       AND p.prdmaincat = input_prdmaincat
-      AND p.prdsubcat = input_prdsubcat
       AND p.partnumber != input_partnumber  -- Don't match the same product
       AND (p.groupedimage IS NOT NULL OR r.image_name IS NOT NULL)
     ORDER BY 

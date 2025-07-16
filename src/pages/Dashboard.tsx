@@ -30,7 +30,7 @@ const Dashboard: React.FC = () => {
   const [showMapPrice, setShowMapPrice] = useState(true); // New state for showing MAP Price column
   const [selectedProductForImage, setSelectedProductForImage] = useState<Product | null>(null);
   const [rtExtendedData, setRtExtendedData] = useState<RtExtended | null>(null); // New state for rt_extended data
-  const [currentImageUrl, setCurrentImageUrl] = useState<string>(ImageComingSoon); // State for the image URL to display
+  const [currentImageUrl, setCurrentImageUrl] = useState<string>(''); // State for the image URL to display - start empty to prevent flash
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<'products' | 'orders' | 'weborders'>('products');
@@ -94,36 +94,36 @@ const Dashboard: React.FC = () => {
     console.log('Promo code popup disabled');
   }, [user]);
 
-  // Effect to load product image with priority logic
-  // Effect to fetch rt_extended data when a product is selected
+  // Combined effect to fetch rt_extended data and load product image
   useEffect(() => {
-    const fetchRtExtendedData = async () => {
-      if (selectedProductForImage) {
+    const fetchRtExtendedDataAndLoadImage = async () => {
+      if (!showImageAndSpecs || !selectedProductForImage) {
+        setCurrentImageUrl('');
+        setRtExtendedData(null);
+        return;
+      }
+
+      // First fetch rt_extended data
+      let rtData: RtExtended | null = null;
+      try {
         const { data, error } = await supabase
           .from('rt_extended')
           .select('*')
-          .eq('partnumber', selectedProductForImage.partnumber)
+          .eq('part_number', selectedProductForImage.partnumber)
           .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching rt_extended data:', error);
-          setRtExtendedData(null);
         } else if (data) {
-          setRtExtendedData(data);
-        } else {
-          setRtExtendedData(null);
+          rtData = data;
         }
-      } else {
+        setRtExtendedData(rtData);
+      } catch (error) {
+        console.error('Error fetching rt_extended data:', error);
         setRtExtendedData(null);
       }
-    };
 
-    fetchRtExtendedData();
-  }, [selectedProductForImage]);
-
-  // Effect to load product image with priority logic
-  useEffect(() => {
-    if (showImageAndSpecs && selectedProductForImage) {
+      // Now load the image with the fetched rt_extended data
       const partNumberOriginal = selectedProductForImage.partnumber; // Use original case from database
       const s3BaseUrl = `https://mus86077.s3.amazonaws.com/`; // CORRECTED BUCKET NAME
       // Suffixes based on S3 screenshot (e.g., GV-1310-2.jpg, GV-1310-2S.jpg)
@@ -145,8 +145,21 @@ const Dashboard: React.FC = () => {
       // Helper function to get fallback image from database
       const getFallbackImageFromDatabase = async (): Promise<string | null> => {
         if (!selectedProductForImage?.brand || !selectedProductForImage?.prdmaincat || !selectedProductForImage?.prdsubcat) {
+          console.log('[Dashboard] Missing required fields for fallback:', {
+            partnumber: selectedProductForImage?.partnumber,
+            brand: selectedProductForImage?.brand,
+            prdmaincat: selectedProductForImage?.prdmaincat,
+            prdsubcat: selectedProductForImage?.prdsubcat
+          });
           return null;
         }
+
+        console.log('[Dashboard] Calling fallback function with:', {
+          input_partnumber: selectedProductForImage.partnumber,
+          input_brand: selectedProductForImage.brand,
+          input_prdmaincat: selectedProductForImage.prdmaincat,
+          input_prdsubcat: selectedProductForImage.prdsubcat
+        });
 
         try {
           const { data, error } = await supabase.rpc('get_fallback_image_for_product', {
@@ -157,13 +170,14 @@ const Dashboard: React.FC = () => {
           });
 
           if (error) {
-            console.warn('[Dashboard] Error getting fallback image:', error);
+            console.error('[Dashboard] Error getting fallback image:', error);
             return null;
           }
 
+          console.log('[Dashboard] Fallback function returned:', data);
           return data;
         } catch (error) {
-          console.warn('[Dashboard] Exception getting fallback image:', error);
+          console.error('[Dashboard] Exception getting fallback image:', error);
           return null;
         }
       };
@@ -203,8 +217,8 @@ const Dashboard: React.FC = () => {
         }
 
         // PRIORITY #2: Check rt_extended.image_name (local src/images folder)
-        if (rtExtendedData?.image_name) {
-          const localImageName = rtExtendedData.image_name.toLowerCase();
+        if (rtData?.image_name) {
+          const localImageName = rtData.image_name.toLowerCase();
           const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
 
           for (const ext of imageExtensions) {
@@ -223,19 +237,7 @@ const Dashboard: React.FC = () => {
           }
         }
 
-        // PRIORITY #3: NEW - Fallback from similar products (S3 bucket)
-        if (!foundImage) {
-          const fallbackImage = await getFallbackImageFromDatabase();
-          if (fallbackImage) {
-            const fallbackImageName = extractImageFilename(fallbackImage);
-            if (await tryS3Image(fallbackImageName, 'Priority #3: fallback from similar products')) {
-              foundImage = true;
-              return;
-            }
-          }
-        }
-
-        // PRIORITY #4: Current S3 partnumber logic (existing)
+        // PRIORITY #4: Current S3 partnumber logic (existing) - Try this BEFORE fallback
         const attemptLoadSequence = async (pnBase: string, attemptType: string): Promise<boolean> => {
           // Try suffixed versions with original case of pnBase
           for (const s3Suffix of suffixes) {
@@ -293,23 +295,37 @@ const Dashboard: React.FC = () => {
             }
           }
         }
+
+        // PRIORITY #3: NEW - Fallback from similar products (S3 bucket) - ONLY after Priority #4 fails
+        if (!foundImage) {
+          const fallbackImage = await getFallbackImageFromDatabase();
+          console.log('[Dashboard] Raw fallback image returned:', fallbackImage);
+          if (fallbackImage) {
+            const fallbackImageName = extractImageFilename(fallbackImage);
+            console.log('[Dashboard] Extracted fallback filename:', fallbackImageName);
+            if (await tryS3Image(fallbackImageName, 'Priority #3: fallback from similar products')) {
+              foundImage = true;
+              return;
+            }
+            // If the extracted filename fails, try the raw fallback image as-is
+            if (await tryS3Image(fallbackImage, 'Priority #3: fallback raw')) {
+              foundImage = true;
+              return;
+            }
+          }
+        }
       };
       
-      // IIFE to manage placeholder flashing
-      (async () => {
-        // Do not set placeholder here initially to prevent flash
-        // setCurrentImageUrl(ImageComingSoon); 
-        await tryLoadImages();
-        if (!foundImage) {
-          console.log('[Dashboard] All image attempts failed, using placeholder.');
-          setCurrentImageUrl(ImageComingSoon);
-        }
-      })();
+      // Load images without setting placeholder initially to prevent flash
+      await tryLoadImages();
+      if (!foundImage) {
+        console.log('[Dashboard] All image attempts failed, using placeholder.');
+        setCurrentImageUrl(ImageComingSoon);
+      }
+    };
 
-    } else {
-      setCurrentImageUrl(ImageComingSoon); // Reset to placeholder if panel is hidden or no product selected
-    }
-  }, [selectedProductForImage, showImageAndSpecs, rtExtendedData]); // Add rtExtendedData to dependencies
+    fetchRtExtendedDataAndLoadImage();
+  }, [selectedProductForImage, showImageAndSpecs]); // Removed rtExtendedData dependency to prevent loops
 
   const requestSort = (key: keyof Product) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -626,12 +642,20 @@ const Dashboard: React.FC = () => {
                             {selectedProductForImage.partnumber} - Image & Specs
                           </h3>
                           <div className="mb-4 flex justify-center">
-                            <img 
-                              src={currentImageUrl} // Use state for image URL
-                              alt={selectedProductForImage.description || selectedProductForImage.partnumber}
-                              className="max-h-[550px] w-auto object-contain rounded border"
-                              // onError is less critical now as pre-loading sets placeholder
-                            />
+                            {currentImageUrl ? (
+                              <img 
+                                src={currentImageUrl}
+                                alt={selectedProductForImage.description || selectedProductForImage.partnumber}
+                                className="max-h-[550px] w-auto object-contain rounded border"
+                                onError={() => setCurrentImageUrl(ImageComingSoon)}
+                              />
+                            ) : (
+                              <img 
+                                src={ImageComingSoon}
+                                alt="No image available"
+                                className="max-h-[550px] w-auto object-contain rounded border"
+                              />
+                            )}
                           </div>
                           <div>
                             <h4 className="font-medium mb-1">Specifications:</h4>
@@ -648,9 +672,11 @@ const Dashboard: React.FC = () => {
                             
                             <div className="mt-3">
                               {rtExtendedData?.ext_descr ? (
-                                <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: rtExtendedData.ext_descr }} />
+                                <div className="text-sm text-gray-700 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: rtExtendedData.ext_descr }} />
+                              ) : selectedProductForImage.longdescription ? (
+                                <div className="text-sm text-gray-700 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription }} />
                               ) : (
-                                <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription || 'No additional description available' }} />
+                                <p className="text-sm text-gray-700">No additional description available</p>
                               )}
                             </div>
                           </div>
