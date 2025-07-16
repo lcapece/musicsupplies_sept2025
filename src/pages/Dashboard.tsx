@@ -142,24 +142,79 @@ const Dashboard: React.FC = () => {
         });
       };
 
+      // Helper function to get fallback image from database
+      const getFallbackImageFromDatabase = async (): Promise<string | null> => {
+        if (!selectedProductForImage?.brand || !selectedProductForImage?.prdmaincat || !selectedProductForImage?.prdsubcat) {
+          return null;
+        }
+
+        try {
+          const { data, error } = await supabase.rpc('get_fallback_image_for_product', {
+            input_partnumber: selectedProductForImage.partnumber,
+            input_brand: selectedProductForImage.brand,
+            input_prdmaincat: selectedProductForImage.prdmaincat,
+            input_prdsubcat: selectedProductForImage.prdsubcat
+          });
+
+          if (error) {
+            console.warn('[Dashboard] Error getting fallback image:', error);
+            return null;
+          }
+
+          return data;
+        } catch (error) {
+          console.warn('[Dashboard] Exception getting fallback image:', error);
+          return null;
+        }
+      };
+
+      // Helper function to extract filename from path (handles forward slashes)
+      const extractImageFilename = (imagePath: string): string => {
+        if (!imagePath) return '';
+        return imagePath.split('/').pop() || '';
+      };
+
+      // Helper function to try loading an S3 image
+      const tryS3Image = async (filename: string, source: string): Promise<boolean> => {
+        if (!filename) return false;
+        
+        const s3Url = `${s3BaseUrl}${filename}`;
+        console.log(`[Dashboard] Trying S3 image (${source}): ${s3Url}`);
+        
+        try {
+          await loadImage(s3Url);
+          setCurrentImageUrl(s3Url);
+          console.log(`[Dashboard] Success (${source}): ${s3Url}`);
+          return true;
+        } catch (e) {
+          console.warn(`[Dashboard] Failed (${source}): ${s3Url}`);
+          return false;
+        }
+      };
+
       const tryLoadImages = async () => {
-        // 1. Check rt_extended for image_name and local src/images folder
+        // PRIORITY #1: Check products_supabase.groupedimage (S3 bucket)
+        if (selectedProductForImage.groupedimage) {
+          const imageName = extractImageFilename(selectedProductForImage.groupedimage);
+          if (await tryS3Image(imageName, 'Priority #1: groupedimage')) {
+            foundImage = true;
+            return;
+          }
+        }
+
+        // PRIORITY #2: Check rt_extended.image_name (local src/images folder)
         if (rtExtendedData?.image_name) {
           const localImageName = rtExtendedData.image_name.toLowerCase();
-          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif']; // Common image extensions
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
 
           for (const ext of imageExtensions) {
             const localImagePath = `/src/images/${localImageName}${ext}`;
-            // Check if the file exists locally (this is a client-side check, won't actually verify file existence on server)
-            // For a true check, you'd need a server endpoint or to list all images in src/images at build time.
-            // For now, we'll assume if the path is constructed, it might exist.
-            // A more robust solution would involve pre-loading all image names or a server endpoint.
-            // Given the current setup, we'll try to load it and see if it fails.
             try {
               const response = await fetch(localImagePath);
               if (response.ok) {
                 setCurrentImageUrl(localImagePath);
                 foundImage = true;
+                console.log(`[Dashboard] Success (Priority #2: rt_extended local): ${localImagePath}`);
                 return;
               }
             } catch (e) {
@@ -168,31 +223,42 @@ const Dashboard: React.FC = () => {
           }
         }
 
-        // 2. If no local image found, proceed with S3 logic
+        // PRIORITY #3: NEW - Fallback from similar products (S3 bucket)
+        if (!foundImage) {
+          const fallbackImage = await getFallbackImageFromDatabase();
+          if (fallbackImage) {
+            const fallbackImageName = extractImageFilename(fallbackImage);
+            if (await tryS3Image(fallbackImageName, 'Priority #3: fallback from similar products')) {
+              foundImage = true;
+              return;
+            }
+          }
+        }
+
+        // PRIORITY #4: Current S3 partnumber logic (existing)
         const attemptLoadSequence = async (pnBase: string, attemptType: string): Promise<boolean> => {
           // Try suffixed versions with original case of pnBase
           for (const s3Suffix of suffixes) {
             const url = `${s3BaseUrl}${pnBase}${s3Suffix}.jpg`;
-            console.log(`[Dashboard] Attempting (${attemptType} pn: ${pnBase}, s3Suffix: ${s3Suffix}): ${url}`);
+            console.log(`[Dashboard] Attempting (Priority #4 ${attemptType} pn: ${pnBase}, s3Suffix: ${s3Suffix}): ${url}`);
             try { await loadImage(url); setCurrentImageUrl(url); console.log(`[Dashboard] Success: ${url}`); return true; } catch (e) { /* continue */ }
           }
           // Try direct match with original case of pnBase
           const directUrl = `${s3BaseUrl}${pnBase}.jpg`;
-          console.log(`[Dashboard] Attempting direct (${attemptType} pn: ${pnBase}): ${directUrl}`);
+          console.log(`[Dashboard] Attempting direct (Priority #4 ${attemptType} pn: ${pnBase}): ${directUrl}`);
           try { await loadImage(directUrl); setCurrentImageUrl(directUrl); console.log(`[Dashboard] Success direct: ${directUrl}`); return true; } catch (e) { /* continue */ }
 
           // Try suffixed versions with lowercase pnBase
           const pnBaseLower = pnBase.toLowerCase();
-          // Only attempt lowercase if it's different from original case, to avoid redundant checks if pnBase is already lowercase
           if (pnBaseLower !== pnBase) { 
-            for (const s3Suffix of suffixes.map(s => s.toLowerCase())) { // Ensure S3 suffixes are also lowercase for this block
+            for (const s3Suffix of suffixes.map(s => s.toLowerCase())) {
               const lcUrlSuffix = `${s3BaseUrl}${pnBaseLower}${s3Suffix}.jpg`;
-              console.log(`[Dashboard] Attempting (lc ${attemptType} pn: ${pnBaseLower}, lc s3Suffix: ${s3Suffix}): ${lcUrlSuffix}`);
+              console.log(`[Dashboard] Attempting (Priority #4 lc ${attemptType} pn: ${pnBaseLower}, lc s3Suffix: ${s3Suffix}): ${lcUrlSuffix}`);
               try { await loadImage(lcUrlSuffix); setCurrentImageUrl(lcUrlSuffix); console.log(`[Dashboard] Success: ${lcUrlSuffix}`); return true; } catch (e) { /* continue */ }
             }
             // Try direct match with lowercase pnBase
             const lcDirectUrl = `${s3BaseUrl}${pnBaseLower}.jpg`;
-            console.log(`[Dashboard] Attempting direct (lc ${attemptType} pn: ${pnBaseLower}): ${lcDirectUrl}`);
+            console.log(`[Dashboard] Attempting direct (Priority #4 lc ${attemptType} pn: ${pnBaseLower}): ${lcDirectUrl}`);
             try { await loadImage(lcDirectUrl); setCurrentImageUrl(lcDirectUrl); console.log(`[Dashboard] Success direct: ${lcDirectUrl}`); return true; } catch (e) { /* continue */ }
           }
           return false;
@@ -210,7 +276,7 @@ const Dashboard: React.FC = () => {
         
         if (!foundImage && lastHyphenIndex > 0) {
           currentPnToTry = currentPnToTry.substring(0, lastHyphenIndex);
-          console.log(`[Dashboard] Full PN attempts failed. Trying base PN (1st strip): ${currentPnToTry}`);
+          console.log(`[Dashboard] Priority #4 Full PN attempts failed. Trying base PN (1st strip): ${currentPnToTry}`);
           if (await attemptLoadSequence(currentPnToTry, "stripped_1")) {
             foundImage = true;
             return;
@@ -220,15 +286,13 @@ const Dashboard: React.FC = () => {
           lastHyphenIndex = currentPnToTry.lastIndexOf('-');
           if (!foundImage && lastHyphenIndex > 0) {
             currentPnToTry = currentPnToTry.substring(0, lastHyphenIndex);
-            console.log(`[Dashboard] 1st stripped PN attempts failed. Trying base PN (2nd strip): ${currentPnToTry}`);
+            console.log(`[Dashboard] Priority #4 1st stripped PN attempts failed. Trying base PN (2nd strip): ${currentPnToTry}`);
             if (await attemptLoadSequence(currentPnToTry, "stripped_2")) {
               foundImage = true;
               return;
             }
           }
         }
-        // This is where foundImage is checked after all attempts.
-        // If still false, the placeholder will be set by the IIFE.
       };
       
       // IIFE to manage placeholder flashing
@@ -316,7 +380,7 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       console.log('Fetching products for:', { selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly });
       console.log('Category filters being applied:', { mainCategory: selectedMainCategory, subCategory: selectedSubCategory }); // Added for debugging
-      let query = supabase.from('products_supabase').select('*');
+      let query = supabase.from('products_supabase').select('*, groupedimage');
 
       // Re-enabling filters after fixing category mapping
       // Construct filter string manually to ensure exact matching
