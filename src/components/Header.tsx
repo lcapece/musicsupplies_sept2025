@@ -7,7 +7,6 @@ import { useCart } from '../context/CartContext';
 import ShoppingCartComponent from './ShoppingCart';
 import ProductImportModal, { ImportStepStatus } from './ProductImportModal'; // Import new modal
 import DiscountFormModal from './DiscountFormModal'; // Import DiscountFormModal
-import LogoImage from '../images/ms-wide.png'; // Import the new logo
 
 interface HeaderProps {
   onViewChange: (view: 'products' | 'orders' | 'weborders') => void;
@@ -143,56 +142,62 @@ interface SupabaseFunctionError {
   
   return (
     <header className="bg-white shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-4">
-            {/* Logo image moved to the far left with 20px left padding */}
-            <Link to="/" className="flex items-center" style={{ paddingLeft: '20px' }}>
-              <img src={LogoImage} alt="Music Supplies Logo" className="h-16" />
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-3 items-center h-16 w-full">
+          {/* Left Section - Logo (Far Left) */}
+          <div className="flex items-center justify-start h-full">
+            <Link to="/" className="flex items-center">
+              <div className="text-5xl font-bold leading-none">
+                <span className="text-blue-600">Music</span>
+                <span className="text-red-600">Supplies</span>
+                <span className="text-black">.com</span>
+              </div>
             </Link>
-            
-            <div className="flex items-center space-x-6">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-blue-600 h-4 w-4"
-                  name="view"
-                  value="products"
-                  checked={activeView === 'products'}
-                  onChange={() => onViewChange('products')}
-                />
-                <span className="ml-2 text-gray-700">Product Search</span>
-              </label>
-              
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-blue-600 h-4 w-4"
-                  name="view"
-                  value="orders"
-                  checked={activeView === 'orders'}
-                  onChange={() => onViewChange('orders')}
-                />
-                <span className="ml-2 text-gray-700">Order History</span>
-              </label>
-
-              {user?.accountNumber === '999' && (
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    className="form-radio text-blue-600 h-4 w-4"
-                    name="view"
-                    value="weborders"
-                    checked={activeView === 'weborders'}
-                    onChange={() => onViewChange('weborders')}
-                  />
-                  <span className="ml-2 text-gray-700">Web Orders</span>
-                </label>
-              )}
-            </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          {/* Center Section - Navigation (True Center) */}
+          <div className="flex items-center justify-center space-x-8 h-full">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600 h-4 w-4"
+                name="view"
+                value="products"
+                checked={activeView === 'products'}
+                onChange={() => onViewChange('products')}
+              />
+              <span className="ml-2 text-gray-700">Product Search</span>
+            </label>
+            
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-blue-600 h-4 w-4"
+                name="view"
+                value="orders"
+                checked={activeView === 'orders'}
+                onChange={() => onViewChange('orders')}
+              />
+              <span className="ml-2 text-gray-700">Order History</span>
+            </label>
+
+            {user?.accountNumber === '999' && (
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio text-blue-600 h-4 w-4"
+                  name="view"
+                  value="weborders"
+                  checked={activeView === 'weborders'}
+                  onChange={() => onViewChange('weborders')}
+                />
+                <span className="ml-2 text-gray-700">Web Orders</span>
+              </label>
+            )}
+          </div>
+          
+          {/* Right Section - Buttons and User Info (Far Right) */}
+          <div className="flex items-center justify-end space-x-3 h-full">
             {user?.accountNumber === '999' && (
               <>
                 <button
@@ -228,6 +233,21 @@ interface SupabaseFunctionError {
                 Account Settings
               </Link>
             )}
+            
+            {/* Shopping Cart Button - moved inline */}
+            <button
+              className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 relative"
+              onClick={() => setIsCartOpen(true)}
+              aria-label="Open shopping cart"
+            >
+              <ShoppingCart className="h-6 w-6" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">
+                  {totalItems}
+                </span>
+              )}
+            </button>
+            
             <button
               onClick={handleLogout}
               className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
@@ -236,31 +256,16 @@ interface SupabaseFunctionError {
               Logout
             </button>
             
-            <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-              <p className="font-bold text-red-700">{user?.acctName} ({user?.accountNumber})</p>
-              <p className="text-sm text-red-600">{user?.address}</p>
-              <p className="text-sm text-red-600">{user?.city}, {user?.state} {user?.zip}</p>
+            <div className="bg-red-50 p-2 rounded-lg border border-red-100 w-64">
+              <p className="font-bold text-xs text-red-700">{user?.acctName} ({user?.accountNumber})</p>
+              <p className="text-xs text-red-600">{user?.address}</p>
+              <p className="text-xs text-red-600">{user?.city}, {user?.state} {user?.zip}</p>
+              <p className="text-xs text-red-600">{user?.mobile_phone || 'N/A'} | {user?.email || 'N/A'}</p>
             </div>
-            {/* Shopping cart button is moved outside the main header flow to be fixed */}
           </div>
         </div>
       </div>
 
-      {/* Fixed Shopping Cart Button */}
-      <div className="fixed top-5 right-5 z-50">
-        <button
-          className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 relative"
-          onClick={() => setIsCartOpen(true)}
-          aria-label="Open shopping cart"
-        >
-          <ShoppingCart className="h-6 w-6" />
-          {totalItems > 0 && (
-            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">
-              {totalItems}
-            </span>
-          )}
-        </button>
-      </div>
       
       <ShoppingCartComponent isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
       <ProductImportModal 

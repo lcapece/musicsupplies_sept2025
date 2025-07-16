@@ -30,8 +30,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     if (product.inventory && product.inventory > 0) {
+      console.log('ProductTable: Adding to cart:', product.partnumber);
+      
       // Pass the necessary fields to satisfy the Product type for CartItem
       // CartContext's addToCart will handle quantity
       addToCart({
@@ -40,6 +47,25 @@ const ProductTable: React.FC<ProductTableProps> = ({
         price: product.price, // Pass null if it's null, context can handle default
         inventory: product.inventory // Ensure inventory is passed
       });
+      
+      // Additional failsafe: Check if item was added after a short delay
+      setTimeout(() => {
+        const cartItems = JSON.parse(localStorage.getItem('cart') || '[]');
+        const itemExists = cartItems.some((item: any) => item.partnumber === product.partnumber);
+        
+        if (!itemExists) {
+          console.warn('ProductTable: Item not found in cart after add, retrying:', product.partnumber);
+          // Retry the add operation
+          addToCart({
+            partnumber: product.partnumber,
+            description: product.description,
+            price: product.price,
+            inventory: product.inventory
+          });
+        } else {
+          console.log('ProductTable: Item successfully added to cart:', product.partnumber);
+        }
+      }, 300);
     }
   };
 
@@ -226,7 +252,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center">
                       <button
-                        onClick={() => handleAddToCart(product)}
+                        onClick={(e) => handleAddToCart(product, e)}
                         className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md ${
                           product.inventory && product.inventory > 0
                             ? 'text-white bg-blue-600 hover:bg-blue-700'

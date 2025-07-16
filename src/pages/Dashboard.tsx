@@ -425,10 +425,6 @@ const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-100 flex flex-col relative">
       <Header onViewChange={handleViewChange} activeView={activeView} />
       
-      {/* Version info in upper right corner */}
-      <div className="absolute top-2 right-2 text-xs text-gray-400 z-10">
-        Version: RC81
-      </div>
       
       <div className="flex-grow flex flex-col">
         {activeView === 'products' ? (

@@ -204,12 +204,62 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [availablePromoCodes, appliedPromoCode, user]); // Removed items.length and totalPrice dependencies
 
   const addToCart = (product: Product, quantity: number = 1) => {
+    console.log('Adding to cart:', product.partnumber, 'quantity:', quantity);
+    
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
+      let newItems;
+      
       if (existingItem) {
-        return prevItems.map(item => item.partnumber === product.partnumber ? { ...item, quantity: item.quantity + quantity } : item);
+        newItems = prevItems.map(item => 
+          item.partnumber === product.partnumber 
+            ? { ...item, quantity: item.quantity + quantity } 
+            : item
+        );
+      } else {
+        newItems = [...prevItems, { 
+          ...product, 
+          inventory: product.inventory ?? null, 
+          price: product.price ?? 0, 
+          quantity 
+        }];
       }
-      return [...prevItems, { ...product, inventory: product.inventory ?? null, price: product.price ?? 0, quantity }];
+      
+      console.log('Cart updated, new items:', newItems);
+      
+      // Immediate localStorage update as failsafe
+      try {
+        localStorage.setItem('cart', JSON.stringify(newItems));
+      } catch (e) {
+        console.error('Failed to save cart to localStorage:', e);
+      }
+      
+      // Verify cart was updated after a short delay
+      setTimeout(() => {
+        const currentItems = JSON.parse(localStorage.getItem('cart') || '[]');
+        const itemExists = currentItems.some((item: any) => item.partnumber === product.partnumber);
+        
+        if (!itemExists && newItems.some(item => item.partnumber === product.partnumber)) {
+          console.warn('Cart verification failed, forcing re-add for:', product.partnumber);
+          // Force another update if the item wasn't properly added
+          setItems(currentNewItems => {
+            const stillMissing = !currentNewItems.some(item => item.partnumber === product.partnumber);
+            if (stillMissing) {
+              const forceAddItems = [...currentNewItems, { 
+                ...product, 
+                inventory: product.inventory ?? null, 
+                price: product.price ?? 0, 
+                quantity 
+              }];
+              localStorage.setItem('cart', JSON.stringify(forceAddItems));
+              return forceAddItems;
+            }
+            return currentNewItems;
+          });
+        }
+      }, 500);
+      
+      return newItems;
     });
   };
 
