@@ -97,6 +97,8 @@ const PromoCodeManagementTab: React.FC = () => {
 
   // Handle delete promo code
   const handleDeletePromoCode = (promo: PromoCode) => {
+    console.log('🗑️ TRASH ICON CLICKED - Opening delete confirmation modal');
+    console.log('Promo code to delete:', promo);
     setDeleteConfirmation({
       isOpen: true,
       promoCode: promo
@@ -105,18 +107,77 @@ const PromoCodeManagementTab: React.FC = () => {
 
   // Confirm delete promo code
   const confirmDelete = async () => {
-    if (!deleteConfirmation.promoCode) return;
+    console.log('🗑️ DELETE FUNCTION CALLED');
+    console.log('Delete confirmation state:', deleteConfirmation);
+    
+    if (!deleteConfirmation.promoCode) {
+      console.error('❌ No promo code selected for deletion');
+      return;
+    }
+
+    const promoToDelete = deleteConfirmation.promoCode;
+    console.log('🎯 Attempting to delete promo code:', {
+      id: promoToDelete.id,
+      code: promoToDelete.code,
+      name: promoToDelete.name
+    });
 
     setLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase
-        .from('promo_codes')
-        .delete()
-        .eq('id', deleteConfirmation.promoCode.id);
+      console.log('📡 Making Supabase delete request...');
+      
+      // Get current user info from localStorage (custom auth system)
+      const savedUser = localStorage.getItem('user');
+      let currentUser = null;
+      if (savedUser) {
+        try {
+          currentUser = JSON.parse(savedUser);
+          console.log('👤 Current user from localStorage:', {
+            accountNumber: currentUser.accountNumber,
+            acctName: currentUser.acct_name || currentUser.acctName,
+            isSpecialAdmin: currentUser.is_special_admin
+          });
+        } catch (e) {
+          console.error('❌ Error parsing user from localStorage:', e);
+        }
+      } else {
+        console.error('❌ No user found in localStorage - not authenticated');
+        setError('You must be logged in to delete promo codes');
+        return;
+      }
 
-      if (error) throw error;
+      // Check if user is admin (account 999)
+      if (!currentUser || currentUser.accountNumber !== '999') {
+        console.error('❌ User is not admin account 999:', currentUser?.accountNumber);
+        setError('Only admin account 999 can delete promo codes');
+        return;
+      }
+
+      // Use the admin delete function that bypasses RLS
+      console.log('🔐 Calling admin_delete_promo_code function...');
+      
+      const { data: deleteResult, error: rpcError } = await supabase.rpc('admin_delete_promo_code', {
+        p_promo_code_id: promoToDelete.id,
+        p_account_number: parseInt(currentUser.accountNumber)
+      });
+
+      console.log('📊 Admin delete function result:', deleteResult);
+
+      if (rpcError) {
+        console.error('❌ RPC error calling admin_delete_promo_code:', rpcError);
+        throw new Error(`Database function error: ${rpcError.message}`);
+      }
+
+      if (!deleteResult || !deleteResult.success) {
+        const errorMessage = deleteResult?.error || 'Unknown error occurred';
+        console.error('❌ Admin delete function failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      console.log('✅ Delete request completed successfully');
+      console.log('🔄 Refreshing promo codes list...');
 
       // Refresh the promo codes list
       const { data, error: fetchError } = await supabase
@@ -124,15 +185,31 @@ const PromoCodeManagementTab: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('❌ Error refreshing list:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('📋 Refreshed promo codes:', data?.length || 0, 'codes found');
       setPromoCodes(data || []);
 
+      console.log('🎉 Closing delete confirmation modal');
       setDeleteConfirmation({ isOpen: false, promoCode: null });
+      
+      console.log('✅ DELETE OPERATION COMPLETED SUCCESSFULLY');
     } catch (err: any) {
-      console.error('Error deleting promo code:', err);
+      console.error('💥 ERROR in confirmDelete:', err);
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        details: err.details,
+        hint: err.hint,
+        stack: err.stack
+      });
       setError(err.message || 'Failed to delete promo code');
     } finally {
       setLoading(false);
+      console.log('🏁 confirmDelete function finished');
     }
   };
 
@@ -173,6 +250,27 @@ const PromoCodeManagementTab: React.FC = () => {
               <option value="upcoming">Upcoming Codes</option>
             </select>
           </div>
+          <button
+            onClick={async () => {
+              console.log('🔍 DEBUG: Checking authentication status...');
+              const { data: { user }, error } = await supabase.auth.getUser();
+              console.log('👤 Current user:', user);
+              console.log('❌ Auth error:', error);
+              
+              if (user) {
+                // Check account mapping
+                const { data: accounts, error: accountError } = await supabase
+                  .from('accounts_lcmd')
+                  .select('account_number, acct_name, user_id')
+                  .eq('user_id', user.id);
+                console.log('🏢 User accounts:', accounts);
+                console.log('❌ Account error:', accountError);
+              }
+            }}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+          >
+            Debug Auth
+          </button>
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
@@ -311,13 +409,19 @@ const PromoCodeManagementTab: React.FC = () => {
             </p>
             <div className="flex justify-end space-x-4">
               <button
-                onClick={() => setDeleteConfirmation({ isOpen: false, promoCode: null })}
+                onClick={() => {
+                  console.log('❌ CANCEL BUTTON CLICKED - Closing delete modal');
+                  setDeleteConfirmation({ isOpen: false, promoCode: null });
+                }}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={confirmDelete}
+                onClick={() => {
+                  console.log('🔴 DELETE BUTTON CLICKED - Calling confirmDelete function');
+                  confirmDelete();
+                }}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
               >
                 Delete

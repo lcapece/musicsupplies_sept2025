@@ -10,10 +10,11 @@ import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import CategoryManagementTab from '../components/admin/CategoryManagementTab';
 import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; 
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
+import S3ImageCacheTab from '../components/admin/S3ImageCacheTab';
 import { applyPromoCodeFunctionMigration, applyBrandMapColumnsMigration } from '../utils/applyMigration';
 import { applyPromoCodeLimitsUpdates } from '../utils/applyPromoCodeLimitsUpdates';
 
-type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'email' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes' | 'database';
+type AdminTab = 'orderhistory' | 'accounts' | 'history' | 'clicksend' | 'email' | 'generalsettings' | 'applications' | 'categories' | 'managetreeview' | 'promocodes' | 's3cache' | 'database';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -30,6 +31,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'email' as AdminTab, label: 'Email', icon: '📧' },
     { id: 'generalsettings' as AdminTab, label: 'General Settings', icon: '⚙️' },
     { id: 'managetreeview' as AdminTab, label: 'Manage Treeview', icon: '🌲' },
+    { id: 's3cache' as AdminTab, label: 'S3 Image Cache', icon: '🖼️' },
     { id: 'database' as AdminTab, label: 'Database', icon: '🔧' },
   ];
 
@@ -55,6 +57,8 @@ const AdminDashboard: React.FC = () => {
         return <ManageTreeviewTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
+      case 's3cache':
+        return <S3ImageCacheTab />;
       case 'database':
         return <DatabaseAdminTab />;
       default:

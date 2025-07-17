@@ -28,6 +28,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
 }) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const itemsPerPage = 12;
 
   const handleAddToCart = (product: Product, event?: React.MouseEvent) => {
@@ -217,8 +218,13 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 {paginatedProducts.map((product) => (
                   <tr 
                     key={product.partnumber} 
-                    className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''}`}
-                    onClick={() => onRowClick && onRowClick(product)} // Call onRowClick if provided
+                    className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''} ${selectedProductId === product.partnumber ? 'bg-blue-50' : ''}`}
+                    onClick={() => {
+                      if (onRowClick) {
+                        setSelectedProductId(product.partnumber);
+                        onRowClick(product);
+                      }
+                    }}
                   >
                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 w-[12%]">
                       {product.partnumber}

@@ -12,6 +12,16 @@
   # Node.js version
   NODE_VERSION = "18"
 
+# Site settings
+[context.production]
+  command = "npm run build"
+  
+[context.deploy-preview]
+  command = "npm run build"
+  
+[context.branch-deploy]
+  command = "npm run build"
+
 [[redirects]]
   # Handle client-side routing
   from = "/*"

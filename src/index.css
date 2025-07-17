@@ -2,6 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prose styling for HTML content in product descriptions */
+.prose {
+  color: #374151;
+  max-width: 65ch;
+}
+
+.prose-sm {
+  font-size: 0.875rem;
+  line-height: 1.7142857;
+}
+
+.prose p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose ul {
+  list-style-type: disc;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding-left: 1.625em;
+}
+
+.prose li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose br {
+  content: "";
+  display: block;
+  margin: 0.25em 0;
+}
+
+/* Fix for max-w-none */
+.max-w-none {
+  max-width: none;
+}
+
 /* Hide common chat widgets and floating elements */
 [id*="crisp"], [class*="crisp"],
 [id*="intercom"], [class*="intercom"],
