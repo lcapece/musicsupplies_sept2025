@@ -328,7 +328,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     <h3 className="text-xl font-semibold text-gray-900 mb-6">Checkout</h3>
                     <div className="space-y-6">
                       <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">E-mail Address (required)</label>
                         <input
                           type="email"
                           name="email"
@@ -340,7 +340,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                         />
                       </div>
                       <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone number</label>
+                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number (required) - Mobile Preferred</label>
                         <input
                           type="tel"
                           name="phone"
@@ -532,11 +532,16 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                   )}
 
                   <div className="flex justify-between text-lg font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">
-                    <p>Grand Total</p>
+                    <p>Sub Total</p>
                     <p>${displayGrandTotal.toFixed(2)}</p>
                   </div>
                   <p className="mt-0.5 text-sm text-gray-500">Shipping and taxes calculated at checkout (if applicable).</p>
                   <div className="mt-6">
+                    {isCheckingOut && (
+                      <p className="text-red-600 text-sm font-medium text-center mb-4">
+                        Total does not include shipping. You will be emailed the Grand Total when shipped
+                      </p>
+                    )}
                     {isCheckingOut ? (
                       <button
                         onClick={handlePlaceOrder}
