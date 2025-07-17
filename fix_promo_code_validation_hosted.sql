@@ -1,4 +1,4 @@
--- COMPREHENSIVE PROMO CODE VALIDATION FIX FOR HOSTED SUPABASE
+kkkkkkkkkkkkkkkkkkkkkkkkk-- COMPREHENSIVE PROMO CODE VALIDATION FIX FOR HOSTED SUPABASE
 -- Run this entire script in your Supabase Dashboard > SQL Editor
 
 -- Step 1: Fix RLS policies for promo codes table

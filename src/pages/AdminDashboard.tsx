@@ -11,6 +11,7 @@ import CategoryManagementTab from '../components/admin/CategoryManagementTab';
 import ManageTreeviewTab from '../components/admin/ManageTreeviewTab'; 
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 import S3ImageCacheTab from '../components/admin/S3ImageCacheTab';
+import NetlifyTab from '../components/admin/NetlifyTab';
 import { applyPromoCodeFunctionMigration, applyBrandMapColumnsMigration } from '../utils/applyMigration';
 import { applyPromoCodeLimitsUpdates } from '../utils/applyPromoCodeLimitsUpdates';
 

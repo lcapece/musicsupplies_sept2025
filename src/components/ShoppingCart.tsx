@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { ShoppingCart as CartIcon, X, Minus, Plus, CreditCard, Trash2, RefreshCw } from 'lucide-react';
 import OrderConfirmationModal from './OrderConfirmationModal';
 import { OrderConfirmationDetails } from '../types';
+import { supabase } from '../lib/supabase';
+import { createInvoiceDataFromOrder, generateInvoiceHTML, generateInvoiceText } from '../utils/invoiceGenerator';
 
 interface ShoppingCartProps {
   isOpen: boolean;
@@ -134,128 +136,53 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
       setOrderNumber(newOrderNumber);
       setOrderPlaced(true);
 
-      const seller = {
-        name: "Lou Capece Music Distributors",
-        address: "2555 North Jerusalem Road",
-        cityStateZip: "East Meadow, NY 11554",
-        phone: "1(800)321-5584",
-        email: "info@loucapecemusic.com"
-      };
-
-      const emailHtml = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmation - ${newOrderNumber}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; color: #333; }
-        .container { max-width: 800px; margin: 20px auto; background-color: #fff; padding: 20px; border: 1px solid #ddd; }
-        .header { text-align: center; margin-bottom: 20px; padding-bottom:10px; border-bottom: 1px solid #eee; }
-        .header h1 { color: #0056b3; margin:0; }
-        .seller-info { text-align: center; margin-bottom: 20px; font-size: 0.9em; color: #555;}
-        .seller-info p { margin: 2px 0; }
-        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; padding-bottom:20px; border-bottom: 1px solid #eee; }
-        .details-grid h3 { margin-top: 0; color: #0056b3; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 5px;}
-        .bill-to p, .payment-details p { margin: 5px 0; font-size: 0.95em; }
-        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .items-table th, .items-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        .items-table th { background-color: #0056b3; color: #fff; font-weight: bold; }
-        .items-table td.numeric, .items-table th.numeric { text-align: right; }
-        .summary { margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee;}
-        .summary table { width: 50%; margin-left: auto; }
-        .summary td { padding: 5px 0; }
-        .summary .total td { font-weight: bold; font-size: 1.2em; color: #0056b3; border-top: 2px solid #0056b3; padding-top:10px;}
-        .footer { text-align: center; margin-top: 30px; font-size: 0.9em; color: #777; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Order Confirmation</h1>
-            <p>Order Number: <strong>${newOrderNumber}</strong></p>
-        </div>
-
-        <div class="seller-info">
-            <p><strong>${seller.name}</strong></p>
-            <p>${seller.address}</p>
-            <p>${seller.cityStateZip}</p>
-            <p>Phone: ${seller.phone} | Email: ${seller.email}</p>
-        </div>
-
-        <div class="details-grid">
-            <div class="bill-to">
-                <h3>BILL TO</h3>
-                <p>Email: ${email}</p>
-                <p>Phone: ${phone}</p>
-            </div>
-            <div class="payment-details">
-                <h3>PAYMENT DETAILS</h3>
-                <p>Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}</p>
-            </div>
-        </div>
-
-        <h3>Order Items</h3>
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Description</th>
-                    <th class="numeric">Quantity</th>
-                    <th class="numeric">Unit Price</th>
-                    <th class="numeric">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${items.map(item => `
-                <tr>
-                    <td>${item.partnumber}</td>
-                    <td>${item.description}</td>
-                    <td class="numeric">${item.quantity}</td>
-                    <td class="numeric">$${(item.price || 0).toFixed(2)}</td>
-                    <td class="numeric">$${((item.price || 0) * item.quantity).toFixed(2)}</td>
-                </tr>
-                `).join('')}
-            </tbody>
-        </table>
-
-        <div class="summary">
-            <table>
-                <tr>
-                    <td>Subtotal:</td>
-                    <td class="numeric">$${totalPrice.toFixed(2)}</td>
-                </tr>
-                ${appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount ? `
-                <tr>
-                    <td>Promo Code Discount:</td>
-                    <td class="numeric">-$${appliedPromoCode.discount_amount.toFixed(2)}</td>
-                </tr>
-                ` : ''}
-                <tr class="total">
-                    <td>TOTAL:</td>
-                    <td class="numeric">$${appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount 
-                      ? (totalPrice - appliedPromoCode.discount_amount).toFixed(2) 
-                      : totalPrice.toFixed(2)}</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="footer">
-            <p>Thank you for your order! We will notify you once your order has shipped.</p>
-            <p>&copy; ${new Date().getFullYear()} ${seller.name}</p>
-        </div>
-    </div>
-</body>
-</html>
-      `;
-      const emailText = `
-Order Confirmation...`; // Truncated
-
+      // Generate professional invoice using the new invoice generator
       try {
-        console.log("Attempting to send email to:", email);
+        console.log("Generating and sending invoice email to:", email);
+        
+        // Create invoice data from the order
+        const invoiceData = createInvoiceDataFromOrder(
+          newOrderNumber,
+          items,
+          email,
+          phone,
+          paymentMethod,
+          appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount ? {
+            discount_amount: appliedPromoCode.discount_amount,
+            message: appliedPromoCode.message,
+            code: appliedPromoCode.promo_id
+          } : undefined,
+          {
+            name: user?.acctName || email.split('@')[0],
+            accountNumber: user?.accountNumber
+          }
+        );
+
+        // Generate HTML and text versions of the invoice
+        const invoiceHTML = generateInvoiceHTML(invoiceData);
+        const invoiceText = generateInvoiceText(invoiceData);
+
+        // Send the invoice email via Mailgun
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-mailgun-email', {
+          body: {
+            to: email,
+            subject: `Invoice ${newOrderNumber} - Lou Capece Music Distributors`,
+            html: invoiceHTML,
+            text: invoiceText,
+            testMode: false
+          }
+        });
+
+        if (emailError) {
+          console.error('Error sending invoice email:', emailError);
+          // Don't fail the order if email fails, just log it
+        } else {
+          console.log('Invoice email sent successfully:', emailResult);
+        }
+
       } catch (emailError) {
-        console.error('Error preparing to send email:', emailError);
+        console.error('Error generating or sending invoice email:', emailError);
+        // Don't fail the order if email fails, just log it
       }
     } catch (error) {
       console.error('Failed to place order:', error);

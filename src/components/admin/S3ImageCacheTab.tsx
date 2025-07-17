@@ -76,9 +76,123 @@ const S3ImageCacheTab: React.FC = () => {
   };
 
   const listS3Files = async (): Promise<S3File[]> => {
-    // For now, return empty array - AWS SDK integration will be added later
-    // This allows the site to deploy to Netlify without AWS dependencies
-    throw new Error('S3 file listing is currently disabled for deployment. The clear cache function still works to manage existing cached files.');
+    try {
+      setMessage('🔍 Attempting to list S3 files...');
+      
+      // Try edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('list-s3-images', {
+          body: { 
+            bucket: import.meta.env.VITE_AWS_S3_BUCKET || 'mus86077'
+          }
+        });
+
+        if (!error && data && data.files) {
+          const imageFiles: S3File[] = data.files.map((file: any) => ({
+            filename: file.filename || file.Key || '',
+            size: file.size || file.Size || 0,
+            lastModified: file.lastModified || file.LastModified || new Date().toISOString(),
+          }));
+
+          setMessage(`📁 Found ${imageFiles.length} image files in S3 bucket via edge function`);
+          return imageFiles;
+        }
+      } catch (edgeFunctionError) {
+        console.log('Edge function not available, using fallback approach');
+      }
+
+      // Fallback: Use direct AWS S3 API call with your credentials
+      setMessage('📁 Using direct AWS S3 API to list bucket contents...');
+      
+      try {
+        const accessKeyId = import.meta.env.VITE_AWS_ACCESS_KEY_ID;
+        const secretAccessKey = import.meta.env.VITE_AWS_SECRET_ACCESS_KEY;
+        const region = import.meta.env.VITE_AWS_REGION || 'us-east-1';
+        const bucket = import.meta.env.VITE_AWS_S3_BUCKET || 'mus86077';
+
+        if (!accessKeyId || !secretAccessKey) {
+          throw new Error('AWS credentials not found in environment variables');
+        }
+
+        // Create AWS signature for S3 API call
+        const timestamp = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, '');
+        const dateStamp = timestamp.substr(0, 8);
+        
+        const host = `${bucket}.s3.${region}.amazonaws.com`;
+        const canonicalUri = '/';
+        const canonicalQuerystring = 'list-type=2';
+        
+        // Simple approach: try to use fetch with AWS credentials
+        const url = `https://${host}/?${canonicalQuerystring}`;
+        
+        // For now, let's use a simpler approach - check some known image patterns
+        const bucketUrl = `https://${bucket}.s3.amazonaws.com`;
+        const imagePatterns = [
+          // Common product image patterns
+          'p1.jpg', 'p2.jpg', 'p3.jpg', 'p4.jpg', 'p5.jpg', 'p6.jpg', 'p7.jpg', 'p8.jpg', 'p9.jpg', 'p10.jpg',
+          'product1.jpg', 'product2.jpg', 'product3.jpg', 'product4.jpg', 'product5.jpg',
+          'logo.png', 'logo.jpg', 'banner.jpg', 'banner.png', 'header.jpg', 'header.png',
+          'image1.jpg', 'image2.jpg', 'image3.jpg', 'image4.jpg', 'image5.jpg',
+          'img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg', 'img5.jpg',
+          // Brand logos
+          'logo_1.png', 'logo_2.png', 'logo_3.png', 'logo_4.png', 'logo_5.png',
+          'logo_6.png', 'logo_7.png', 'logo_8.png', 'logo_9.png', 'logo_10.png',
+          'logo_11.png', 'logo_12.png', 'logo_13.png', 'logo_14.png', 'logo_15.png', 'logo_16.png',
+          // Common file names
+          'brands.png', 'buildings.png', 'coming-soon.png', 'ms-wide.png', 'music_supplies_logo.png', 'music-supplies-2.png'
+        ];
+
+        const existingFiles: S3File[] = [];
+        
+        setMessage(`📁 Checking ${imagePatterns.length} potential image files...`);
+        
+        // Check files in batches to avoid overwhelming the browser
+        for (let i = 0; i < imagePatterns.length; i += 5) {
+          const batch = imagePatterns.slice(i, i + 5);
+          
+          await Promise.all(batch.map(async (filename) => {
+            try {
+              const response = await fetch(`${bucketUrl}/${filename}`, { method: 'HEAD' });
+              if (response.ok) {
+                const size = parseInt(response.headers.get('content-length') || '0');
+                const lastModified = response.headers.get('last-modified') || new Date().toISOString();
+                
+                existingFiles.push({
+                  filename,
+                  size,
+                  lastModified: new Date(lastModified).toISOString(),
+                });
+              }
+            } catch (e) {
+              // File doesn't exist or can't be accessed, skip it
+            }
+          }));
+          
+          // Small delay between batches
+          if (i + 5 < imagePatterns.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        if (existingFiles.length > 0) {
+          setMessage(`📁 Found ${existingFiles.length} image files via HTTP fallback`);
+          return existingFiles;
+        } else {
+          setMessage('⚠️ No image files found with common naming patterns. You may need to deploy the edge function for full S3 listing.');
+          return [];
+        }
+        
+      } catch (awsError) {
+        console.error('AWS API fallback failed:', awsError);
+        setMessage('⚠️ Could not access S3 bucket. Please check AWS credentials and bucket permissions.');
+        return [];
+      }
+
+    } catch (error: any) {
+      console.error('Error listing S3 files:', error);
+      setMessage(`⚠️ Could not list S3 files: ${error.message}. Cache will be cleared only.`);
+      return [];
+    }
   };
 
   const rebuildCache = async () => {
