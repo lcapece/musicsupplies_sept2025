@@ -524,19 +524,19 @@ const Dashboard: React.FC = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col relative">
+    <div className="h-screen bg-gray-100 flex flex-col relative">
       <Header onViewChange={handleViewChange} activeView={activeView} />
       
       
-      <div className="flex-grow flex flex-col">
+      <div className="flex flex-col h-[85vh]">
         {activeView === 'products' ? (
           <>
-            <div className="py-2 px-4 sm:px-6 lg:px-8">
+            <div className="py-2 px-4 sm:px-6 lg:px-8 flex-shrink-0">
               <SearchBar onSearch={handleSearch} />
             </div>
             
-            <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-2">
-              <div className="flex">
+            <div className="flex-1 px-4 sm:px-6 lg:px-8 pb-2 overflow-hidden">
+              <div className="flex h-full">
                 <div className="w-64 flex-shrink-0 pr-8">
                   <CategoryTree 
                     onSelectCategory={handleCategorySelect}
@@ -544,7 +544,7 @@ const Dashboard: React.FC = () => {
                   />
                 </div>
                 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 flex flex-col">
                   <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 w-full overflow-visible">
                     <div className="flex justify-between items-center">
                       <div>
@@ -645,8 +645,8 @@ const Dashboard: React.FC = () => {
                     </div>
                   ) : (
                     // Product Table and Image/Specs Area
-                    <div className={`flex flex-col ${showImageAndSpecs ? 'lg:flex-row' : ''} gap-4`}>
-                      <div className={`${showImageAndSpecs ? 'lg:w-4/5' : 'w-full'}`}>
+                    <div className={`flex flex-col ${showImageAndSpecs ? 'lg:flex-row' : ''} gap-4 flex-1`}>
+                      <div className={`${showImageAndSpecs ? 'lg:w-4/5' : 'w-full'} flex flex-col h-full`}>
                         <ProductTable 
                           products={sortedProducts}
                           requestSort={requestSort}
@@ -656,6 +656,7 @@ const Dashboard: React.FC = () => {
                           showUpcColumn={!showImageAndSpecs} // Show UPC column when images are hidden
                           showMsrp={!showImageAndSpecs && showMsrp} // Only show MSRP when in wide view mode and checkbox is checked
                           showMapPrice={!showImageAndSpecs && showMapPrice} // Only show MAP when in wide view mode and checkbox is checked
+                          className="h-full"
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (

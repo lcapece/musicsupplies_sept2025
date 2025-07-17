@@ -29,7 +29,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const itemsPerPage = 12;
+  const itemsPerPage = 20;
 
   const handleAddToCart = (product: Product, event?: React.MouseEvent) => {
     if (event) {
@@ -120,14 +120,14 @@ const ProductTable: React.FC<ProductTableProps> = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm overflow-hidden ${className || ''}`}>
-      <div className="px-4 py-3 border-b border-gray-200">
+    <div className={`bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-full ${className || ''}`}>
+      <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
         <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
       </div>
       
       {products && products.length > 0 ? (
         <>
-          <div className="overflow-x-auto">
+          <div className="flex-1 overflow-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
