@@ -47,20 +47,23 @@ let nextOrderNumber = 750000;
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem('cart');
+    // Use sessionStorage for better security (cleared when browser closes)
+    const savedCart = sessionStorage.getItem('cart');
     if (savedCart) {
       try {
         const parsedItems = JSON.parse(savedCart);
         if (Array.isArray(parsedItems) && parsedItems.every(item => typeof item.partnumber === 'string' && typeof item.quantity === 'number')) {
           return parsedItems;
         }
-        localStorage.removeItem('cart');
+        sessionStorage.removeItem('cart');
         return [];
       } catch (e) {
-        localStorage.removeItem('cart');
+        sessionStorage.removeItem('cart');
         return [];
       }
     }
+    // Also clean up any old localStorage cart data
+    localStorage.removeItem('cart');
     return [];
   });
 
@@ -85,7 +88,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(items));
+    // Use sessionStorage for better security
+    sessionStorage.setItem('cart', JSON.stringify(items));
     console.log('Cart state updated:', items);
   }, [items]);
 
@@ -271,6 +275,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   const clearCart = () => { 
     setItems([]); 
+    // Clear from both storages for safety
+    sessionStorage.removeItem('cart');
     localStorage.removeItem('cart');
     setAppliedPromoCode(null); // Also clear any applied promo code when clearing the cart
   };

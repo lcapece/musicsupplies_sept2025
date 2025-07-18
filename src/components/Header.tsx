@@ -143,17 +143,17 @@ interface SupabaseFunctionError {
   return (
     <header className="bg-white shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-3 items-center h-16 w-full">
+        <div className="grid grid-cols-3 items-center h-24 w-full">
           {/* Left Section - Logo and Phone (Far Left) */}
           <div className="flex items-center justify-start h-full">
             <Link to="/" className="flex items-center">
-              <div className="text-5xl font-bold leading-none">
+              <div className="text-4xl font-bold leading-tight">
                 <span className="text-blue-600">Music</span>
                 <span className="text-red-600">Supplies</span>
                 <span className="text-black">.com</span>
               </div>
             </Link>
-            <div className="ml-12 text-5xl font-bold leading-none text-gray-700">
+            <div className="ml-8 text-4xl font-bold leading-tight text-gray-700">
               (800) 321-5584
             </div>
           </div>

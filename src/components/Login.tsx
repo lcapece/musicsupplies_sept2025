@@ -3,7 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { KeyRound, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import PasswordChangeModal from './PasswordChangeModal';
+import DeactivatedAccountModal from './DeactivatedAccountModal';
 import { User } from '../types';
+import { validateEmail, validateAccountNumber } from '../utils/validation';
 import logo from '../images/music_supplies_logo.png';
 import building from '../images/buildings.png';
 
@@ -35,7 +37,17 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login, error, user, isAuthenticated, showPasswordChangeModal, handlePasswordModalClose } = useAuth();
+  const { 
+    login, 
+    error, 
+    user, 
+    isAuthenticated, 
+    showPasswordChangeModal, 
+    handlePasswordModalClose,
+    showDeactivatedAccountModal,
+    deactivatedAccountName,
+    closeDeactivatedAccountModal
+  } = useAuth();
   const navigate = useNavigate();
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -214,6 +226,12 @@ const Login: React.FC = () => {
           accountData={user}
         />
       )}
+
+      <DeactivatedAccountModal
+        show={showDeactivatedAccountModal}
+        accountName={deactivatedAccountName}
+        onClose={closeDeactivatedAccountModal}
+      />
       
       {/* Version info in lower left corner */}
       <div className="absolute bottom-2 left-2 text-xs text-gray-400">

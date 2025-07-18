@@ -122,7 +122,7 @@ const SmsConsentModal: React.FC<SmsConsentModalProps> = ({ isOpen, onClose, onCo
               {/* Consent Checkboxes */}
               <div>
                 <h5 className="font-semibold text-gray-900 mb-4">Consent Options</h5>
-                <div className="space-y-4">
+                <div className="space-y-4 border-2 border-red-500 p-4 rounded-lg bg-red-50">
                   <div className="flex items-start space-x-3">
                     <input
                       type="checkbox"

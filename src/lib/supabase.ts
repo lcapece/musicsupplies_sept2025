@@ -1,11 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Get environment variables with fallbacks to prevent white screen
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ekklokrukxmqlahtonnc.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+// SECURITY: Get environment variables - NO FALLBACKS for security
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Validate required environment variables
+if (!supabaseUrl) {
+  throw new Error('VITE_SUPABASE_URL environment variable is required');
+}
+
+if (!supabaseAnonKey) {
+  throw new Error('VITE_SUPABASE_ANON_KEY environment variable is required');
+}
+
+// Validate URL format
+try {
+  new URL(supabaseUrl);
+} catch (error) {
+  throw new Error('VITE_SUPABASE_URL must be a valid URL');
+}
 
 // Create and export the Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false
+  }
+});
 
-// Log connection status to help with debugging
-console.log('Supabase client initialized with URL:', supabaseUrl ? 'Valid URL' : 'Missing URL');
+// Only log in development
+if (import.meta.env.DEV) {
+  console.log('Supabase client initialized successfully');
+}

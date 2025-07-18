@@ -1,5 +1,6 @@
-cimport React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { adminSessionManager } from '../../utils/adminSessionManager';
 
 interface DeploymentInfo {
   id: string;
@@ -47,19 +48,9 @@ const NetlifyTab: React.FC = () => {
     try {
       setIsLoadingInfo(true);
       
-      // Get current user from localStorage (custom auth system)
-      const savedUser = localStorage.getItem('user');
-      let currentUser = null;
-      if (savedUser) {
-        try {
-          currentUser = JSON.parse(savedUser);
-        } catch (e) {
-          console.error('Error parsing user from localStorage:', e);
-        }
-      }
-
-      if (!currentUser || currentUser.accountNumber !== '999') {
-        console.log('Not authenticated as admin, skipping site info');
+      // Use secure admin session manager
+      if (!adminSessionManager.validateAdminAction('super')) {
+        console.log('Not authenticated as super admin, skipping site info');
         return;
       }
 
@@ -136,18 +127,8 @@ const NetlifyTab: React.FC = () => {
     setMessageType('info');
 
     try {
-      // Get current user from localStorage (custom auth system)
-      const savedUser = localStorage.getItem('user');
-      let currentUser = null;
-      if (savedUser) {
-        try {
-          currentUser = JSON.parse(savedUser);
-        } catch (e) {
-          console.error('Error parsing user from localStorage:', e);
-        }
-      }
-
-      if (!currentUser || currentUser.accountNumber !== '999') {
+      // Use secure admin session manager
+      if (!adminSessionManager.validateAdminAction('super')) {
         setMessage('Access denied. Must be logged in as admin account 999.');
         setMessageType('error');
         return;

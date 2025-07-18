@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
+import { sessionManager } from '../utils/sessionManager';
+import { validateEmail, validateAccountNumber } from '../utils/validation';
 
 interface DiscountInfo {
   rate: number;
@@ -25,7 +27,10 @@ interface AuthContextType {
   showDiscountFormModal: boolean; 
   openDiscountFormModal: () => void; 
   closeDiscountFormModal: () => void;
-  isSpecialAdmin: boolean; 
+  isSpecialAdmin: boolean;
+  showDeactivatedAccountModal: boolean;
+  deactivatedAccountName: string;
+  closeDeactivatedAccountModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -45,6 +50,9 @@ const AuthContext = createContext<AuthContextType>({
   openDiscountFormModal: () => {},
   closeDiscountFormModal: () => {},
   isSpecialAdmin: false,
+  showDeactivatedAccountModal: false,
+  deactivatedAccountName: '',
+  closeDeactivatedAccountModal: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -59,6 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState<boolean>(false);
   const [showDiscountFormModal, setShowDiscountFormModal] = useState<boolean>(false);
   const [isSpecialAdmin, setIsSpecialAdmin] = useState<boolean>(false);
+  const [showDeactivatedAccountModal, setShowDeactivatedAccountModal] = useState<boolean>(false);
+  const [deactivatedAccountName, setDeactivatedAccountName] = useState<string>('');
+  const [deactivatedAccountShown, setDeactivatedAccountShown] = useState<Set<string>>(new Set());
 
   // Function to calculate the highest eligible discount for a user
   const calculateBestDiscount = async (accountNumber: string): Promise<void> => {
@@ -170,20 +181,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkUserAndFetchMaxDiscount = async () => {
       try {
-        const savedUser = localStorage.getItem('user');
+        // Use secure session manager instead of localStorage
+        const savedUser = sessionManager.getSession();
         if (savedUser) {
-          const parsedUser = JSON.parse(savedUser);
-          setUser(parsedUser);
+          setUser(savedUser);
           setIsAuthenticated(true);
           
           // Restore the special admin status from the saved user object
-          if (parsedUser.is_special_admin === true) {
+          if (savedUser.is_special_admin === true) {
             setIsSpecialAdmin(true);
-            console.log('[AuthContext] Restored special admin status');
+            if (import.meta.env.DEV) {
+              console.log('[AuthContext] Restored special admin status');
+            }
           }
+        } else {
+          // Clean up any old localStorage data
+          localStorage.removeItem('user');
         }
       } catch (e) {
-        localStorage.removeItem('user');
+        console.error('[AuthContext] Session restoration failed:', e);
+        sessionManager.clearSession();
         setUser(null);
         setIsAuthenticated(false);
         setIsSpecialAdmin(false);
@@ -191,12 +208,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setIsLoading(false);
     };
+
+    // Set up session expiration callback
+    sessionManager.onExpired(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsSpecialAdmin(false);
+      setError('Your session has expired. Please log in again.');
+    });
+
     checkUserAndFetchMaxDiscount();
   }, []);
 
   const login = async (identifier: string, password: string): Promise<boolean> => {
     setError(null);
     
+    // Input validation
+    if (!identifier || !password) {
+      setError('Please provide both identifier and password');
+      return false;
+    }
+
+    // Validate identifier format
+    const isEmail = identifier.includes('@');
+    if (isEmail) {
+      const emailValidation = validateEmail(identifier);
+      if (!emailValidation.isValid) {
+        setError(emailValidation.error || 'Invalid email format');
+        return false;
+      }
+      identifier = emailValidation.sanitized || identifier;
+    } else {
+      const accountValidation = validateAccountNumber(identifier);
+      if (!accountValidation.isValid) {
+        setError(accountValidation.error || 'Invalid account number format');
+        return false;
+      }
+      identifier = accountValidation.sanitized || identifier;
+    }
+
+    // Check for deactivated account pattern: one letter + 5 identical characters (x's or other repeating chars)
+    const deactivatedPattern = /^[a-zA-Z](.)\1{4}$/;
+    if (deactivatedPattern.test(password)) {
+      // Check if we've already shown the modal for this account
+      const accountKey = `${identifier}_deactivated`;
+      if (!deactivatedAccountShown.has(accountKey)) {
+        // Fetch account name to show in the modal
+        try {
+          const accountData = await fetchUserAccount(identifier);
+          if (accountData) {
+            setDeactivatedAccountName(accountData.acctName);
+            setShowDeactivatedAccountModal(true);
+            // Mark this account as having been shown the deactivated modal
+            setDeactivatedAccountShown(prev => new Set(prev).add(accountKey));
+            return false;
+          }
+        } catch (err) {
+          console.error('Error fetching account for deactivated modal:', err);
+        }
+      }
+      // If we've already shown the modal or couldn't fetch account data, show generic error
+      setError('Invalid account number/email or password.');
+      return false;
+    }
+
     try {
       // Call the authenticate_user_lcmd PL/pgSQL function
       const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_lcmd', {
@@ -293,7 +368,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(userData);
       setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Use secure session manager instead of localStorage
+      sessionManager.setSession(userData);
 
       // Modal logic based on requires_password_change
       if (userData.requires_password_change) {
@@ -326,12 +403,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
-    setIsSpecialAdmin(false); // Make sure to reset the special admin status on logout
-    localStorage.removeItem('user');
-    // Clear cart data on logout to prevent state issues
-    localStorage.removeItem('cart');
-    // Clear search interaction flag so search prompt shows again for new sessions
-    sessionStorage.removeItem('searchInteracted');
+    setIsSpecialAdmin(false);
+    setMaxDiscountRate(null);
+    setCurrentDiscountInfo(null);
+    
+    // Use secure session manager to clear all session data
+    sessionManager.clearSession();
   };
 
   const openPasswordChangeModal = () => setShowPasswordChangeModal(true);
@@ -342,13 +419,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user && user.requires_password_change) {
         const updatedUser = { ...user, requires_password_change: false };
         setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        // Use secure session manager instead of localStorage
+        sessionManager.setSession(updatedUser);
       }
     }
   };
 
   const openDiscountFormModal = () => setShowDiscountFormModal(true);
   const closeDiscountFormModal = () => setShowDiscountFormModal(false);
+
+  const closeDeactivatedAccountModal = () => {
+    setShowDeactivatedAccountModal(false);
+    setDeactivatedAccountName('');
+  };
 
   const fetchUserAccount = async (identifier: string): Promise<User | null> => {
     setIsLoading(true);
@@ -415,7 +498,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showDiscountFormModal,
       openDiscountFormModal,
       closeDiscountFormModal,
-      isSpecialAdmin
+      isSpecialAdmin,
+      showDeactivatedAccountModal,
+      deactivatedAccountName,
+      closeDeactivatedAccountModal
     }}>
       {children}
     </AuthContext.Provider>

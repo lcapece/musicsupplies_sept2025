@@ -246,6 +246,78 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setCurrentPage(prev => Math.min(totalPages, prev + 1));
   };
 
+  // Reusable pagination component
+  const PaginationControls = ({ position }: { position: 'top' | 'bottom' }) => (
+    <div className={`px-6 py-3 border-gray-200 flex items-center justify-between bg-gray-50 flex-shrink-0 ${
+      position === 'top' ? 'border-b' : 'border-t'
+    }`}>
+      <div className="flex items-center gap-4">
+        <div className="text-sm text-gray-700">
+          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, products.length)} of {products.length} products
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor={`itemsPerPage-${position}`} className="text-sm text-gray-700">Show:</label>
+          <select
+            id={`itemsPerPage-${position}`}
+            value={itemsPerPage}
+            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handlePreviousPage}
+          disabled={currentPage === 1}
+          className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
+            currentPage === 1
+              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+              : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+          }`}
+        >
+          <ChevronLeft size={16} className="mr-1" />
+          Previous
+        </button>
+        
+        <div className="flex items-center gap-1">
+          <span className="text-sm text-gray-700">Page</span>
+          <input
+            type="number"
+            min="1"
+            max={totalPages}
+            value={currentPage}
+            onChange={(e) => {
+              const page = parseInt(e.target.value);
+              if (page >= 1 && page <= totalPages) {
+                setCurrentPage(page);
+              }
+            }}
+            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <span className="text-sm text-gray-700">of {totalPages}</span>
+        </div>
+
+        <button
+          onClick={handleNextPage}
+          disabled={currentPage === totalPages}
+          className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
+            currentPage === totalPages
+              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+              : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+          }`}
+        >
+          Next
+          <ChevronRight size={16} className="ml-1" />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div 
       ref={setTableContainerRef}
@@ -257,7 +329,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
       
       {products && products.length > 0 ? (
         <>
-          <div className="flex-1 overflow-auto">
+          {/* Top Pagination */}
+          <PaginationControls position="top" />
+          
+          <div className="flex-1 overflow-auto" style={{ paddingBottom: '80px' }}>
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
@@ -410,74 +485,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
             </table>
           </div>
 
-          {products.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50 flex-shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-700">
-                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, products.length)} of {products.length} products
-                </div>
-                <div className="flex items-center gap-2">
-                  <label htmlFor="itemsPerPage" className="text-sm text-gray-700">Show:</label>
-                  <select
-                    id="itemsPerPage"
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1}
-                  className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
-                    currentPage === 1
-                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                      : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                  }`}
-                >
-                  <ChevronLeft size={16} className="mr-1" />
-                  Previous
-                </button>
-                
-                <div className="flex items-center gap-1">
-                  <span className="text-sm text-gray-700">Page</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={totalPages}
-                    value={currentPage}
-                    onChange={(e) => {
-                      const page = parseInt(e.target.value);
-                      if (page >= 1 && page <= totalPages) {
-                        setCurrentPage(page);
-                      }
-                    }}
-                    className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">of {totalPages}</span>
-                </div>
-
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage === totalPages}
-                  className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
-                    currentPage === totalPages
-                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                      : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                  }`}
-                >
-                  Next
-                  <ChevronRight size={16} className="ml-1" />
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Bottom Pagination */}
+          <PaginationControls position="bottom" />
         </>
       ) : (
         <div className="text-center py-8">
