@@ -132,4 +132,5 @@ export interface AvailablePromoCode {
   discount_amount: number;
   is_best: boolean;
   uses_remaining_for_account?: number | null;
+  status?: 'available' | 'expired' | 'expired_global' | 'expired_date' | 'not_active' | 'disabled' | 'min_not_met';
 }

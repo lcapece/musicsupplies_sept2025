@@ -108,3 +108,29 @@ img[alt*="logo"]::after {
   display: none !important;
   content: none !important;
 }
+
+/* Custom search prompt pulse animation */
+@keyframes searchPromptPulse {
+  0% {
+    color: #dc2626;
+    opacity: 1;
+    transform: scale(1);
+    text-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+  }
+  50% {
+    color: #fca5a5;
+    opacity: 0.4;
+    transform: scale(1.05);
+    text-shadow: 0 0 12px rgba(220, 38, 38, 0.6);
+  }
+  100% {
+    color: #dc2626;
+    opacity: 1;
+    transform: scale(1);
+    text-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+  }
+}
+
+.search-prompt-pulse {
+  animation: searchPromptPulse 2s ease-in-out infinite;
+}

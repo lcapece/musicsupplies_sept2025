@@ -10,73 +10,67 @@ interface PromoCodePopupProps {
   onClose: () => void;
 }
 
-// Extended PromoCodeSummary with account usage information
+// Extended PromoCodeSummary with account usage information and status
 type ExtendedPromoCodeSummary = PromoCodeSummary & {
   uses_remaining_for_account?: number | null;
+  status?: 'available' | 'expired' | 'expired_global' | 'expired_date' | 'not_active' | 'disabled' | 'min_not_met';
 };
 
 const PromoCodePopup: React.FC<PromoCodePopupProps> = ({ isOpen, onClose }) => {
-  const [bestPromoCode, setBestPromoCode] = useState<ExtendedPromoCodeSummary | null>(null);
+  const [allPromoCodes, setAllPromoCodes] = useState<ExtendedPromoCodeSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { totalPrice } = useCart();
 
   useEffect(() => {
-    const fetchBestPromoCode = async () => {
+    const fetchPromoCodes = async () => {
       if (!isOpen || !user) return;
       
       setLoading(true);
       try {
-        // Try to get the best promo code using the primary function
-        const { data, error } = await supabase.rpc('get_best_promo_code', {
-          p_account_number: user.accountNumber
+        // Use the new function with status information
+        const { data: allCodesData, error: queryError } = await supabase.rpc('get_all_promo_codes_with_status', {
+          p_account_number: user.accountNumber,
+          p_order_value: totalPrice || 0
         });
         
-        if (error) {
-          console.error('Error fetching best promo code:', error);
+        if (!queryError && allCodesData && allCodesData.length > 0) {
+          // Transform to expected format with status information
+          const promoCodes: ExtendedPromoCodeSummary[] = allCodesData.map((promo: any) => ({
+            code: promo.code,
+            name: promo.name,
+            description: promo.description,
+            type: promo.type,
+            value: promo.value,
+            min_order_value: promo.min_order_value || 0,
+            uses_remaining_for_account: promo.uses_remaining_for_account,
+            status: promo.status
+          }));
           
-          // Fallback to getting all promo codes and taking the best one
-          console.log('Attempting fallback to get_available_promo_codes...');
-          
-          const { data: allCodesData, error: fallbackError } = await supabase.rpc('get_available_promo_codes', {
-            p_account_number: user.accountNumber,
-            p_order_value: totalPrice || 100 // Use cart total or a reasonable default
-          });
-          
-          if (fallbackError) {
-            console.error('Error with fallback method:', fallbackError);
-            setError('Unable to retrieve promo codes at this time. Please try again later.');
-            return;
-          }
-          
-          if (allCodesData && allCodesData.length > 0) {
-            // Find the best promo code (should be marked with is_best)
-            const bestCode = allCodesData.find((code: { is_best: boolean }) => code.is_best) || allCodesData[0];
-            
-            // Transform to expected format, including uses_remaining_for_account if available
-            setBestPromoCode({
-              code: bestCode.code,
-              name: bestCode.name,
-              description: bestCode.description,
-              type: bestCode.type,
-              value: bestCode.value,
-              min_order_value: bestCode.min_order_value,
-              uses_remaining_for_account: bestCode.uses_remaining_for_account
-            });
-          } else {
-            // No promo codes available
-            setError('No promotional codes are available for your account at this time.');
-          }
+          setAllPromoCodes(promoCodes);
           return;
         }
         
-        if (data) {
-          // If we're using the primary function, we might not have uses_remaining_for_account
-          // In that case, we'll just use the data as is
-          setBestPromoCode(data);
+        // Fallback to get_best_promo_code function
+        const { data: bestPromo, error: bestError } = await supabase.rpc('get_best_promo_code', {
+          p_account_number: user.accountNumber
+        });
+        
+        if (!bestError && bestPromo) {
+          const promoCode: ExtendedPromoCodeSummary = {
+            code: bestPromo.code,
+            name: bestPromo.name,
+            description: bestPromo.description,
+            type: bestPromo.type || 'percent_off',
+            value: bestPromo.value || 0,
+            min_order_value: bestPromo.min_order_value || 0,
+            uses_remaining_for_account: null,
+            status: 'available'
+          };
+          setAllPromoCodes([promoCode]);
         } else {
-          // No promo code available
+          // No promo codes available
           setError('No promotional codes are available for your account at this time.');
         }
       } catch (err) {
@@ -87,8 +81,41 @@ const PromoCodePopup: React.FC<PromoCodePopupProps> = ({ isOpen, onClose }) => {
       }
     };
     
-    fetchBestPromoCode();
-  }, [isOpen, user, onClose]);
+    fetchPromoCodes();
+  }, [isOpen, user, totalPrice]);
+
+  // Helper function to get status display information
+  const getStatusInfo = (status?: string) => {
+    switch (status) {
+      case 'expired':
+        return { text: 'EXPIRED', color: 'text-red-600', bgColor: 'bg-red-100', badge: true };
+      case 'expired_global':
+        return { text: 'EXPIRED', color: 'text-red-600', bgColor: 'bg-red-100', badge: true };
+      case 'expired_date':
+        return { text: 'EXPIRED', color: 'text-red-600', bgColor: 'bg-red-100', badge: true };
+      case 'not_active':
+        return { text: 'NOT ACTIVE', color: 'text-gray-500', bgColor: 'bg-gray-100', badge: true };
+      case 'disabled':
+        return { text: 'DISABLED', color: 'text-gray-500', bgColor: 'bg-gray-100', badge: true };
+      case 'min_not_met':
+        return { text: 'MIN ORDER NOT MET', color: 'text-yellow-600', bgColor: 'bg-yellow-100', badge: true };
+      case 'available':
+      default:
+        return { text: 'AVAILABLE', color: 'text-green-600', bgColor: 'bg-green-100', badge: false };
+    }
+  };
+
+  // Separate available and expired codes
+  const availableCodes = allPromoCodes.filter(code => code.status === 'available' || code.status === 'min_not_met');
+  const expiredCodes = allPromoCodes.filter(code => 
+    code.status === 'expired' || 
+    code.status === 'expired_global' || 
+    code.status === 'expired_date' ||
+    code.status === 'not_active' ||
+    code.status === 'disabled'
+  );
+
+  const bestAvailableCode = availableCodes.find(code => code.status === 'available') || availableCodes[0];
 
   // Don't render anything if the modal isn't open
   if (!isOpen) return null;
@@ -127,41 +154,96 @@ const PromoCodePopup: React.FC<PromoCodePopupProps> = ({ isOpen, onClose }) => {
               Close
             </button>
           </div>
-        ) : bestPromoCode && (
-          <div className="text-center py-4">
-            <div className="bg-blue-50 p-6 rounded-lg mb-4">
-              <div className="text-2xl font-bold text-blue-800 mb-2">
-                {bestPromoCode.code}
-              </div>
-              <div className="text-lg text-blue-700 mb-4">
-                {bestPromoCode.name}
-              </div>
-              <div className="text-gray-700">
-                {bestPromoCode.description}
-              </div>
-              <div className="mt-3 space-y-1">
-                {bestPromoCode.min_order_value > 0 && (
-                  <div className="text-sm text-gray-500">
-                    *Minimum order value: ${bestPromoCode.min_order_value.toFixed(2)}
+        ) : allPromoCodes.length > 0 ? (
+          <div className="text-center py-4 max-h-96 overflow-y-auto">
+            {/* Show available codes first */}
+            {bestAvailableCode && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">Available Offer</h4>
+                <div className="bg-blue-50 p-6 rounded-lg mb-4">
+                  <div className="text-2xl font-bold text-blue-800 mb-2">
+                    {bestAvailableCode.code}
                   </div>
-                )}
-                {/* Show usage limits if it exists in the data */}
-                {bestPromoCode.uses_remaining_for_account !== undefined && 
-                 bestPromoCode.uses_remaining_for_account !== null && (
-                  <div className="text-sm font-medium text-blue-600">
-                    You can use this code {bestPromoCode.uses_remaining_for_account} more time{bestPromoCode.uses_remaining_for_account !== 1 ? 's' : ''}
+                  <div className="text-lg text-blue-700 mb-4">
+                    {bestAvailableCode.name}
                   </div>
-                )}
+                  <div className="text-gray-700">
+                    {bestAvailableCode.description}
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    {bestAvailableCode.min_order_value > 0 && (
+                      <div className="text-sm text-gray-500">
+                        *Minimum order value: ${bestAvailableCode.min_order_value.toFixed(2)}
+                      </div>
+                    )}
+                    {bestAvailableCode.uses_remaining_for_account !== undefined && 
+                     bestAvailableCode.uses_remaining_for_account !== null && (
+                      <div className="text-sm font-medium text-blue-600">
+                        You can use this code {bestAvailableCode.uses_remaining_for_account} more time{bestAvailableCode.uses_remaining_for_account !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">
+                  Use this code at checkout to receive your discount.
+                </p>
               </div>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">
-              Use this code at checkout to receive your discount.
-            </p>
+            )}
+
+            {/* Show expired codes if any */}
+            {expiredCodes.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-lg font-semibold text-gray-600 mb-3">Previously Used Codes</h4>
+                <div className="space-y-3">
+                  {expiredCodes.map((code, index) => {
+                    const statusInfo = getStatusInfo(code.status);
+                    return (
+                      <div key={index} className={`p-4 rounded-lg border ${statusInfo.bgColor} opacity-75`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className={`text-lg font-bold ${statusInfo.color} line-through`}>
+                            {code.code}
+                          </div>
+                          {statusInfo.badge && (
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${statusInfo.color} ${statusInfo.bgColor} border`}>
+                              {statusInfo.text}
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-sm ${statusInfo.color} line-through`}>
+                          {code.name}
+                        </div>
+                        <div className={`text-xs ${statusInfo.color} mt-1`}>
+                          {code.status === 'expired' && code.uses_remaining_for_account === 0 && 
+                            'You have already used this one-time code'}
+                          {code.status === 'expired_date' && 'This code has expired'}
+                          {code.status === 'expired_global' && 'This code has reached its usage limit'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={onClose}
               className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Got it!
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <div className="bg-gray-50 p-6 rounded-lg mb-4">
+              <div className="text-lg text-gray-700 mb-2">
+                No promotional codes are available for your account at this time.
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Close
             </button>
           </div>
         )}

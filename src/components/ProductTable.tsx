@@ -31,42 +31,27 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const itemsPerPage = 20;
 
-  const handleAddToCart = (product: Product, event?: React.MouseEvent) => {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
+  const handleAddToCart = (product: Product) => {
     if (product.inventory && product.inventory > 0) {
       console.log('ProductTable: Adding to cart:', product.partnumber);
       
-      // Pass the necessary fields to satisfy the Product type for CartItem
-      // CartContext's addToCart will handle quantity
+      // Set loading state for this specific product
+      setAddingToCart(product.partnumber);
+      
+      // Call addToCart immediately without any delays or complex logic
       addToCart({
         partnumber: product.partnumber,
         description: product.description,
-        price: product.price, // Pass null if it's null, context can handle default
-        inventory: product.inventory // Ensure inventory is passed
+        price: product.price,
+        inventory: product.inventory
       });
       
-      // Additional failsafe: Check if item was added after a short delay
+      // Clear loading state after a brief moment to provide user feedback
       setTimeout(() => {
-        const cartItems = JSON.parse(localStorage.getItem('cart') || '[]');
-        const itemExists = cartItems.some((item: any) => item.partnumber === product.partnumber);
-        
-        if (!itemExists) {
-          console.warn('ProductTable: Item not found in cart after add, retrying:', product.partnumber);
-          // Retry the add operation
-          addToCart({
-            partnumber: product.partnumber,
-            description: product.description,
-            price: product.price,
-            inventory: product.inventory
-          });
-        } else {
-          console.log('ProductTable: Item successfully added to cart:', product.partnumber);
-        }
-      }, 300);
+        setAddingToCart(null);
+      }, 500);
     }
   };
 
@@ -258,15 +243,20 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center">
                       <button
-                        onClick={(e) => handleAddToCart(product, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(product);
+                        }}
                         className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md ${
                           product.inventory && product.inventory > 0
-                            ? 'text-white bg-blue-600 hover:bg-blue-700'
+                            ? addingToCart === product.partnumber
+                              ? 'text-white bg-green-600'
+                              : 'text-white bg-blue-600 hover:bg-blue-700'
                             : 'text-gray-400 bg-gray-100 cursor-not-allowed'
                         }`}
-                        disabled={!product.inventory || product.inventory <= 0}
+                        disabled={!product.inventory || product.inventory <= 0 || addingToCart === product.partnumber}
                       >
-                        Add to Cart
+                        {addingToCart === product.partnumber ? 'Added!' : 'Add to Cart'}
                       </button>
                     </td>
                   </tr>

@@ -103,6 +103,9 @@ const Dashboard: React.FC = () => {
         return;
       }
 
+      // IMMEDIATELY clear the current image to prevent showing previous product's image
+      setCurrentImageUrl('');
+
       // First fetch rt_extended data
       let rtData: RtExtended | null = null;
       try {

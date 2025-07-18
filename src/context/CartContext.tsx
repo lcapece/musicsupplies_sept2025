@@ -86,6 +86,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(items));
+    console.log('Cart state updated:', items);
   }, [items]);
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
@@ -100,13 +101,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setIsLoadingPromoCodes(true);
     try {
-      // Use the new get_all_promo_codes function which handles everything correctly
-      const { data: allPromos, error: queryError } = await supabase.rpc('get_all_promo_codes', {
-        p_account_number: user.accountNumber
+      // Use the new function with status information
+      const { data: allPromos, error: queryError } = await supabase.rpc('get_all_promo_codes_with_status', {
+        p_account_number: user.accountNumber,
+        p_order_value: totalPrice
       });
       
       if (!queryError && allPromos && allPromos.length > 0) {
-        // Convert to expected format with calculated discount amounts based on current cart total
+        // Convert to expected format with calculated discount amounts and status
         const promoCodes: AvailablePromoCode[] = allPromos.map((promo: any) => ({
           code: promo.code,
           name: promo.name,
@@ -116,7 +118,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           min_order_value: promo.min_order_value || 0,
           discount_amount: calculateDiscountAmount(promo.type, promo.value, totalPrice),
           is_best: promo.is_best,
-          uses_remaining_for_account: null
+          uses_remaining_for_account: promo.uses_remaining_for_account,
+          status: promo.status
         }));
         
         setAvailablePromoCodes(promoCodes);
@@ -138,7 +141,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           min_order_value: bestPromo.min_order_value || 0,
           discount_amount: calculateDiscountAmount(bestPromo.type, bestPromo.value, totalPrice),
           is_best: true,
-          uses_remaining_for_account: null
+          uses_remaining_for_account: null,
+          status: 'available'
         };
         setAvailablePromoCodes([promoCode]);
       } else {
@@ -156,7 +160,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper function to calculate discount amount
   const calculateDiscountAmount = (type: string, value: number, orderValue: number): number => {
     if (type === 'percent_off') {
-      return orderValue * (value / 100);
+      // Ensure proper decimal calculation and round to 2 decimal places
+      const discount = Math.round((orderValue * value / 100) * 100) / 100;
+      console.log(`Calculating ${value}% of $${orderValue} = $${discount}`);
+      return discount;
     } else { // dollars_off
       return Math.min(value, orderValue);
     }
@@ -208,58 +215,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
-      let newItems;
       
       if (existingItem) {
-        newItems = prevItems.map(item => 
+        return prevItems.map(item => 
           item.partnumber === product.partnumber 
             ? { ...item, quantity: item.quantity + quantity } 
             : item
         );
       } else {
-        newItems = [...prevItems, { 
+        return [...prevItems, { 
           ...product, 
           inventory: product.inventory ?? null, 
           price: product.price ?? 0, 
           quantity 
         }];
       }
-      
-      console.log('Cart updated, new items:', newItems);
-      
-      // Immediate localStorage update as failsafe
-      try {
-        localStorage.setItem('cart', JSON.stringify(newItems));
-      } catch (e) {
-        console.error('Failed to save cart to localStorage:', e);
-      }
-      
-      // Verify cart was updated after a short delay
-      setTimeout(() => {
-        const currentItems = JSON.parse(localStorage.getItem('cart') || '[]');
-        const itemExists = currentItems.some((item: any) => item.partnumber === product.partnumber);
-        
-        if (!itemExists && newItems.some(item => item.partnumber === product.partnumber)) {
-          console.warn('Cart verification failed, forcing re-add for:', product.partnumber);
-          // Force another update if the item wasn't properly added
-          setItems(currentNewItems => {
-            const stillMissing = !currentNewItems.some(item => item.partnumber === product.partnumber);
-            if (stillMissing) {
-              const forceAddItems = [...currentNewItems, { 
-                ...product, 
-                inventory: product.inventory ?? null, 
-                price: product.price ?? 0, 
-                quantity 
-              }];
-              localStorage.setItem('cart', JSON.stringify(forceAddItems));
-              return forceAddItems;
-            }
-            return currentNewItems;
-          });
-        }
-      }, 500);
-      
-      return newItems;
     });
   };
 

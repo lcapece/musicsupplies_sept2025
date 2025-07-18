@@ -56,19 +56,28 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen, user]);
 
-  // When available promo codes change, pre-select the best one
+  // When available promo codes change, pre-select the best available one
   useEffect(() => {
     if (availablePromoCodes.length > 0) {
-      // Find the best promo code (the one marked as is_best)
-      const bestPromo = availablePromoCodes.find(promo => promo.is_best);
-      if (bestPromo) {
-        setSelectedPromoCode(bestPromo.code);
-      } else {
-        // If no best code is marked, select the one with the highest discount
-        const sortedPromos = [...availablePromoCodes].sort((a, b) => b.discount_amount - a.discount_amount);
-        if (sortedPromos.length > 0) {
-          setSelectedPromoCode(sortedPromos[0].code);
+      // Filter to only available codes (not expired or unusable)
+      const availableCodes = availablePromoCodes.filter(promo => 
+        !promo.status || promo.status === 'available' || promo.status === 'min_not_met'
+      );
+      
+      if (availableCodes.length > 0) {
+        // Find the best available promo code (the one marked as is_best)
+        const bestPromo = availableCodes.find(promo => promo.is_best);
+        if (bestPromo) {
+          setSelectedPromoCode(bestPromo.code);
+        } else {
+          // If no best code is marked, select the one with the highest discount
+          const sortedPromos = [...availableCodes].sort((a, b) => b.discount_amount - a.discount_amount);
+          if (sortedPromos.length > 0) {
+            setSelectedPromoCode(sortedPromos[0].code);
+          }
         }
+      } else {
+        setSelectedPromoCode('');
       }
     } else {
       setSelectedPromoCode('');
@@ -475,7 +484,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                               <option value="">
                                 {appliedPromoCode ? 'Switch to a different promo code' : 'Select a promo code'}
                               </option>
-                              {availablePromoCodes.map((promo) => (
+                              {availablePromoCodes
+                                .filter(promo => !promo.status || promo.status === 'available' || promo.status === 'min_not_met')
+                                .map((promo) => (
                                 <option key={promo.code} value={promo.code}>
                                   {promo.code} - {promo.description} (Save ${promo.discount_amount.toFixed(2)})
                                   {promo.is_best ? ' - Best Value!' : ''}
@@ -535,7 +546,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     <p>Sub Total</p>
                     <p>${displayGrandTotal.toFixed(2)}</p>
                   </div>
-                  <p className="mt-0.5 text-sm text-gray-500">Shipping and taxes calculated at checkout (if applicable).</p>
+                  <p className="mt-0.5 text-sm text-gray-500">Does not inclued shipping charge. You will be emailed the Grand Total when shipped</p>
                   <div className="mt-6">
                     {isCheckingOut && (
                       <p className="text-red-600 text-sm font-medium text-center mb-4">

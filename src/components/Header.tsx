@@ -144,7 +144,7 @@ interface SupabaseFunctionError {
     <header className="bg-white shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-3 items-center h-16 w-full">
-          {/* Left Section - Logo (Far Left) */}
+          {/* Left Section - Logo and Phone (Far Left) */}
           <div className="flex items-center justify-start h-full">
             <Link to="/" className="flex items-center">
               <div className="text-5xl font-bold leading-none">
@@ -153,6 +153,9 @@ interface SupabaseFunctionError {
                 <span className="text-black">.com</span>
               </div>
             </Link>
+            <div className="ml-12 text-5xl font-bold leading-none text-gray-700">
+              (800) 321-5584
+            </div>
           </div>
           
           {/* Center Section - Navigation (True Center) */}
