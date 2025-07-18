@@ -70,39 +70,43 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex justify-center relative">
-      <div ref={contentRef} className="bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+      <div ref={contentRef} className="bg-white w-full">
+        <div className="w-[95vw] max-w-[1400px] mx-auto px-[2vw] sm:px-[3vw] lg:px-[4vw] pt-[2vh]">
           {/* Main Content */}
           <div className="flex flex-col md:flex-row items-center md:items-start mb-4">
             {/* Left Column */}
-            <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left mb-4 md:mb-0">
-              <img src={logo} alt="Music Supplies Logo" className="h-32 w-auto mb-4" />
+            <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left mb-[4vh] md:mb-0">
+              <img 
+                src={logo} 
+                alt="Music Supplies Logo" 
+                className="h-[clamp(8rem,12vw,16rem)] w-auto mb-[2vh]" 
+              />
               <div className="text-left w-full">
-                <p className="text-red-600 text-xl font-semibold">FOR WHOLESALE ACCOUNTS ONLY</p>
+                <p className="text-red-600 text-[clamp(1.25rem,2.5vw,2rem)] font-semibold">FOR WHOLESALE ACCOUNTS ONLY</p>
               </div>
-              <p className="text-gray-600 text-base mt-2">Please call 1(800)321-5584 for help or any questions.</p>
+              <p className="text-gray-600 text-[clamp(1rem,1.8vw,1.5rem)] mt-[1vh]">Please call 1(800)321-5584 for help or any questions.</p>
             </div>
 
             {/* Right Column */}
             <div className="w-full md:w-1/2 flex flex-col items-end">
-              <form onSubmit={handleSubmit} className="w-full max-w-sm">
+              <form onSubmit={handleSubmit} className="w-full max-w-[clamp(20rem,35vw,28rem)]">
                 {error && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-[1.5vw] py-[1vh] rounded mb-[2vh] text-[clamp(0.875rem,1.2vw,1rem)]">
                     {error}
                   </div>
                 )}
-                <div className="mb-4">
-                  <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="mb-[2vh]">
+                  <label htmlFor="identifier" className="block text-[clamp(0.875rem,1.2vw,1rem)] font-medium text-gray-700 mb-[0.5vh]">
                     Account Number or Email
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <UserIcon size={16} className="text-gray-400" />
+                    <div className="absolute inset-y-0 left-0 pl-[1vw] flex items-center pointer-events-none">
+                      <UserIcon size={Math.max(16, Math.min(24, window.innerWidth * 0.015))} className="text-gray-400" />
                     </div>
                     <input
                       type="text"
                       id="identifier"
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-[3vw] pr-[1vw] py-[1.2vh] text-[clamp(1rem,1.4vw,1.125rem)] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Account Number or Email"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
@@ -110,18 +114,18 @@ const Login: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div className="mb-6">
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="mb-[3vh]">
+                  <label htmlFor="password" className="block text-[clamp(0.875rem,1.2vw,1rem)] font-medium text-gray-700 mb-[0.5vh]">
                     Password
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <KeyRound size={16} className="text-gray-400" />
+                    <div className="absolute inset-y-0 left-0 pl-[1vw] flex items-center pointer-events-none">
+                      <KeyRound size={Math.max(16, Math.min(24, window.innerWidth * 0.015))} className="text-gray-400" />
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
                       id="password"
-                      className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-[3vw] pr-[3vw] py-[1.2vh] text-[clamp(1rem,1.4vw,1.125rem)] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -129,22 +133,22 @@ const Login: React.FC = () => {
                     />
                     <button
                       type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      className="absolute inset-y-0 right-0 pr-[1vw] flex items-center"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeOff size={18} className="text-gray-500" /> : <Eye size={18} className="text-gray-500" />}
+                      {showPassword ? <EyeOff size={Math.max(18, Math.min(24, window.innerWidth * 0.018))} className="text-gray-500" /> : <Eye size={Math.max(18, Math.min(24, window.innerWidth * 0.018))} className="text-gray-500" />}
                     </button>
                   </div>
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                  className="w-full bg-blue-600 text-white py-[1.5vh] px-[2vw] text-[clamp(1rem,1.4vw,1.125rem)] font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {isLoading ? 'Signing In...' : 'Sign In'}
                 </button>
-                <div className="text-center mt-4">
-                  <Link to="/forgot-password" className="text-blue-600 hover:underline text-sm">
+                <div className="text-center mt-[2vh]">
+                  <Link to="/forgot-password" className="text-blue-600 hover:underline text-[clamp(0.875rem,1.2vw,1rem)]">
                     Forgot Password?
                   </Link>
                 </div>
@@ -153,23 +157,31 @@ const Login: React.FC = () => {
           </div>
 
           {/* Brands Bar */}
-          <div className="my-6 text-center">
-            <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+          <div className="my-[4vh] text-center">
+            <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 xl:grid-cols-16 gap-[2vw]">
               {brandLogos.map((brandLogo, index) => (
                 <div key={index} className="flex justify-center items-center">
-                  <img src={brandLogo} alt={`Brand ${index + 1}`} className="max-h-14" />
+                  <img 
+                    src={brandLogo} 
+                    alt={`Brand ${index + 1}`} 
+                    className="max-h-[clamp(3rem,8vw,5rem)] w-auto object-contain hover:scale-110 transition-transform duration-200" 
+                  />
                 </div>
               ))}
             </div>
           </div>
 
           {/* Bottom Section */}
-          <div className="flex flex-col md:flex-row items-center md:items-start">
-            <div className="w-full md:w-1/2 mb-8 md:mb-0">
-              <img src={building} alt="Lou Capece Music Building" className="max-w-full h-auto rounded-lg shadow-md" />
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-[4vw]">
+            <div className="w-full md:w-1/2 mb-[4vh] md:mb-0">
+              <img 
+                src={building} 
+                alt="Lou Capece Music Building" 
+                className="w-full h-auto rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300" 
+              />
             </div>
-            <div className="w-full md:w-1/2 md:pl-8">
-              <p className="text-gray-600">
+            <div className="w-full md:w-1/2">
+              <p className="text-gray-600 text-[clamp(1rem,1.4vw,1.125rem)] leading-relaxed">
                 Lou Capece Music Distributors, founded in 1987, has been proudly supporting independent music shops for nearly four decades. Despite the rise of Amazon, the national chains, and massive online retailers, you can still find a local music store in nearly every small city's downtown or Main Street—and we're part of the reason why. Trusted by over 2,000 independent brick-and-mortar and online musical instrument retailers in the USA.
                 <br /><br />
                 With over 10 exclusive brands, including Cordovox, New York Pro, and Stadium, we provide dependable, low cost wholesale distribution and 100% personalized service. Our dedicated sales team works hand-in-hand with shop owners to help them stay competitive, well-stocked, and thriving in a challenging retail landscape.
@@ -178,15 +190,18 @@ const Login: React.FC = () => {
           </div>
 
           {/* Footer Links */}
-          <div className="text-center mt-12 border-t pt-6">
-            <Link to="/new-account-application" className="text-blue-600 hover:underline font-medium">
+          <div className="text-center mt-[6vh] border-t pt-[3vh]">
+            <Link 
+              to="/new-account-application" 
+              className="text-blue-600 hover:underline font-medium text-[clamp(1rem,1.4vw,1.25rem)] hover:text-blue-800 transition-colors duration-200"
+            >
               Click here to apply for a new account
             </Link>
-            <div className="mt-4 text-sm text-gray-500">
-              <Link to="/terms-and-conditions" className="hover:underline mx-2">Terms & Conditions</Link> |
-              <Link to="/privacy-policy" className="hover:underline mx-2">Privacy Policy</Link> |
-              <Link to="/sms-communications" className="hover:underline mx-2">SMS Policy</Link> |
-              <Link to="/email-communications" className="hover:underline mx-2">Email Policy</Link>
+            <div className="mt-[2vh] text-[clamp(0.875rem,1.2vw,1rem)] text-gray-500">
+              <Link to="/terms-and-conditions" className="hover:underline mx-[1vw] hover:text-gray-700 transition-colors duration-200">Terms & Conditions</Link> |
+              <Link to="/privacy-policy" className="hover:underline mx-[1vw] hover:text-gray-700 transition-colors duration-200">Privacy Policy</Link> |
+              <Link to="/sms-communications" className="hover:underline mx-[1vw] hover:text-gray-700 transition-colors duration-200">SMS Policy</Link> |
+              <Link to="/email-communications" className="hover:underline mx-[1vw] hover:text-gray-700 transition-colors duration-200">Email Policy</Link>
             </div>
           </div>
         </div>
