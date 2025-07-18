@@ -101,6 +101,51 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setCurrentPage(1);
   }, [itemsPerPage]);
 
+  // Calculate pagination
+  const totalPages = Math.ceil(products.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedProducts = products.slice(startIndex, startIndex + itemsPerPage);
+
+  // Add keyboard navigation for pagination
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle keyboard events when not typing in an input field
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {
+        return;
+      }
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          if (currentPage > 1) {
+            event.preventDefault();
+            setCurrentPage(prev => prev - 1);
+          }
+          break;
+        case 'ArrowRight':
+          if (currentPage < totalPages) {
+            event.preventDefault();
+            setCurrentPage(prev => prev + 1);
+          }
+          break;
+        case 'Home':
+          if (totalPages > 1) {
+            event.preventDefault();
+            setCurrentPage(1);
+          }
+          break;
+        case 'End':
+          if (totalPages > 1) {
+            event.preventDefault();
+            setCurrentPage(totalPages);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage, totalPages]);
+
   const handleAddToCart = async (product: Product) => {
     console.log('ProductTable: handleAddToCart called for:', product.partnumber);
     
@@ -182,11 +227,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
       return <span className="text-gray-500">Error</span>;
     }
   };
-
-  // Calculate pagination
-  const totalPages = Math.ceil(products.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedProducts = products.slice(startIndex, startIndex + itemsPerPage);
 
   // Debug pagination
   console.log('ProductTable Pagination Debug:', {
@@ -371,37 +411,71 @@ const ProductTable: React.FC<ProductTableProps> = ({
           </div>
 
           {products.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-red-100 flex-shrink-0">
-              <div className="text-xs text-red-600">
-                DEBUG: Products: {products.length}, ItemsPerPage: {itemsPerPage}, TotalPages: {totalPages}
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50 flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-700">
+                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, products.length)} of {products.length} products
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="itemsPerPage" className="text-sm text-gray-700">Show:</label>
+                  <select
+                    id="itemsPerPage"
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
               </div>
-              <button
-                onClick={handlePreviousPage}
-                disabled={currentPage === 1}
-                className={`inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm ${
-                  currentPage === 1
-                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                    : 'text-gray-700 bg-white hover:bg-gray-50'
-                }`}
-              >
-                <ChevronLeft size={16} className="mr-1" />
-                Previous
-              </button>
-              <span className="text-sm text-gray-700">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={handleNextPage}
-                disabled={currentPage === totalPages}
-                className={`inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm ${
-                  currentPage === totalPages
-                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                    : 'text-gray-700 bg-white hover:bg-gray-50'
-                }`}
-              >
-                Next
-                <ChevronRight size={16} className="ml-1" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 1}
+                  className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
+                    currentPage === 1
+                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                      : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
+                >
+                  <ChevronLeft size={16} className="mr-1" />
+                  Previous
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-gray-700">Page</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={totalPages}
+                    value={currentPage}
+                    onChange={(e) => {
+                      const page = parseInt(e.target.value);
+                      if (page >= 1 && page <= totalPages) {
+                        setCurrentPage(page);
+                      }
+                    }}
+                    className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">of {totalPages}</span>
+                </div>
+
+                <button
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                  className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
+                    currentPage === totalPages
+                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                      : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
+                >
+                  Next
+                  <ChevronRight size={16} className="ml-1" />
+                </button>
+              </div>
             </div>
           )}
         </>
