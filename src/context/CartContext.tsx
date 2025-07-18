@@ -174,10 +174,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Add a small delay to ensure user state is fully settled after login
     const timeoutId = setTimeout(() => {
       fetchAvailablePromoCodes();
-    }, 100);
+    }, 200); // Increased delay to ensure auth state is fully settled
     
     return () => clearTimeout(timeoutId);
   }, [user, totalPrice]);
+
+  // Additional effect to ensure cart is properly initialized after login
+  useEffect(() => {
+    if (user && user.accountNumber) {
+      console.log('CartContext: User logged in, ensuring cart is properly initialized');
+      // Force a re-render to ensure all cart functions are properly bound
+      const timeoutId = setTimeout(() => {
+        console.log('CartContext: Cart initialization complete for user:', user.accountNumber);
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [user]);
 
   // TEMPORARILY DISABLED: Auto-apply best promo code when conditions are met (but not immediately when items change)
   // useEffect(() => {

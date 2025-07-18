@@ -29,9 +29,77 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [tableContainerRef, setTableContainerRef] = useState<HTMLDivElement | null>(null);
 
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
+  // Calculate dynamic items per page based on viewport height
+  React.useEffect(() => {
+    const calculateItemsPerPage = () => {
+      if (!tableContainerRef) {
+        console.log('No table container ref, using default itemsPerPage:', 20);
+        return;
+      }
+
+      // Get the available height for the table content
+      const containerHeight = tableContainerRef.clientHeight;
+      
+      // If container height is 0 or very small, use default
+      if (containerHeight < 200) {
+        console.log('Container height too small, using default itemsPerPage:', 20);
+        return;
+      }
+
+      const headerHeight = 60; // Approximate header height
+      const paginationHeight = 60; // Approximate pagination height
+      const availableHeight = containerHeight - headerHeight - paginationHeight;
+
+      // Estimate row height (including padding and borders)
+      const estimatedRowHeight = 45; // Approximate height per table row
+      
+      // Calculate how many rows can fit, with a minimum of 10 and maximum of 50
+      const calculatedItems = Math.floor(availableHeight / estimatedRowHeight);
+      const optimalItems = Math.max(10, Math.min(50, calculatedItems));
+      
+      console.log('Dynamic Pagination Calculation:', {
+        containerHeight,
+        availableHeight,
+        estimatedRowHeight,
+        calculatedItems,
+        optimalItems,
+        currentItemsPerPage: itemsPerPage
+      });
+
+      // Only update if the calculation is significantly different
+      if (Math.abs(optimalItems - itemsPerPage) > 2) {
+        setItemsPerPage(optimalItems);
+      }
+    };
+
+    // Use a timeout to ensure the container is properly rendered
+    const timeoutId = setTimeout(calculateItemsPerPage, 500);
+    
+    const handleResize = () => {
+      setTimeout(calculateItemsPerPage, 100); // Debounce resize events
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [tableContainerRef, itemsPerPage]);
+
+  // Reset pagination when products change (e.g., new search, category change)
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [products]);
+
+  // Reset pagination when items per page changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   const handleAddToCart = async (product: Product) => {
     console.log('ProductTable: handleAddToCart called for:', product.partnumber);
@@ -120,6 +188,16 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProducts = products.slice(startIndex, startIndex + itemsPerPage);
 
+  // Debug pagination
+  console.log('ProductTable Pagination Debug:', {
+    totalProducts: products.length,
+    itemsPerPage,
+    totalPages,
+    currentPage,
+    startIndex,
+    paginatedProductsCount: paginatedProducts.length
+  });
+
   const handlePreviousPage = () => {
     setCurrentPage(prev => Math.max(1, prev - 1));
   };
@@ -129,7 +207,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-full ${className || ''}`}>
+    <div 
+      ref={setTableContainerRef}
+      className={`bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-full ${className || ''}`}
+    >
       <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
         <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
       </div>
@@ -289,8 +370,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          {products.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-red-100 flex-shrink-0">
+              <div className="text-xs text-red-600">
+                DEBUG: Products: {products.length}, ItemsPerPage: {itemsPerPage}, TotalPages: {totalPages}
+              </div>
               <button
                 onClick={handlePreviousPage}
                 disabled={currentPage === 1}
