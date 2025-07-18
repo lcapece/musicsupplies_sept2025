@@ -171,65 +171,83 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Fetch promo codes when user changes or cart total changes
   useEffect(() => {
-    fetchAvailablePromoCodes();
+    // Add a small delay to ensure user state is fully settled after login
+    const timeoutId = setTimeout(() => {
+      fetchAvailablePromoCodes();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
   }, [user, totalPrice]);
 
-  // Auto-apply best promo code when conditions are met (but not immediately when items change)
-  useEffect(() => {
-    const autoApplyBestPromoCode = async () => {
-      // Only auto-apply if:
-      // 1. User is logged in
-      // 2. Cart has items
-      // 3. No promo code is currently applied
-      // 4. Available promo codes exist
-      // 5. Cart has been stable for a bit (not just added items)
-      if (!user || !user.accountNumber || items.length === 0 || appliedPromoCode || availablePromoCodes.length === 0) {
-        return;
-      }
+  // TEMPORARILY DISABLED: Auto-apply best promo code when conditions are met (but not immediately when items change)
+  // useEffect(() => {
+  //   const autoApplyBestPromoCode = async () => {
+  //     // Only auto-apply if:
+  //     // 1. User is logged in
+  //     // 2. Cart has items
+  //     // 3. No promo code is currently applied
+  //     // 4. Available promo codes exist
+  //     // 5. Cart has been stable for a bit (not just added items)
+  //     if (!user || !user.accountNumber || items.length === 0 || appliedPromoCode || availablePromoCodes.length === 0) {
+  //       return;
+  //     }
 
-      // Find the best promo code that meets the minimum order requirement
-      const bestPromo = availablePromoCodes.find(promo => 
-        promo.is_best && totalPrice >= promo.min_order_value
-      );
+  //     // Find the best promo code that meets the minimum order requirement
+  //     const bestPromo = availablePromoCodes.find(promo => 
+  //       promo.is_best && totalPrice >= promo.min_order_value
+  //     );
 
-      if (bestPromo) {
-        try {
-          console.log('Auto-applying best promo code:', bestPromo.code);
-          const result = await applyPromoCode(bestPromo.code, true); // Pass true for isAutoApplied
-          if (result.is_valid) {
-            console.log('Auto-applied promo code successfully:', bestPromo.code);
-          }
-        } catch (error) {
-          console.error('Error auto-applying promo code:', error);
-        }
-      }
-    };
+  //     if (bestPromo) {
+  //       try {
+  //         console.log('Auto-applying best promo code:', bestPromo.code);
+  //         const result = await applyPromoCode(bestPromo.code, true); // Pass true for isAutoApplied
+  //         if (result.is_valid) {
+  //           console.log('Auto-applied promo code successfully:', bestPromo.code);
+  //         }
+  //       } catch (error) {
+  //         console.error('Error auto-applying promo code:', error);
+  //       }
+  //     }
+  //   };
 
-    // Add a longer delay to avoid interfering with cart operations
-    const timeoutId = setTimeout(autoApplyBestPromoCode, 2000);
-    return () => clearTimeout(timeoutId);
-  }, [availablePromoCodes, appliedPromoCode, user]); // Removed items.length and totalPrice dependencies
+  //   // Add a longer delay to avoid interfering with cart operations
+  //   const timeoutId = setTimeout(autoApplyBestPromoCode, 2000);
+  //   return () => clearTimeout(timeoutId);
+  // }, [availablePromoCodes, appliedPromoCode, user]); // Removed items.length and totalPrice dependencies
 
   const addToCart = (product: Product, quantity: number = 1) => {
-    console.log('Adding to cart:', product.partnumber, 'quantity:', quantity);
+    console.log('CartContext: Adding to cart:', product.partnumber, 'quantity:', quantity);
     
+    // Validate product data before adding
+    if (!product.partnumber) {
+      console.error('CartContext: Cannot add product without partnumber');
+      return;
+    }
+    
+    // Use functional update with immediate logging
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
       
+      let newItems;
       if (existingItem) {
-        return prevItems.map(item => 
+        console.log('CartContext: Updating existing item quantity');
+        newItems = prevItems.map(item => 
           item.partnumber === product.partnumber 
             ? { ...item, quantity: item.quantity + quantity } 
             : item
         );
       } else {
-        return [...prevItems, { 
+        console.log('CartContext: Adding new item to cart');
+        newItems = [...prevItems, { 
           ...product, 
           inventory: product.inventory ?? null, 
           price: product.price ?? 0, 
           quantity 
         }];
       }
+      
+      console.log('CartContext: Cart updated, new item count:', newItems.length);
+      return newItems;
     });
   };
 

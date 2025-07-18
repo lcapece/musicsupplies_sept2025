@@ -301,8 +301,7 @@ const PromoCodeManagementTab: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min Order</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uses</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per-Account Limit</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage Limits</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Range</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -311,7 +310,7 @@ const PromoCodeManagementTab: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPromoCodes.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                     No promo codes found
                   </td>
                 </tr>
@@ -332,20 +331,31 @@ const PromoCodeManagementTab: React.FC = () => {
                         ${promo.min_order_value.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {promo.max_uses === null ? (
-                          'Unlimited'
-                        ) : (
-                          `${promo.uses_remaining || 0}/${promo.max_uses}`
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {!promo.uses_per_account_tracking ? (
-                          'Not Tracked'
-                        ) : promo.max_uses_per_account === null ? (
-                          'Unlimited'
-                        ) : (
-                          `${promo.max_uses_per_account} per account`
-                        )}
+                        <div className="space-y-1">
+                          {/* Total Usage Display */}
+                          <div className="font-medium">
+                            {promo.max_uses === null ? (
+                              <span className="text-green-600">∞ Total Uses</span>
+                            ) : (
+                              <span className="text-blue-600">{promo.uses_remaining || 0}/{promo.max_uses} Total</span>
+                            )}
+                          </div>
+                          
+                          {/* Per-Account Limit Display */}
+                          {promo.uses_per_account_tracking ? (
+                            <div className="text-xs">
+                              {promo.max_uses_per_account === null ? (
+                                <span className="text-gray-500">No per-account limit</span>
+                              ) : (
+                                <span className="text-orange-600 font-semibold bg-orange-50 px-2 py-1 rounded">
+                                  MAX {promo.max_uses_per_account} per account
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400">Per-account not tracked</div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(promo.start_date)} - {formatDate(promo.end_date)}

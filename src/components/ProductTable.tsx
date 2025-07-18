@@ -33,25 +33,49 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
 
-  const handleAddToCart = (product: Product) => {
-    if (product.inventory && product.inventory > 0) {
-      console.log('ProductTable: Adding to cart:', product.partnumber);
-      
-      // Set loading state for this specific product
-      setAddingToCart(product.partnumber);
-      
-      // Call addToCart immediately without any delays or complex logic
-      addToCart({
-        partnumber: product.partnumber,
-        description: product.description,
-        price: product.price,
-        inventory: product.inventory
+  const handleAddToCart = async (product: Product) => {
+    console.log('ProductTable: handleAddToCart called for:', product.partnumber);
+    
+    if (!product.inventory || product.inventory <= 0) {
+      console.log('ProductTable: Product out of stock, not adding to cart');
+      return;
+    }
+    
+    // Prevent double-clicks by checking if already adding
+    if (addingToCart === product.partnumber) {
+      console.log('ProductTable: Already adding this product, ignoring click');
+      return;
+    }
+    
+    console.log('ProductTable: Product has inventory, proceeding to add to cart');
+    
+    // Set loading state IMMEDIATELY to prevent double-clicks
+    setAddingToCart(product.partnumber);
+    
+    try {
+      // Call addToCart with proper error handling
+      await new Promise<void>((resolve) => {
+        addToCart({
+          partnumber: product.partnumber,
+          description: product.description,
+          price: product.price,
+          inventory: product.inventory
+        });
+        
+        // Use requestAnimationFrame to ensure the cart state update has been processed
+        requestAnimationFrame(() => {
+          console.log('ProductTable: addToCart called successfully');
+          resolve();
+        });
       });
       
-      // Clear loading state after a brief moment to provide user feedback
+    } catch (error) {
+      console.error('ProductTable: Error adding to cart:', error);
+    } finally {
+      // Clear loading state after a short delay to show feedback
       setTimeout(() => {
         setAddingToCart(null);
-      }, 500);
+      }, 800);
     }
   };
 

@@ -79,13 +79,35 @@ const EditPromoCodeModal: React.FC<EditPromoCodeModalProps> = ({
     setError(null);
 
     try {
+      const newMaxUses = formData.max_uses ? parseInt(formData.max_uses) : null;
+      const oldMaxUses = promoCode.max_uses;
+      const oldUsesRemaining = promoCode.uses_remaining;
+
+      // Calculate new uses_remaining when max_uses changes
+      let newUsesRemaining = oldUsesRemaining;
+      
+      if (newMaxUses !== oldMaxUses) {
+        if (newMaxUses === null) {
+          // Changed to unlimited - set uses_remaining to null
+          newUsesRemaining = null;
+        } else if (oldMaxUses === null) {
+          // Changed from unlimited to limited - set uses_remaining to new max_uses
+          newUsesRemaining = newMaxUses;
+        } else {
+          // Both are limited - calculate the difference and adjust uses_remaining
+          const usedCount = oldMaxUses - (oldUsesRemaining || 0);
+          newUsesRemaining = Math.max(0, newMaxUses - usedCount);
+        }
+      }
+
       const updateData = {
         code: formData.code.trim().toUpperCase(),
         name: formData.name.trim(),
         type: formData.type,
         value: parseFloat(formData.value),
         min_order_value: parseFloat(formData.min_order_value),
-        max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
+        max_uses: newMaxUses,
+        uses_remaining: newUsesRemaining,
         start_date: formData.start_date,
         end_date: formData.end_date,
         is_active: formData.is_active,
@@ -94,6 +116,8 @@ const EditPromoCodeModal: React.FC<EditPromoCodeModalProps> = ({
         updated_at: new Date().toISOString()
       };
 
+      console.log('Updating promo code with data:', updateData);
+
       const { error } = await supabase
         .from('promo_codes')
         .update(updateData)
@@ -101,6 +125,7 @@ const EditPromoCodeModal: React.FC<EditPromoCodeModalProps> = ({
 
       if (error) throw error;
 
+      console.log('Promo code updated successfully');
       onSuccess();
       onClose();
     } catch (err: any) {

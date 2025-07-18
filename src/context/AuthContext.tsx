@@ -328,6 +328,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
     setIsSpecialAdmin(false); // Make sure to reset the special admin status on logout
     localStorage.removeItem('user');
+    // Clear cart data on logout to prevent state issues
+    localStorage.removeItem('cart');
     // Clear search interaction flag so search prompt shows again for new sessions
     sessionStorage.removeItem('searchInteracted');
   };
