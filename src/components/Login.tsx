@@ -83,7 +83,7 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex justify-center relative">
       <div ref={contentRef} className="bg-white w-full">
-        <div className="w-[95vw] max-w-[1400px] mx-auto px-[2vw] sm:px-[3vw] lg:px-[4vw] pt-[2vh]">
+        <div className="w-[95vw] max-w-[1400px] mx-auto px-[2vw] sm:px-[3vw] lg:px-[4vw] pt-[1vh]">
           {/* Main Content */}
           <div className="flex flex-col md:flex-row items-center md:items-start mb-4">
             {/* Left Column */}
@@ -91,7 +91,7 @@ const Login: React.FC = () => {
               <img 
                 src={logo} 
                 alt="Music Supplies Logo" 
-                className="h-[clamp(8rem,12vw,16rem)] w-auto mb-[2vh]" 
+                className="h-[clamp(6rem,10vw,12rem)] w-auto mb-[1vh]" 
               />
               <div className="text-left w-full">
                 <p className="text-red-600 text-[clamp(1.25rem,2.5vw,2rem)] font-semibold">FOR WHOLESALE ACCOUNTS ONLY</p>
@@ -170,13 +170,13 @@ const Login: React.FC = () => {
 
           {/* Brands Bar */}
           <div className="my-[4vh] text-center">
-            <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 xl:grid-cols-16 gap-[2vw]">
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
               {brandLogos.map((brandLogo, index) => (
                 <div key={index} className="flex justify-center items-center">
                   <img 
                     src={brandLogo} 
                     alt={`Brand ${index + 1}`} 
-                    className="max-h-[clamp(3rem,8vw,5rem)] w-auto object-contain hover:scale-110 transition-transform duration-200" 
+                    className="max-h-[clamp(3rem,6vw,4rem)] w-auto object-contain hover:scale-110 transition-transform duration-200" 
                   />
                 </div>
               ))}
