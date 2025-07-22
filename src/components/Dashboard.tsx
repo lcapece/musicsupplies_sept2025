@@ -324,7 +324,7 @@ const Dashboard: React.FC = () => {
 
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6">
                       {/* Inventory Timestamp */}
-                      <div className="text-6xl text-gray-600">
+                      <div className="text-lg font-semibold text-gray-600">
                         Inventory as of {new Date().toLocaleString('en-US', {
                           month: '2-digit',
                           day: '2-digit', 
