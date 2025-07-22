@@ -304,7 +304,7 @@ const Dashboard: React.FC = () => {
                   />
                 </div>
                 
-                <div className="col-span-12 lg:col-span-9 flex flex-col min-h-0">
+                <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0">
                   <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
                     <div className="p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 mb-2 sm:mb-0">
                       {(() => {
@@ -432,6 +432,9 @@ const Dashboard: React.FC = () => {
                     </div>
                   )}
                 </div>
+                
+                {/* Right spacer for visual balance */}
+                <div className="hidden lg:block lg:col-span-1"></div>
               </div>
             </div>
           </>
