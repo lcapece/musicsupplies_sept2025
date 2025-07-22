@@ -30,15 +30,17 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Immediate state updates for visual feedback - this ensures first click works
+    setIsLoading(true);
     setError(null);
     setSuccessMessage(null);
 
     if (newPassword.length < 6) {
         setError("Password must be at least 6 characters long.");
+        setIsLoading(false);
         return;
     }
-
-    setIsLoading(true);
 
     try {
       if (!user || !accountData) {
@@ -47,11 +49,21 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
       }
 
-      // Direct database update approach
+      // Step 1: Securely update the user's password and email via Supabase Auth
+      const { error: authError } = await supabase.auth.updateUser({
+        password: newPassword,
+        email: email,
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw authError;
+      }
+
+      // Step 2: Update other account details in the database
       const { data, error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
-          password: newPassword,
           email_address: email || null,
           mobile_phone: mobilePhone || null,
           sms_consent_given: smsConsent && mobilePhone.trim() ? true : false,
@@ -63,6 +75,8 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
 
       if (updateError) {
         console.error('Update error:', updateError);
+        // Note: At this point, the auth password has changed.
+        // You might want to add logic to handle this inconsistency.
         throw updateError;
       }
 
@@ -97,7 +111,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         .eq('account_number', parseInt(accountData.accountNumber));
       
       // Refresh user account data to reflect changes
-      await fetchUserAccount();
+      await fetchUserAccount(accountData.accountNumber);
       onClose(true); // Close the password change modal after SMS consent is handled
     } catch (error) {
       console.error('Error updating SMS consent:', error);

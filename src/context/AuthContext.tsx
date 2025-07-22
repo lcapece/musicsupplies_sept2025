@@ -413,14 +413,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const openPasswordChangeModal = () => setShowPasswordChangeModal(true);
 
-  const handlePasswordModalClose = (wasSuccess: boolean) => {
+  const handlePasswordModalClose = async (wasSuccess: boolean) => {
     setShowPasswordChangeModal(false);
-    if (wasSuccess) {
-      if (user && user.requires_password_change) {
-        const updatedUser = { ...user, requires_password_change: false };
-        setUser(updatedUser);
-        // Use secure session manager instead of localStorage
-        sessionManager.setSession(updatedUser);
+    if (wasSuccess && user) {
+      // Re-fetch user data to get the latest info (like updated email) and ensure session is fresh
+      const updatedAccount = await fetchUserAccount(user.accountNumber);
+      if (updatedAccount) {
+        // Ensure requires_password_change is false after a successful update
+        const finalUser = { ...updatedAccount, requires_password_change: false };
+        setUser(finalUser);
+        sessionManager.setSession(finalUser);
       }
     }
   };

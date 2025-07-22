@@ -19,6 +19,7 @@ import EmailCommunicationsPage from './pages/EmailCommunicationsPage'; // Import
 import TermsAndConditionsPage from './pages/TermsAndConditionsPage'; // Import Terms & Conditions page
 import CustomerAccountPage from './pages/CustomerAccountPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage'; // Import forgot password page
+import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import update password page
 import SmsConsentPreviewPage from './pages/SmsConsentPreviewPage'; // Import SMS consent preview page
 import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
@@ -182,6 +183,7 @@ function AppContent() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/update-password" element={<UpdatePasswordPage />} />
         {/* Home route with special handling for different account types */}
         <Route 
           path="/" 
