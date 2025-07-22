@@ -295,7 +295,7 @@ const Dashboard: React.FC = () => {
               <SearchBar onSearch={handleSearch} />
             </div>
             
-            <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-6">
+            <div className="flex-grow px-4 sm:px-6 lg:px-8 pb-6 overflow-hidden">
               <div className="grid grid-cols-12 gap-6 h-full">
                 <div className="col-span-12 lg:col-span-3 flex flex-col">
                   <CategoryTree 
@@ -304,7 +304,7 @@ const Dashboard: React.FC = () => {
                   />
                 </div>
                 
-                <div className="col-span-12 lg:col-span-9 flex flex-col">
+                <div className="col-span-12 lg:col-span-9 flex flex-col min-h-0">
                   <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
                     <div className="p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 mb-2 sm:mb-0">
                       {(() => {
@@ -322,8 +322,21 @@ const Dashboard: React.FC = () => {
                       })()}
                     </div>
 
-                    {/* Toggles Container */}
-                    <div className="flex items-center space-x-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6">
+                      {/* Inventory Timestamp */}
+                      <div className="text-6xl text-gray-600">
+                        Inventory as of {new Date().toLocaleString('en-US', {
+                          month: '2-digit',
+                          day: '2-digit', 
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </div>
+
+                      {/* Toggles Container */}
+                      <div className="flex items-center space-x-6">
                       {/* Toggle for Show Images & Specs */}
                       <div className="flex items-center">
                         <input
@@ -357,6 +370,7 @@ const Dashboard: React.FC = () => {
                         </label>
                       </div>
                     </div>
+                    </div>
                   </div>
 
                   {loading ? (
@@ -384,7 +398,7 @@ const Dashboard: React.FC = () => {
                         <div className="mt-6 bg-white p-4 rounded-lg shadow flex-shrink-0">
                           {selectedProductForImage ? (
                             <>
-                              <h3 className="text-lg font-semibold mb-2">
+                              <h3 className="text-xl font-semibold mb-2">
                                 {selectedProductForImage.partnumber} - Image & Specs
                               </h3>
                               <div className="mb-4 flex justify-center">
@@ -395,22 +409,22 @@ const Dashboard: React.FC = () => {
                                 />
                               </div>
                               <div>
-                                <h4 className="font-medium mb-1">Specifications:</h4>
-                                <p className="text-sm text-gray-600 mb-2">{selectedProductForImage.description}</p>
-                                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                <h4 className="text-lg font-medium mb-1">Specifications:</h4>
+                                <p className="text-lg text-gray-600 mb-2">{selectedProductForImage.description}</p>
+                                <ul className="list-disc list-inside text-lg text-gray-700 space-y-1">
                                   <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
                                   <li>List Price: ${selectedProductForImage.webmsrp ?? 'N/A'}</li>
                                   <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>
                                 </ul>
                                 
                                 <div className="mt-3">
-                                  <div className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription || 'No additional description available' }} />
+                                  <div className="text-lg text-gray-700" dangerouslySetInnerHTML={{ __html: selectedProductForImage.longdescription || 'No additional description available' }} />
                                 </div>
                               </div>
                             </>
                           ) : (
                             <div className="flex items-center justify-center py-8">
-                              <p className="text-gray-500">Select a product to view its image and specs.</p>
+                              <p className="text-lg text-gray-500">Select a product to view its image and specs.</p>
                             </div>
                           )}
                         </div>

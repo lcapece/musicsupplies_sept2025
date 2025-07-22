@@ -34,62 +34,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
 
-  // Calculate dynamic items per page based on viewport height
-  React.useEffect(() => {
-    const calculateItemsPerPage = () => {
-      if (!tableContainerRef) {
-        console.log('No table container ref, using default itemsPerPage:', 20);
-        return;
-      }
-
-      // Get the available height for the table content
-      const containerHeight = tableContainerRef.clientHeight;
-      
-      // If container height is 0 or very small, use default
-      if (containerHeight < 200) {
-        console.log('Container height too small, using default itemsPerPage:', 20);
-        return;
-      }
-
-      const headerHeight = 60; // Approximate header height
-      const paginationHeight = 60; // Approximate pagination height
-      const availableHeight = containerHeight - headerHeight - paginationHeight;
-
-      // Estimate row height (including padding and borders)
-      const estimatedRowHeight = 45; // Approximate height per table row
-      
-      // Calculate how many rows can fit, with a minimum of 10 and maximum of 50
-      const calculatedItems = Math.floor(availableHeight / estimatedRowHeight);
-      const optimalItems = Math.max(10, Math.min(50, calculatedItems));
-      
-      console.log('Dynamic Pagination Calculation:', {
-        containerHeight,
-        availableHeight,
-        estimatedRowHeight,
-        calculatedItems,
-        optimalItems,
-        currentItemsPerPage: itemsPerPage
-      });
-
-      // Only update if the calculation is significantly different
-      if (Math.abs(optimalItems - itemsPerPage) > 2) {
-        setItemsPerPage(optimalItems);
-      }
-    };
-
-    // Use a timeout to ensure the container is properly rendered
-    const timeoutId = setTimeout(calculateItemsPerPage, 500);
-    
-    const handleResize = () => {
-      setTimeout(calculateItemsPerPage, 100); // Debounce resize events
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [tableContainerRef, itemsPerPage]);
+  // Note: Removed dynamic pagination calculation that was interfering with user's selection
+  // and preventing proper scrolling through products
 
   // Reset pagination when products change (e.g., new search, category change)
   React.useEffect(() => {
@@ -332,12 +278,19 @@ const ProductTable: React.FC<ProductTableProps> = ({
           {/* Top Pagination */}
           <PaginationControls position="top" />
           
-          <div className="flex-1 overflow-auto" style={{ paddingBottom: '80px' }}>
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
+          {/* Scrollable table container with fixed height and visible scrollbar */}
+          <div 
+            className="flex-1 overflow-y-auto overflow-x-auto product-table-scroll"
+            style={{ 
+              maxHeight: 'calc(100vh - 400px)', // Constrain height to force scrolling
+              minHeight: '300px' // Minimum height to show scrollbar area
+            }}
+          >
+            <table className="min-w-full divide-y divide-gray-200 text-lg">
               <thead className="bg-gray-50">
                 <tr>
                   <th 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[12%]"
+                    className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[12%]"
                     onClick={() => requestSort('partnumber')}
                   >
                     Part Number 
@@ -346,7 +299,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[40%]"
+                    className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[40%]"
                     onClick={() => requestSort('description')}
                   >
                     Description
@@ -355,7 +308,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('brand')}
                   >
                     Brand
@@ -365,7 +318,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   </th>
                   {showUpcColumn && (
                     <th 
-                      className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => requestSort('upc')}
                     >
                       UPC
@@ -376,7 +329,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   )}
                   {showMsrp && (
                     <th 
-                      className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => requestSort('webmsrp')}
                     >
                       MSRP
@@ -386,7 +339,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </th>
                   )}
                   <th 
-                    className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]"
+                    className="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]"
                     onClick={() => requestSort('price')}
                   >
                     Your Price
@@ -396,7 +349,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   </th>
                   {showMapPrice && (
                     <th 
-                      className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => requestSort('map')}
                     >
                       MAP
@@ -406,7 +359,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </th>
                   )}
                   <th 
-                    className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => requestSort('inventory')}
                   >
                     Inventory
@@ -414,7 +367,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
                     )}
                   </th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -431,34 +384,34 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       }
                     }}
                   >
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 w-[12%]">
+                    <td className="px-3 py-2 whitespace-nowrap text-lg font-medium text-gray-900 w-[12%]">
                       {product.partnumber}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 w-[40%]">
+                    <td className="px-3 py-2 text-lg text-gray-500 w-[40%]">
                       {product.description}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-500">
+                    <td className="px-3 py-2 text-lg text-gray-500">
                       {product && product.brand ? product.brand : '---'}
                     </td>
                     {showUpcColumn && (
-                      <td className="px-3 py-2 text-sm text-gray-500">
+                      <td className="px-3 py-2 text-lg text-gray-500">
                         {product && product.upc ? product.upc : '---'}
                       </td>
                     )}
                     {showMsrp && (
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
+                      <td className="px-3 py-2 whitespace-nowrap text-lg text-right font-medium">
                         {formatListPrice(product.webmsrp)}
                       </td>
                     )}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%]">
+                    <td className="px-3 py-2 whitespace-nowrap text-lg text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%]">
                       {formatPrice(product.price)}
                     </td>
                     {showMapPrice && (
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium">
+                      <td className="px-3 py-2 whitespace-nowrap text-lg text-right font-medium">
                         {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
                       </td>
                     )}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
+                    <td className="px-3 py-2 whitespace-nowrap text-lg text-center">
                       {getInventoryDisplay(product.inventory)}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center">
@@ -467,7 +420,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-                        className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md ${
+                        className={`inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md ${
                           product.inventory && product.inventory > 0
                             ? addingToCart === product.partnumber
                               ? 'text-white bg-green-600'

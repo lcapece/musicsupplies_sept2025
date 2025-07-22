@@ -134,3 +134,35 @@ img[alt*="logo"]::after {
 .search-prompt-pulse {
   animation: searchPromptPulse 2s ease-in-out infinite;
 }
+
+/* Custom scrollbar styles for product table */
+.product-table-scroll {
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af #f3f4f6;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) scrollbar styling */
+.product-table-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.product-table-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 6px;
+}
+
+.product-table-scroll::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 6px;
+  border: 2px solid #f3f4f6;
+}
+
+.product-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+.product-table-scroll::-webkit-scrollbar-corner {
+  background: #f3f4f6;
+}
