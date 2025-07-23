@@ -88,19 +88,15 @@ const AccountsTab: React.FC = () => {
       });
 
       // Check which accounts have custom passwords
-      // An account has a custom password if:
-      // 1. It has an entry in logon_lcmd AND
-      // 2. The password is NOT the default pattern (first letter + zip)
+      // FIXED LOGIC: An account has a custom password if it has ANY entry in logon_lcmd
+      // The presence of an entry means someone set a custom password
+      // No entry means the account uses the default pattern (first letter + zip)
       const accountsWithPasswordStatus = (data || []).map(account => {
         const hasEntry = passwordMap.hasOwnProperty(account.account_number);
-        let hasCustomPassword = false;
         
-        if (hasEntry) {
-          const storedPassword = passwordMap[account.account_number];
-          const defaultPattern = getDefaultPassword(account.acct_name, account.zip);
-          // Case insensitive comparison
-          hasCustomPassword = storedPassword.toLowerCase() !== defaultPattern.toLowerCase();
-        }
+        // If there's any entry in logon_lcmd, it's a custom password
+        // This fixes the issue where account 105 was showing as default when it has a custom password
+        const hasCustomPassword = hasEntry;
         
         return {
           ...account,
@@ -321,50 +317,50 @@ const AccountsTab: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Accounts Management</h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <h2 className="text-4xl font-bold text-gray-900">Accounts Management</h2>
+          <p className="text-lg text-gray-600 mt-2">
             Manage account default passwords and settings
             {totalAccountCount > 0 && ` (${totalAccountCount} total accounts in database)`}
           </p>
         </div>
         <button
           onClick={fetchAccounts}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-semibold"
         >
           Refresh Accounts
         </button>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Total Accounts</div>
-          <div className="text-2xl font-bold text-gray-900">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="text-lg font-semibold text-gray-600">Total Accounts</div>
+          <div className="text-4xl font-bold text-gray-900">
             {accounts.length}
             {totalAccountCount > accounts.length && (
-              <span className="text-sm text-gray-500"> of {totalAccountCount}</span>
+              <span className="text-lg text-gray-500"> of {totalAccountCount}</span>
             )}
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Custom Passwords</div>
-          <div className="text-2xl font-bold text-blue-600">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="text-lg font-semibold text-gray-600">Custom Passwords</div>
+          <div className="text-4xl font-bold text-blue-600">
             {accounts.filter(a => a.has_custom_password).length}
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-600">Using Default Pattern</div>
-          <div className="text-2xl font-bold text-green-600">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="text-lg font-semibold text-gray-600">Using Default Pattern</div>
+          <div className="text-4xl font-bold text-green-600">
             {accounts.filter(a => !a.has_custom_password).length}
           </div>
         </div>
       </div>
 
       {/* Search */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <div className="flex items-center space-x-4">
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center space-x-6">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-lg font-semibold text-gray-700 mb-2">
               Search Accounts
             </label>
             <input
@@ -372,12 +368,12 @@ const AccountsTab: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by account number, company name, city, or state..."
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-md px-4 py-3 text-base"
             />
           </div>
           <button
             onClick={() => setSearchTerm('')}
-            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium mt-6"
+            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-md text-lg font-semibold mt-8"
           >
             Clear
           </button>
@@ -386,44 +382,44 @@ const AccountsTab: React.FC = () => {
 
       {/* Accounts Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
+        <div className="px-8 py-6 border-b border-gray-200">
+          <h3 className="text-2xl font-bold text-gray-900">
             Account List ({filteredAccounts.length} accounts)
           </h3>
         </div>
         
         {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="text-gray-600">Loading accounts...</div>
+          <div className="flex items-center justify-center h-40">
+            <div className="text-gray-600 text-xl">Loading accounts...</div>
           </div>
         ) : filteredAccounts.length === 0 ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="text-gray-600">No accounts found</div>
+          <div className="flex items-center justify-center h-40">
+            <div className="text-gray-600 text-xl">No accounts found</div>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Account #
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Company Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Location
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Phone
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Password Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Default Pattern
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -431,21 +427,21 @@ const AccountsTab: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAccounts.map((account) => (
                   <tr key={account.account_number} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-8 py-6 whitespace-nowrap text-lg font-bold text-gray-900">
                       {account.account_number}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
+                    <td className="px-8 py-6 text-lg text-gray-700 max-w-xs truncate font-semibold">
                       {account.acct_name || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-8 py-6 text-base text-gray-600">
                       {account.city || 'N/A'}, {account.state || 'N/A'} {account.zip || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
                       {account.phone || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="space-y-1">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    <td className="px-8 py-6 whitespace-nowrap text-base">
+                      <div className="space-y-2">
+                        <span className={`inline-flex px-3 py-2 text-sm font-bold rounded-full ${
                           account.has_custom_password 
                             ? 'bg-blue-100 text-blue-800' 
                             : 'bg-green-100 text-green-800'
@@ -454,31 +450,31 @@ const AccountsTab: React.FC = () => {
                         </span>
                         {account.requires_password_change && (
                           <div>
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                            <span className="inline-flex px-3 py-2 text-sm font-bold rounded-full bg-orange-100 text-orange-800">
                               Requires Change
                             </span>
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600 font-mono font-bold">
                       {getDefaultPasswordDisplay(account)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex space-x-2">
+                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-500">
+                      <div className="flex space-x-3">
                         <button
                           onClick={() => {
                             setSelectedAccount(account);
                             setShowPasswordModal(true);
                           }}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-blue-600 hover:text-blue-900 font-semibold text-base"
                         >
                           Set Password
                         </button>
                         {account.has_custom_password && (
                           <button
                             onClick={() => handleResetPassword(account.account_number)}
-                            className="text-orange-600 hover:text-orange-900"
+                            className="text-orange-600 hover:text-orange-900 font-semibold text-base"
                           >
                             Reset to Default
                           </button>

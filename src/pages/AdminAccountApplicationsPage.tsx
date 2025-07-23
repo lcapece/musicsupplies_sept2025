@@ -72,36 +72,36 @@ const AdminAccountApplicationsPage: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <h1 className="text-2xl font-semibold text-gray-800 mb-6">New Account Applications</h1>
+      <h1 className="text-4xl font-bold text-gray-800 mb-8">New Account Applications</h1>
       
       {applications.length === 0 ? (
-        <p className="text-center text-gray-500">No account applications found.</p>
+        <p className="text-center text-gray-500 text-xl">No account applications found.</p>
       ) : (
-        <div className="overflow-x-auto bg-white shadow-md rounded-lg">
+        <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business Name</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Name</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th scope="col" className="px-6 py-4 text-left text-lg font-semibold text-gray-700 uppercase tracking-wider">Submitted</th>
+                <th scope="col" className="px-6 py-4 text-left text-lg font-semibold text-gray-700 uppercase tracking-wider">Business Name</th>
+                <th scope="col" className="px-6 py-4 text-left text-lg font-semibold text-gray-700 uppercase tracking-wider">Contact Name</th>
+                <th scope="col" className="px-6 py-4 text-left text-lg font-semibold text-gray-700 uppercase tracking-wider">Email</th>
+                <th scope="col" className="px-6 py-4 text-left text-lg font-semibold text-gray-700 uppercase tracking-wider">Phone</th>
+                <th scope="col" className="px-6 py-4 text-left text-lg font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-6 py-4 text-left text-lg font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {applications.map((app) => (
-                <tr key={app.id}>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                <tr key={app.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">
                     {app.submission_date ? new Date(app.submission_date).toLocaleDateString() : new Date(app.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{app.business_name}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{app.contact_name}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{app.business_email}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{app.business_phone}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                  <td className="px-6 py-5 whitespace-nowrap text-base font-semibold text-gray-900">{app.business_name}</td>
+                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.contact_name}</td>
+                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.business_email}</td>
+                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.business_phone}</td>
+                  <td className="px-6 py-5 whitespace-nowrap text-base">
+                    <span className={`px-3 py-1 inline-flex text-sm font-bold rounded-full ${
                       app.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       app.status === 'approved' ? 'bg-green-100 text-green-800' :
                       app.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
@@ -109,10 +109,10 @@ const AdminAccountApplicationsPage: React.FC = () => {
                       {app.status}
                     </span>
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-5 whitespace-nowrap text-base">
                     <button
                       onClick={() => setSelectedApplication(app)}
-                      className="text-indigo-600 hover:text-indigo-900 font-medium"
+                      className="text-indigo-600 hover:text-indigo-900 font-semibold text-base"
                     >
                       View Details
                     </button>

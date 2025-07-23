@@ -92,15 +92,16 @@ const ProductTable: React.FC<ProductTableProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, totalPages]);
 
-  const handleAddToCart = async (product: Product) => {
+  const handleAddToCart = (product: Product) => {
     console.log('ProductTable: handleAddToCart called for:', product.partnumber);
     
+    // Basic validation
     if (!product.inventory || product.inventory <= 0) {
       console.log('ProductTable: Product out of stock, not adding to cart');
       return;
     }
     
-    // Prevent double-clicks by checking if already adding
+    // Prevent double-clicks
     if (addingToCart === product.partnumber) {
       console.log('ProductTable: Already adding this product, ignoring click');
       return;
@@ -108,34 +109,23 @@ const ProductTable: React.FC<ProductTableProps> = ({
     
     console.log('ProductTable: Product has inventory, proceeding to add to cart');
     
-    // Set loading state IMMEDIATELY to prevent double-clicks
+    // Set loading state IMMEDIATELY
     setAddingToCart(product.partnumber);
     
-    try {
-      // Call addToCart with proper error handling
-      await new Promise<void>((resolve) => {
-        addToCart({
-          partnumber: product.partnumber,
-          description: product.description,
-          price: product.price,
-          inventory: product.inventory
-        });
-        
-        // Use requestAnimationFrame to ensure the cart state update has been processed
-        requestAnimationFrame(() => {
-          console.log('ProductTable: addToCart called successfully');
-          resolve();
-        });
-      });
-      
-    } catch (error) {
-      console.error('ProductTable: Error adding to cart:', error);
-    } finally {
-      // Clear loading state after a short delay to show feedback
-      setTimeout(() => {
-        setAddingToCart(null);
-      }, 800);
-    }
+    // Call addToCart directly - it's synchronous!
+    addToCart({
+      partnumber: product.partnumber,
+      description: product.description,
+      price: product.price,
+      inventory: product.inventory
+    });
+    
+    console.log('ProductTable: addToCart called successfully');
+    
+    // Clear loading state with visual feedback
+    setTimeout(() => {
+      setAddingToCart(null);
+    }, 600);
   };
 
   const getInventoryDisplay = (inventory: number | null) => {

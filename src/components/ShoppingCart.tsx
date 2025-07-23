@@ -193,6 +193,32 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
         console.error('Error generating or sending invoice email:', emailError);
         // Don't fail the order if email fails, just log it
       }
+
+      // Send customer SMS notification
+      if (phone) {
+        try {
+          console.log("Sending customer SMS notification to:", phone);
+          
+          const { data: smsResult, error: smsError } = await supabase.functions.invoke('send-customer-sms', {
+            body: {
+              customerPhone: phone,
+              orderNumber: newOrderNumber,
+              customerName: user?.acctName || email.split('@')[0]
+            }
+          });
+
+          if (smsError) {
+            console.error('Error sending customer SMS:', smsError);
+            // Don't fail the order if SMS fails, just log it
+          } else {
+            console.log('Customer SMS sent successfully:', smsResult);
+          }
+
+        } catch (smsError) {
+          console.error('Error sending customer SMS notification:', smsError);
+          // Don't fail the order if SMS fails, just log it
+        }
+      }
     } catch (error) {
       console.error('Failed to place order:', error);
       alert('Failed to place order. Please try again.');
