@@ -17,8 +17,8 @@ const AdminDashboard: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-          <p className="text-gray-700">You don't have permission to access this page.</p>
+          <h2 className="text-4xl font-bold text-red-600 mb-4">Access Denied</h2>
+          <p className="text-2xl text-gray-700">You don't have permission to access this page.</p>
         </div>
       </div>
     );
@@ -44,7 +44,7 @@ const AdminDashboard: React.FC = () => {
       case 'history':
         return <HistoryTab />;
       case 'sms':
-        return <div className="text-center py-8 text-gray-500">SMS Notifications coming soon...</div>;
+        return <div className="text-center py-16 text-2xl text-gray-500">SMS Notifications coming soon...</div>;
       case 'clicksend':
         return <ClickSendTab />;
       default:
@@ -57,13 +57,13 @@ const AdminDashboard: React.FC = () => {
       {/* Simple header with just logout button */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-semibold text-gray-900">Admin Backend System</h1>
+          <div className="flex justify-between items-center h-20">
+            <h1 className="text-4xl font-semibold text-gray-900">Admin Backend System</h1>
             <button
               onClick={logout}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-2xl font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
-              <LogOut className="h-4 w-4 mr-2" />
+              <LogOut className="h-8 w-8 mr-3" />
               Logout
             </button>
           </div>
@@ -73,11 +73,11 @@ const AdminDashboard: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-lg">
           <div className="border-b border-gray-200">
-            <div className="px-6 py-4">
-              <h1 className="text-2xl font-bold text-gray-900">
+            <div className="px-6 py-6">
+              <h1 className="text-5xl font-bold text-gray-900">
                 Admin Dashboard
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-2xl text-gray-600 mt-2">
                 Welcome back, {user?.acctName || 'Administrator'}
               </p>
             </div>
@@ -89,13 +89,13 @@ const AdminDashboard: React.FC = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    className={`py-6 px-2 border-b-4 font-medium text-2xl whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    <span className="mr-2">{tab.icon}</span>
+                    <span className="mr-3 text-3xl">{tab.icon}</span>
                     {tab.label}
                   </button>
                 ))}
@@ -104,7 +104,7 @@ const AdminDashboard: React.FC = () => {
           </div>
           
           {/* Tab Content */}
-          <div className="p-6">
+          <div className="p-12">
             {renderTabContent()}
           </div>
         </div>

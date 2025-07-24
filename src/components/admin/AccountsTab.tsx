@@ -25,10 +25,12 @@ const AccountsTab: React.FC = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchAccounts();
-  }, []);
+  }, [currentPage]);
 
   const getDefaultPassword = (acctName: string, zip: string) => {
     if (!acctName || !zip) return '';
@@ -50,7 +52,10 @@ const AccountsTab: React.FC = () => {
         setTotalAccountCount(count);
       }
 
-      // Then fetch all accounts with a higher limit
+      // Calculate offset for pagination
+      const offset = (currentPage - 1) * itemsPerPage;
+
+      // Fetch only the accounts for current page
       const { data, error } = await supabase
         .from('accounts_lcmd')
         .select(`
@@ -64,18 +69,19 @@ const AccountsTab: React.FC = () => {
           requires_password_change
         `)
         .order('account_number', { ascending: true })
-        .limit(10000);  // Increased limit to get all accounts
+        .range(offset, offset + itemsPerPage - 1);
 
       if (error) {
         console.error('Error fetching accounts:', error);
         return;
       }
 
-      // Get all password entries
+      // Get password entries only for the current page accounts
+      const accountNumbers = data?.map(a => a.account_number) || [];
       const { data: passwordData, error: passwordError } = await supabase
         .from('logon_lcmd')
         .select('account_number, password')
-        .limit(10000);
+        .in('account_number', accountNumbers);
 
       if (passwordError) {
         console.error('Error fetching password data:', passwordError);
@@ -158,14 +164,13 @@ const AccountsTab: React.FC = () => {
         const { error: updateError } = await supabase
           .from('logon_lcmd')
           .update({
-            password: newPassword,
-            updated_at: new Date().toISOString()
+            password: newPassword
           })
           .eq('account_number', accountNumber);
 
         if (updateError) {
           console.error('Error updating password:', updateError);
-          alert('Error updating password');
+          alert('Error updating password: ' + updateError.message);
           return;
         }
       } else {
@@ -179,7 +184,7 @@ const AccountsTab: React.FC = () => {
 
         if (insertError) {
           console.error('Error inserting password:', insertError);
-          alert('Error setting password');
+          alert('Error setting password: ' + insertError.message);
           return;
         }
       }
@@ -276,21 +281,21 @@ const AccountsTab: React.FC = () => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
+          <h3 className="text-2xl font-semibold text-gray-900 mb-6">
             Set Default Password for Account {account.account_number}
           </h3>
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
+          <div className="mb-6">
+            <p className="text-lg text-gray-600 mb-3">
               <strong>Account:</strong> {account.acct_name}
             </p>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-lg text-gray-600 mb-6">
               <strong>Current Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
             </p>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
                 New Default Password
               </label>
               <input
@@ -298,11 +303,11 @@ const AccountsTab: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter new password..."
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-4 py-3 text-lg"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
                 Confirm Password
               </label>
               <input
@@ -310,26 +315,26 @@ const AccountsTab: React.FC = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm password..."
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-4 py-3 text-lg"
               />
             </div>
-            <div className="bg-yellow-50 p-3 rounded-md">
-              <p className="text-sm text-yellow-800">
+            <div className="bg-yellow-50 p-4 rounded-md">
+              <p className="text-lg text-yellow-800">
                 <strong>Note:</strong> This will set a custom default password for this account. 
                 The user will be required to change it on their next login.
               </p>
             </div>
           </div>
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-4 mt-8">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              className="px-6 py-3 text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
             >
               Set Password
             </button>
@@ -341,51 +346,10 @@ const AccountsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-4xl font-bold text-gray-900">Accounts Management</h2>
-          <p className="text-lg text-gray-600 mt-2">
-            Manage account default passwords and settings
-            {totalAccountCount > 0 && ` (${totalAccountCount} total accounts in database)`}
-          </p>
-        </div>
-        <button
-          onClick={fetchAccounts}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-semibold"
-        >
-          Refresh Accounts
-        </button>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="text-lg font-semibold text-gray-600">Total Accounts</div>
-          <div className="text-4xl font-bold text-gray-900">
-            {accounts.length}
-            {totalAccountCount > accounts.length && (
-              <span className="text-lg text-gray-500"> of {totalAccountCount}</span>
-            )}
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="text-lg font-semibold text-gray-600">Custom Passwords</div>
-          <div className="text-4xl font-bold text-blue-600">
-            {accounts.filter(a => a.has_custom_password).length}
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="text-lg font-semibold text-gray-600">Using Default Pattern</div>
-          <div className="text-4xl font-bold text-green-600">
-            {accounts.filter(a => !a.has_custom_password).length}
-          </div>
-        </div>
-      </div>
-
       {/* Search */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center space-x-6">
-          <div className="flex-1">
+        <div className="flex items-center space-x-4">
+          <div className="w-[85%]">
             <label className="block text-lg font-semibold text-gray-700 mb-2">
               Search Accounts
             </label>
@@ -398,10 +362,10 @@ const AccountsTab: React.FC = () => {
             />
           </div>
           <button
-            onClick={() => setSearchTerm('')}
-            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-md text-lg font-semibold mt-8"
+            onClick={fetchAccounts}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-semibold mt-8"
           >
-            Clear
+            Refresh Accounts
           </button>
         </div>
       </div>
@@ -410,7 +374,7 @@ const AccountsTab: React.FC = () => {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-8 py-6 border-b border-gray-200">
           <h3 className="text-2xl font-bold text-gray-900">
-            Account List ({filteredAccounts.length} accounts)
+            Account List (Showing {filteredAccounts.length} of {totalAccountCount} accounts)
           </h3>
         </div>
         
@@ -511,6 +475,39 @@ const AccountsTab: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        
+        {/* Pagination Controls */}
+        {totalAccountCount > itemsPerPage && (
+          <div className="px-8 py-6 border-t border-gray-200 flex items-center justify-between">
+            <div className="text-lg text-gray-700">
+              Page {currentPage} of {Math.ceil(totalAccountCount / itemsPerPage)}
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className={`px-6 py-3 text-lg font-semibold rounded-md ${
+                  currentPage === 1
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalAccountCount / itemsPerPage), prev + 1))}
+                disabled={currentPage === Math.ceil(totalAccountCount / itemsPerPage)}
+                className={`px-6 py-3 text-lg font-semibold rounded-md ${
+                  currentPage === Math.ceil(totalAccountCount / itemsPerPage)
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
