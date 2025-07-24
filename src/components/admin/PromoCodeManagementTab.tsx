@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { RefreshCw, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle, XCircle, Plus, Edit2, Trash2 } from 'lucide-react';
 
 interface PromoCode {
   id: string;
@@ -49,6 +49,19 @@ const PromoCodeManagementTab: React.FC = () => {
   const [testCode, setTestCode] = useState('');
   const [testAccount, setTestAccount] = useState('');
   const [testOrderValue, setTestOrderValue] = useState('100');
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null);
+  const [formData, setFormData] = useState({
+    code: '',
+    name: '',
+    type: 'percent_off' as 'percent_off' | 'dollars_off',
+    value: 0,
+    min_order_value: 0,
+    max_uses_per_account: 999,
+    start_date: '',
+    end_date: '',
+    is_active: true
+  });
 
   useEffect(() => {
     fetchPromoCodes();
@@ -152,6 +165,108 @@ const PromoCodeManagementTab: React.FC = () => {
     return type === 'percent_off' ? `${value}%` : `$${value}`;
   };
 
+  const handleOpenAddModal = () => {
+    setEditingPromo(null);
+    setFormData({
+      code: '',
+      name: '',
+      type: 'percent_off',
+      value: 0,
+      min_order_value: 0,
+      max_uses_per_account: 999,
+      start_date: '',
+      end_date: '',
+      is_active: true
+    });
+    setShowPromoModal(true);
+  };
+
+  const handleOpenEditModal = (promo: PromoCode) => {
+    setEditingPromo(promo);
+    setFormData({
+      code: promo.code,
+      name: promo.name,
+      type: promo.type,
+      value: promo.value,
+      min_order_value: promo.min_order_value,
+      max_uses_per_account: promo.max_uses_per_account || 999,
+      start_date: promo.start_date ? promo.start_date.split('T')[0] : '',
+      end_date: promo.end_date ? promo.end_date.split('T')[0] : '',
+      is_active: promo.is_active
+    });
+    setShowPromoModal(true);
+  };
+
+  const handleSavePromoCode = async () => {
+    try {
+      if (editingPromo) {
+        // Update existing promo code
+        const { error } = await supabase
+          .from('promo_codes')
+          .update({
+            code: formData.code.toUpperCase(),
+            name: formData.name,
+            type: formData.type,
+            value: formData.value,
+            min_order_value: formData.min_order_value,
+            max_uses_per_account: formData.max_uses_per_account === 999 ? null : formData.max_uses_per_account,
+            uses_per_account_tracking: formData.max_uses_per_account < 999,
+            start_date: formData.start_date || null,
+            end_date: formData.end_date || null,
+            is_active: formData.is_active,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingPromo.id);
+
+        if (error) throw error;
+      } else {
+        // Create new promo code
+        const { error } = await supabase
+          .from('promo_codes')
+          .insert({
+            code: formData.code.toUpperCase(),
+            name: formData.name,
+            type: formData.type,
+            value: formData.value,
+            min_order_value: formData.min_order_value,
+            max_uses_per_account: formData.max_uses_per_account === 999 ? null : formData.max_uses_per_account,
+            uses_per_account_tracking: formData.max_uses_per_account < 999,
+            start_date: formData.start_date || null,
+            end_date: formData.end_date || null,
+            is_active: formData.is_active
+          });
+
+        if (error) throw error;
+      }
+
+      setShowPromoModal(false);
+      fetchPromoCodes();
+      fetchPromoStats();
+    } catch (error) {
+      console.error('Error saving promo code:', error);
+      alert('Error saving promo code');
+    }
+  };
+
+  const handleDeletePromoCode = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this promo code?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('promo_codes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      fetchPromoCodes();
+      fetchPromoStats();
+    } catch (error) {
+      console.error('Error deleting promo code:', error);
+      alert('Error deleting promo code');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -159,16 +274,25 @@ const PromoCodeManagementTab: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Promo Code Management</h2>
           <p className="text-sm text-gray-600 mt-1">Monitor and manage promotional codes</p>
         </div>
-        <button
-          onClick={() => {
-            fetchPromoCodes();
-            fetchPromoStats();
-          }}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-        >
-          <RefreshCw size={16} className="mr-2" />
-          Refresh
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleOpenAddModal}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm text-sm font-medium hover:bg-blue-700"
+          >
+            <Plus size={16} className="mr-2" />
+            Add New Promo Code
+          </button>
+          <button
+            onClick={() => {
+              fetchPromoCodes();
+              fetchPromoStats();
+            }}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <RefreshCw size={16} className="mr-2" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Promo Code Testing Tool */}
@@ -360,7 +484,7 @@ const PromoCodeManagementTab: React.FC = () => {
                     ) : promo.max_uses_per_account ? (
                       <span>{promo.max_uses_per_account} per account</span>
                     ) : (
-                      <span className="text-gray-500">Unlimited</span>
+                      <span className="text-gray-500">999 per account</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -373,16 +497,33 @@ const PromoCodeManagementTab: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => togglePromoCode(promo)}
-                      className={`${
-                        promo.is_active 
-                          ? 'text-red-600 hover:text-red-900' 
-                          : 'text-green-600 hover:text-green-900'
-                      }`}
-                    >
-                      {promo.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleOpenEditModal(promo)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => togglePromoCode(promo)}
+                        className={`${
+                          promo.is_active 
+                            ? 'text-orange-600 hover:text-orange-900' 
+                            : 'text-green-600 hover:text-green-900'
+                        }`}
+                        title={promo.is_active ? 'Deactivate' : 'Activate'}
+                      >
+                        {promo.is_active ? '⏸️' : '▶️'}
+                      </button>
+                      <button
+                        onClick={() => handleDeletePromoCode(promo.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -451,6 +592,161 @@ const PromoCodeManagementTab: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Promo Code Modal */}
+      {showPromoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingPromo ? 'Edit Promo Code' : 'Add New Promo Code'}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Promo Code
+                </label>
+                <input
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                  placeholder="SAVE10"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  disabled={!!editingPromo}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description/Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="Save 10% on your order"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Discount Type
+                  </label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value as 'percent_off' | 'dollars_off'})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value="percent_off">Percent Off</option>
+                    <option value="dollars_off">Fixed Amount Off</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Value {formData.type === 'percent_off' ? '(%)' : '($)'}
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.value}
+                    onChange={(e) => setFormData({...formData, value: parseFloat(e.target.value) || 0})}
+                    placeholder="10"
+                    min="0"
+                    step={formData.type === 'percent_off' ? '1' : '0.01'}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Minimum Order Value ($)
+                </label>
+                <input
+                  type="number"
+                  value={formData.min_order_value}
+                  onChange={(e) => setFormData({...formData, min_order_value: parseFloat(e.target.value) || 0})}
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Uses Per Account (999 = unlimited)
+                </label>
+                <input
+                  type="number"
+                  value={formData.max_uses_per_account}
+                  onChange={(e) => setFormData({...formData, max_uses_per_account: parseInt(e.target.value) || 999})}
+                  placeholder="999"
+                  min="1"
+                  max="999"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                  className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                />
+                <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">
+                  Active (Available for use immediately)
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowPromoModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePromoCode}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+              >
+                {editingPromo ? 'Update' : 'Create'} Promo Code
+              </button>
+            </div>
           </div>
         </div>
       )}
