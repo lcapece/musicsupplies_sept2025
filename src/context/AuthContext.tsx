@@ -183,7 +183,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // Use secure session manager instead of localStorage
         const savedUser = sessionManager.getSession();
-        if (savedUser) {
+        if (savedUser && savedUser.accountNumber) {
+          console.log('[AuthContext] Restoring session for user:', savedUser.accountNumber);
           setUser(savedUser);
           setIsAuthenticated(true);
           
@@ -198,16 +199,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Restore JWT claims for RLS policies
           try {
             const accountNumber = parseInt(savedUser.accountNumber, 10);
-            await supabase.rpc('set_admin_jwt_claims', {
-              p_account_number: accountNumber
-            });
-            console.log('[AuthContext] JWT claims restored for account:', accountNumber);
+            if (!isNaN(accountNumber)) {
+              await supabase.rpc('set_admin_jwt_claims', {
+                p_account_number: accountNumber
+              });
+              console.log('[AuthContext] JWT claims restored for account:', accountNumber);
+              
+              // Calculate discount after successful session restoration
+              await calculateBestDiscount(savedUser.accountNumber);
+            }
           } catch (claimsError) {
             console.error('[AuthContext] Failed to restore JWT claims:', claimsError);
+            // Don't fail session restoration if JWT claims fail
           }
         } else {
           // Clean up any old localStorage data
           localStorage.removeItem('user');
+          console.log('[AuthContext] No valid session found, user needs to log in');
         }
       } catch (e) {
         console.error('[AuthContext] Session restoration failed:', e);
@@ -215,6 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setIsAuthenticated(false);
         setIsSpecialAdmin(false);
+        setError(null); // Don't show error on initial load
       }
 
       setIsLoading(false);
@@ -222,9 +231,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Set up session expiration callback
     sessionManager.onExpired(() => {
+      console.log('[AuthContext] Session expired, clearing user state');
       setUser(null);
       setIsAuthenticated(false);
       setIsSpecialAdmin(false);
+      setMaxDiscountRate(null);
+      setCurrentDiscountInfo(null);
       setError('Your session has expired. Please log in again.');
     });
 

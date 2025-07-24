@@ -11,7 +11,7 @@ export interface SessionData {
 
 const SESSION_KEY = 'app_session';
 const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
-const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const IDLE_TIMEOUT = 4 * 60 * 60 * 1000; // 4 hours in milliseconds (increased from 30 minutes)
 
 export class SessionManager {
   private static instance: SessionManager;
@@ -41,8 +41,8 @@ export class SessionManager {
     };
 
     try {
-      // Use sessionStorage instead of localStorage for better security
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+      // Use localStorage for session persistence across tabs/refreshes
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
       this.resetIdleTimer();
     } catch (error) {
       console.error('Failed to store session:', error);
@@ -55,7 +55,18 @@ export class SessionManager {
    */
   getSession(): any | null {
     try {
-      const sessionStr = sessionStorage.getItem(SESSION_KEY);
+      let sessionStr = localStorage.getItem(SESSION_KEY);
+      
+      // Fallback to sessionStorage if localStorage is empty (migration support)
+      if (!sessionStr) {
+        sessionStr = sessionStorage.getItem(SESSION_KEY);
+        if (sessionStr) {
+          // Migrate from sessionStorage to localStorage
+          localStorage.setItem(SESSION_KEY, sessionStr);
+          sessionStorage.removeItem(SESSION_KEY);
+        }
+      }
+      
       if (!sessionStr) return null;
 
       const sessionData: SessionData = JSON.parse(sessionStr);
@@ -66,9 +77,12 @@ export class SessionManager {
         return null;
       }
 
-      // Update last activity timestamp
-      sessionData.timestamp = Date.now();
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+      // Update last activity timestamp less frequently to reduce storage writes
+      const timeSinceLastUpdate = Date.now() - sessionData.timestamp;
+      if (timeSinceLastUpdate > 5 * 60 * 1000) { // Update every 5 minutes
+        sessionData.timestamp = Date.now();
+        localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+      }
       
       return sessionData.user;
     } catch (error) {
@@ -83,7 +97,8 @@ export class SessionManager {
    */
   clearSession(): void {
     try {
-      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_KEY); // Clean up both
       // Clear cart from both storages on logout
       sessionStorage.removeItem('cart');
       localStorage.removeItem('cart');
@@ -170,6 +185,13 @@ export class SessionManager {
         this.onSessionExpired();
       }
     }, IDLE_TIMEOUT);
+  }
+
+  /**
+   * Disable idle timer (for debugging)
+   */
+  disableIdleTimer(): void {
+    this.clearIdleTimer();
   }
 
   /**
