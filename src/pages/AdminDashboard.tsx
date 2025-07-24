@@ -6,8 +6,9 @@ import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import WebOrdersTab from '../components/admin/WebOrdersTab';
 import HistoryTab from '../components/admin/HistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
+import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 
-type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend';
+type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -32,6 +33,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'history', label: 'Order History', icon: '📊' },
     { id: 'sms', label: 'SMS Notifications', icon: '📱' },
     { id: 'clicksend', label: 'ClickSend', icon: '📨' },
+    { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
   ];
 
   const renderTabContent = () => {
@@ -48,6 +50,8 @@ const AdminDashboard: React.FC = () => {
         return <div className="text-center py-8 text-gray-500">SMS Notifications coming soon...</div>;
       case 'clicksend':
         return <ClickSendTab />;
+      case 'promocodes':
+        return <PromoCodeManagementTab />;
       default:
         return <AccountsTab />;
     }

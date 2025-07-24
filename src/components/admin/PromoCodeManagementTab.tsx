@@ -1,442 +1,460 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { PromoCode } from '../../types';
-import { Plus, Filter, Edit, Trash2 } from 'lucide-react';
-import AddPromoCodeModal from './AddPromoCodeModal';
-import EditPromoCodeModal from './EditPromoCodeModal';
+import { RefreshCw, Search, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+
+interface PromoCode {
+  id: string;
+  code: string;
+  name: string;
+  type: 'percent_off' | 'dollars_off';
+  value: number;
+  min_order_value: number;
+  max_uses: number | null;
+  uses_remaining: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+  uses_per_account_tracking: boolean;
+  max_uses_per_account: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PromoCodeStats {
+  promo_code: string;
+  promo_name: string;
+  total_uses: number;
+  unique_accounts: number;
+  total_discount_given: number;
+  avg_order_value: number;
+  max_uses_per_account: number | null;
+  uses_remaining: number | null;
+  is_single_use: boolean;
+}
+
+interface AccountUsage {
+  account_number: string;
+  times_used: number;
+  first_used: string;
+  last_used: string;
+  total_discount: number;
+}
 
 const PromoCodeManagementTab: React.FC = () => {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'upcoming'>('active');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedPromoCode, setSelectedPromoCode] = useState<PromoCode | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{
-    isOpen: boolean;
-    promoCode: PromoCode | null;
-  }>({ isOpen: false, promoCode: null });
+  const [promoStats, setPromoStats] = useState<PromoCodeStats[]>([]);
+  const [selectedPromo, setSelectedPromo] = useState<string>('');
+  const [accountUsage, setAccountUsage] = useState<AccountUsage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{success: boolean; message: string} | null>(null);
+  const [testCode, setTestCode] = useState('');
+  const [testAccount, setTestAccount] = useState('');
+  const [testOrderValue, setTestOrderValue] = useState('100');
 
-  // Fetch promo codes from the database
   useEffect(() => {
-    const fetchPromoCodes = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data, error } = await supabase
-          .from('promo_codes')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setPromoCodes(data || []);
-      } catch (err: any) {
-        console.error('Error fetching promo codes:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchPromoCodes();
+    fetchPromoStats();
   }, []);
 
-  // Filter promo codes based on selected filter
-  const filteredPromoCodes = promoCodes.filter((promo) => {
-    const now = new Date();
-    const startDate = new Date(promo.start_date);
-    const endDate = new Date(promo.end_date);
-
-    switch (filter) {
-      case 'active':
-        return promo.is_active && startDate <= now && endDate >= now;
-      case 'expired':
-        return endDate < now;
-      case 'upcoming':
-        return startDate > now;
-      default:
-        return true;
-    }
-  });
-
-  // Format date to a more readable format
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Determine status label and color for a promo code
-  const getStatusInfo = (promo: PromoCode) => {
-    const now = new Date();
-    const startDate = new Date(promo.start_date);
-    const endDate = new Date(promo.end_date);
-    
-    if (!promo.is_active) {
-      return { label: 'Inactive', color: 'bg-gray-200 text-gray-800' };
-    } else if (startDate > now) {
-      return { label: 'Upcoming', color: 'bg-blue-100 text-blue-800' };
-    } else if (endDate < now) {
-      return { label: 'Expired', color: 'bg-red-100 text-red-800' };
-    } else if (promo.max_uses !== null && promo.uses_remaining !== null && promo.uses_remaining <= 0) {
-      return { label: 'Depleted', color: 'bg-yellow-100 text-yellow-800' };
-    } else {
-      return { label: 'Active', color: 'bg-green-100 text-green-800' };
-    }
-  };
-
-  // Handle edit promo code
-  const handleEditPromoCode = (promo: PromoCode) => {
-    setSelectedPromoCode(promo);
-    setIsEditModalOpen(true);
-  };
-
-  // Handle delete promo code
-  const handleDeletePromoCode = (promo: PromoCode) => {
-    console.log('🗑️ TRASH ICON CLICKED - Opening delete confirmation modal');
-    console.log('Promo code to delete:', promo);
-    setDeleteConfirmation({
-      isOpen: true,
-      promoCode: promo
-    });
-  };
-
-  // Confirm delete promo code
-  const confirmDelete = async () => {
-    console.log('🗑️ DELETE FUNCTION CALLED');
-    console.log('Delete confirmation state:', deleteConfirmation);
-    
-    if (!deleteConfirmation.promoCode) {
-      console.error('❌ No promo code selected for deletion');
-      return;
-    }
-
-    const promoToDelete = deleteConfirmation.promoCode;
-    console.log('🎯 Attempting to delete promo code:', {
-      id: promoToDelete.id,
-      code: promoToDelete.code,
-      name: promoToDelete.name
-    });
-
-    setLoading(true);
-    setError(null);
-
+  const fetchPromoCodes = async () => {
     try {
-      console.log('📡 Making Supabase delete request...');
-      
-      // Get current user info from localStorage (custom auth system)
-      const savedUser = localStorage.getItem('user');
-      let currentUser = null;
-      if (savedUser) {
-        try {
-          currentUser = JSON.parse(savedUser);
-          console.log('👤 Current user from localStorage:', {
-            accountNumber: currentUser.accountNumber,
-            acctName: currentUser.acct_name || currentUser.acctName,
-            isSpecialAdmin: currentUser.is_special_admin
-          });
-        } catch (e) {
-          console.error('❌ Error parsing user from localStorage:', e);
-        }
-      } else {
-        console.error('❌ No user found in localStorage - not authenticated');
-        setError('You must be logged in to delete promo codes');
-        return;
-      }
-
-      // Check if user is admin (account 999)
-      if (!currentUser || currentUser.accountNumber !== '999') {
-        console.error('❌ User is not admin account 999:', currentUser?.accountNumber);
-        setError('Only admin account 999 can delete promo codes');
-        return;
-      }
-
-      // Use the admin delete function that bypasses RLS
-      console.log('🔐 Calling admin_delete_promo_code function...');
-      
-      const { data: deleteResult, error: rpcError } = await supabase.rpc('admin_delete_promo_code', {
-        p_promo_code_id: promoToDelete.id,
-        p_account_number: parseInt(currentUser.accountNumber)
-      });
-
-      console.log('📊 Admin delete function result:', deleteResult);
-
-      if (rpcError) {
-        console.error('❌ RPC error calling admin_delete_promo_code:', rpcError);
-        throw new Error(`Database function error: ${rpcError.message}`);
-      }
-
-      if (!deleteResult || !deleteResult.success) {
-        const errorMessage = deleteResult?.error || 'Unknown error occurred';
-        console.error('❌ Admin delete function failed:', errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      console.log('✅ Delete request completed successfully');
-      console.log('🔄 Refreshing promo codes list...');
-
-      // Refresh the promo codes list
-      const { data, error: fetchError } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (fetchError) {
-        console.error('❌ Error refreshing list:', fetchError);
-        throw fetchError;
-      }
-
-      console.log('📋 Refreshed promo codes:', data?.length || 0, 'codes found');
-      setPromoCodes(data || []);
-
-      console.log('🎉 Closing delete confirmation modal');
-      setDeleteConfirmation({ isOpen: false, promoCode: null });
-      
-      console.log('✅ DELETE OPERATION COMPLETED SUCCESSFULLY');
-    } catch (err: any) {
-      console.error('💥 ERROR in confirmDelete:', err);
-      console.error('Error details:', {
-        message: err.message,
-        code: err.code,
-        details: err.details,
-        hint: err.hint,
-        stack: err.stack
-      });
-      setError(err.message || 'Failed to delete promo code');
-    } finally {
-      setLoading(false);
-      console.log('🏁 confirmDelete function finished');
-    }
-  };
-
-  // Refresh promo codes list
-  const refreshPromoCodes = async () => {
-    setLoading(true);
-    try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('promo_codes')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setPromoCodes(data || []);
-    } catch (err: any) {
-      console.error('Error refreshing promo codes:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Error fetching promo codes:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchPromoStats = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_promo_code_usage_stats');
+      if (error) throw error;
+      setPromoStats(data || []);
+    } catch (error) {
+      console.error('Error fetching promo stats:', error);
+    }
+  };
+
+  const fetchAccountUsage = async (code: string) => {
+    if (!code) return;
+    
+    try {
+      const { data, error } = await supabase.rpc('get_promo_code_usage_by_accounts', {
+        p_code: code
+      });
+      if (error) throw error;
+      setAccountUsage(data || []);
+    } catch (error) {
+      console.error('Error fetching account usage:', error);
+    }
+  };
+
+  const testPromoCode = async () => {
+    if (!testCode || !testAccount || !testOrderValue) {
+      setTestResult({ success: false, message: 'Please fill all test fields' });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('check_promo_code_validity', {
+        p_code: testCode,
+        p_account_number: testAccount,
+        p_order_value: parseFloat(testOrderValue)
+      });
+
+      if (error) throw error;
+
+      const result = Array.isArray(data) ? data[0] : data;
+      
+      if (result.is_valid) {
+        setTestResult({ 
+          success: true, 
+          message: `Valid! ${result.message}. Discount: $${result.discount_amount}` 
+        });
+      } else {
+        setTestResult({ 
+          success: false, 
+          message: result.message || 'Invalid promo code' 
+        });
+      }
+    } catch (error) {
+      console.error('Error testing promo code:', error);
+      setTestResult({ success: false, message: 'Error testing promo code' });
+    }
+  };
+
+  const togglePromoCode = async (promo: PromoCode) => {
+    try {
+      const { error } = await supabase
+        .from('promo_codes')
+        .update({ is_active: !promo.is_active })
+        .eq('id', promo.id);
+
+      if (error) throw error;
+      
+      fetchPromoCodes();
+      fetchPromoStats();
+    } catch (error) {
+      console.error('Error toggling promo code:', error);
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getPromoTypeDisplay = (type: string, value: number) => {
+    return type === 'percent_off' ? `${value}%` : `$${value}`;
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Promo Code Management</h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Filter size={18} />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
-              className="border border-gray-300 rounded-md px-3 py-1 text-sm"
-            >
-              <option value="all">All Promo Codes</option>
-              <option value="active">Active Codes</option>
-              <option value="expired">Expired Codes</option>
-              <option value="upcoming">Upcoming Codes</option>
-            </select>
-          </div>
-          <button
-            onClick={async () => {
-              console.log('🔍 DEBUG: Checking authentication status...');
-              const { data: { user }, error } = await supabase.auth.getUser();
-              console.log('👤 Current user:', user);
-              console.log('❌ Auth error:', error);
-              
-              if (user) {
-                // Check account mapping
-                const { data: accounts, error: accountError } = await supabase
-                  .from('accounts_lcmd')
-                  .select('account_number, acct_name, user_id')
-                  .eq('user_id', user.id);
-                console.log('🏢 User accounts:', accounts);
-                console.log('❌ Account error:', accountError);
-              }
-            }}
-            className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-md text-sm font-medium"
-          >
-            Debug Auth
-          </button>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
-          >
-            <Plus size={16} className="mr-2" />
-            Add New Promo Code
-          </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Promo Code Management</h2>
+          <p className="text-sm text-gray-600 mt-1">Monitor and manage promotional codes</p>
         </div>
+        <button
+          onClick={() => {
+            fetchPromoCodes();
+            fetchPromoStats();
+          }}
+          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+        >
+          <RefreshCw size={16} className="mr-2" />
+          Refresh
+        </button>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+      {/* Promo Code Testing Tool */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Promo Code Validation</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Promo Code</label>
+            <input
+              type="text"
+              value={testCode}
+              onChange={(e) => setTestCode(e.target.value.toUpperCase())}
+              placeholder="SAVE10"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+            <input
+              type="text"
+              value={testAccount}
+              onChange={(e) => setTestAccount(e.target.value)}
+              placeholder="123"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Order Value</label>
+            <input
+              type="number"
+              value={testOrderValue}
+              onChange={(e) => setTestOrderValue(e.target.value)}
+              placeholder="100.00"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={testPromoCode}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
+            >
+              Test Validation
+            </button>
+          </div>
         </div>
-      )}
+        {testResult && (
+          <div className={`mt-4 p-3 rounded-md flex items-center ${
+            testResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+          }`}>
+            {testResult.success ? <CheckCircle size={20} className="mr-2" /> : <XCircle size={20} className="mr-2" />}
+            {testResult.message}
+          </div>
+        )}
+      </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      {/* Usage Statistics */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Usage Statistics</h3>
         </div>
-      ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min Order</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage Limits</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Range</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Code
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Uses
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Unique Accounts
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total Discount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Single Use?
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPromoCodes.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
-                    No promo codes found
+              {promoStats.map((stat) => (
+                <tr key={stat.promo_code} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{stat.promo_code}</div>
+                    <div className="text-sm text-gray-500">{stat.promo_name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {promoCodes.find(p => p.code === stat.promo_code)?.type || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {stat.total_uses}
+                    {stat.uses_remaining !== null && (
+                      <span className="text-gray-500"> ({stat.uses_remaining} left)</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {stat.unique_accounts}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ${stat.total_discount_given.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {stat.is_single_use ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <AlertCircle size={12} className="mr-1" />
+                        Single Use
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-500">No</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      onClick={() => {
+                        setSelectedPromo(stat.promo_code);
+                        fetchAccountUsage(stat.promo_code);
+                      }}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      View Usage
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                filteredPromoCodes.map((promo) => {
-                  const statusInfo = getStatusInfo(promo);
-                  return (
-                    <tr key={promo.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{promo.code}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{promo.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {promo.type === 'percent_off' ? 'Percentage' : 'Fixed Amount'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {promo.type === 'percent_off' ? `${promo.value}%` : `$${promo.value.toFixed(2)}`}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${promo.min_order_value.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="space-y-1">
-                          {/* Total Usage Display */}
-                          <div className="font-medium">
-                            {promo.max_uses === null ? (
-                              <span className="text-green-600">∞ Total Uses</span>
-                            ) : (
-                              <span className="text-blue-600">{promo.uses_remaining || 0}/{promo.max_uses} Total</span>
-                            )}
-                          </div>
-                          
-                          {/* Per-Account Limit Display */}
-                          {promo.uses_per_account_tracking ? (
-                            <div className="text-xs">
-                              {promo.max_uses_per_account === null ? (
-                                <span className="text-gray-500">No per-account limit</span>
-                              ) : (
-                                <span className="text-orange-600 font-semibold bg-orange-50 px-2 py-1 rounded">
-                                  MAX {promo.max_uses_per_account} per account
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-400">Per-account not tracked</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(promo.start_date)} - {formatDate(promo.end_date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusInfo.color}`}>
-                          {statusInfo.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEditPromoCode(promo)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Edit promo code"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeletePromoCode(promo)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete promo code"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+              ))}
             </tbody>
           </table>
         </div>
-      )}
-      
-      <AddPromoCodeModal 
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={refreshPromoCodes}
-      />
+      </div>
 
-      <EditPromoCodeModal 
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedPromoCode(null);
-        }}
-        promoCode={selectedPromoCode}
-        onSuccess={refreshPromoCodes}
-      />
+      {/* Promo Code List */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">All Promo Codes</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Code
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Value
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Min Order
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Valid Period
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Limits
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {promoCodes.map((promo) => (
+                <tr key={promo.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{promo.code}</div>
+                    <div className="text-sm text-gray-500">{promo.name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {getPromoTypeDisplay(promo.type, promo.value)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ${promo.min_order_value.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(promo.start_date)} - {formatDate(promo.end_date)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {promo.uses_per_account_tracking && promo.max_uses_per_account === 1 ? (
+                      <span className="text-red-600 font-medium">Single use only</span>
+                    ) : promo.max_uses_per_account ? (
+                      <span>{promo.max_uses_per_account} per account</span>
+                    ) : (
+                      <span className="text-gray-500">Unlimited</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      promo.is_active 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {promo.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      onClick={() => togglePromoCode(promo)}
+                      className={`${
+                        promo.is_active 
+                          ? 'text-red-600 hover:text-red-900' 
+                          : 'text-green-600 hover:text-green-900'
+                      }`}
+                    >
+                      {promo.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmation.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Delete Promo Code</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete the promo code "{deleteConfirmation.promoCode?.code}"? 
-              This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => {
-                  console.log('❌ CANCEL BUTTON CLICKED - Closing delete modal');
-                  setDeleteConfirmation({ isOpen: false, promoCode: null });
-                }}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  console.log('🔴 DELETE BUTTON CLICKED - Calling confirmDelete function');
-                  confirmDelete();
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-              >
-                Delete
-              </button>
-            </div>
+      {/* Account Usage Modal */}
+      {selectedPromo && accountUsage.length > 0 && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Account Usage for {selectedPromo}
+            </h3>
+            <button
+              onClick={() => {
+                setSelectedPromo('');
+                setAccountUsage([]);
+              }}
+              className="text-gray-400 hover:text-gray-500"
+            >
+              <XCircle size={24} />
+            </button>
+          </div>
+          <div className="overflow-x-auto max-h-96">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Account
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Times Used
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    First Used
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Used
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total Discount
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {accountUsage.map((usage) => (
+                  <tr key={usage.account_number} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {usage.account_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {usage.times_used}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(usage.first_used)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(usage.last_used)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${usage.total_discount.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
