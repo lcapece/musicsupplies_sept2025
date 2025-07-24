@@ -194,6 +194,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.log('[AuthContext] Restored special admin status');
             }
           }
+          
+          // Restore JWT claims for RLS policies
+          try {
+            const accountNumber = parseInt(savedUser.accountNumber, 10);
+            await supabase.rpc('set_admin_jwt_claims', {
+              p_account_number: accountNumber
+            });
+            console.log('[AuthContext] JWT claims restored for account:', accountNumber);
+          } catch (claimsError) {
+            console.error('[AuthContext] Failed to restore JWT claims:', claimsError);
+          }
         } else {
           // Clean up any old localStorage data
           localStorage.removeItem('user');
@@ -371,6 +382,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Use secure session manager instead of localStorage
       sessionManager.setSession(userData);
+      
+      // Set JWT claims for admin access and RLS policies
+      try {
+        const accountNumber = parseInt(userData.accountNumber, 10);
+        await supabase.rpc('set_admin_jwt_claims', {
+          p_account_number: accountNumber
+        });
+        console.log('[AuthContext] JWT claims set for account:', accountNumber);
+      } catch (claimsError) {
+        console.error('[AuthContext] Failed to set JWT claims:', claimsError);
+        // Don't fail login if claims setting fails, but log it
+      }
 
       // Modal logic based on requires_password_change
       if (userData.requires_password_change) {

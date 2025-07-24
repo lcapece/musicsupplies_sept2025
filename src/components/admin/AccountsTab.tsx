@@ -88,15 +88,41 @@ const AccountsTab: React.FC = () => {
       });
 
       // Check which accounts have custom passwords
-      // FIXED LOGIC: An account has a custom password if it has ANY entry in logon_lcmd
-      // The presence of an entry means someone set a custom password
-      // No entry means the account uses the default pattern (first letter + zip)
+      // DEBUGGING: Let's see what's actually happening with the data
       const accountsWithPasswordStatus = (data || []).map(account => {
         const hasEntry = passwordMap.hasOwnProperty(account.account_number);
+        const storedPassword = passwordMap[account.account_number];
+        const defaultPattern = getDefaultPassword(account.acct_name, account.zip);
         
-        // If there's any entry in logon_lcmd, it's a custom password
-        // This fixes the issue where account 105 was showing as default when it has a custom password
-        const hasCustomPassword = hasEntry;
+        // DEBUG: Log account 105 specifically
+        if (account.account_number === 105) {
+          console.log('🔍 DEBUG Account 105:', {
+            account_number: account.account_number,
+            acct_name: account.acct_name,
+            zip: account.zip,
+            hasEntry: hasEntry,
+            storedPassword: storedPassword,
+            defaultPattern: defaultPattern,
+            passwordsMatch: storedPassword?.toLowerCase() === defaultPattern?.toLowerCase()
+          });
+        }
+        
+        // BETTER LOGIC: Check if password exists AND is not the default pattern
+        let hasCustomPassword = false;
+        if (hasEntry && storedPassword) {
+          // If stored password is different from default pattern, it's custom
+          hasCustomPassword = storedPassword.toLowerCase() !== defaultPattern.toLowerCase();
+        }
+        
+        // DEBUG: Log the final decision for account 105
+        if (account.account_number === 105) {
+          console.log('🎯 Account 105 final decision:', {
+            hasCustomPassword: hasCustomPassword,
+            reason: hasEntry ? 
+              (hasCustomPassword ? 'Password differs from default pattern' : 'Password matches default pattern') :
+              'No password entry found'
+          });
+        }
         
         return {
           ...account,

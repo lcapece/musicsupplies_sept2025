@@ -2,26 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
 interface AccountApplication {
-  id: number;
-  company_name: string;
+  id: string;
+  business_name: string;
   contact_name: string;
-  contact_email: string;
-  contact_phone: string;
+  business_email: string;
+  business_phone: string;
   business_address: string;
-  city: string;
-  state: string;
-  zip_code: string;
+  business_city: string;
+  business_state: string;
+  business_zip: string;
   business_type: string;
-  tax_id: string;
-  years_in_business: number;
-  annual_revenue_range: string;
-  primary_music_focus: string;
-  how_did_you_hear: string;
-  additional_info: string;
+  resale_cert_number: string;
+  state_registration: string;
+  year_established: string;
+  estimated_annual_purchases: string;
+  requesting_credit_line: boolean;
+  trade_references?: any;
   status: string;
+  submission_date: string;
   created_at: string;
   reviewed_at?: string;
   reviewed_by?: string;
+  notes?: string;
 }
 
 const AccountApplicationsTab: React.FC = () => {
@@ -39,9 +41,9 @@ const AccountApplicationsTab: React.FC = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('new_account_applications')
+        .from('account_applications')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('submission_date', { ascending: false });
 
       if (error) {
         console.error('Error fetching applications:', error);

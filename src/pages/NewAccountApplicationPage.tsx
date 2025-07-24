@@ -161,7 +161,8 @@ const NewAccountApplicationPage: React.FC = () => {
         return;
     }
 
-    const dataToSubmit = {
+    // Remove other_retailer_type_description from submission since it's merged into notes
+    const { other_retailer_type_description, ...dataToSubmit } = {
       ...formData,
       // If 'Other' type, combine into notes or ensure a dedicated field exists if preferred
       notes: formData.business_type === "Other" 
@@ -169,8 +170,6 @@ const NewAccountApplicationPage: React.FC = () => {
              : formData.notes,
       trade_references: formData.requesting_credit_line ? formData.trade_references : null, // Send null if not requesting
     };
-    // Remove other_retailer_type_description if it was merged into notes and not a separate DB column
-    // delete dataToSubmit.other_retailer_type_description; 
 
     try {
       const { error } = await supabase.from('account_applications').insert([dataToSubmit]);
