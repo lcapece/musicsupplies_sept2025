@@ -28,15 +28,17 @@ const ClickSendTab: React.FC = () => {
     setTestMessages(prev => [newTestMessage, ...prev]);
 
     try {
+      console.log('Sending ad-hoc SMS:', { smsNumber, message });
+      
       const { data, error } = await supabase.functions.invoke('send-admin-sms', {
         body: {
-          eventName: 'Ad-Hoc',
-          smsNumber: smsNumber,
+          eventName: 'adhoc_sms',
           message: message,
-          accountNumber: 'Ad-Hoc',
-          accountName: 'Admin Direct Message'
+          customPhones: [smsNumber]
         }
       });
+
+      console.log('SMS Response:', { data, error });
 
       if (error) {
         console.error('Error sending ad-hoc SMS:', error);
@@ -44,7 +46,16 @@ const ClickSendTab: React.FC = () => {
         setTestMessages(prev => prev.map(msg => 
           msg.id === messageId ? { ...msg, status: 'failed' } : msg
         ));
-        alert('Failed to send ad-hoc SMS');
+        alert(`Failed to send ad-hoc SMS: ${error.message || 'Unknown error'}`);
+        return;
+      }
+
+      if (data && !data.success) {
+        console.error('SMS function returned failure:', data);
+        setTestMessages(prev => prev.map(msg => 
+          msg.id === messageId ? { ...msg, status: 'failed' } : msg
+        ));
+        alert(`Failed to send SMS: ${data.message || 'Unknown error'}`);
         return;
       }
 
@@ -53,13 +64,14 @@ const ClickSendTab: React.FC = () => {
         msg.id === messageId ? { ...msg, status: 'sent' } : msg
       ));
 
+      console.log('Ad-hoc SMS sent successfully:', data);
       alert('Ad-hoc SMS sent successfully');
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error sending SMS:', error);
       setTestMessages(prev => prev.map(msg => 
         msg.id === messageId ? { ...msg, status: 'failed' } : msg
       ));
-      alert('Error sending ad-hoc SMS');
+      alert(`Error sending ad-hoc SMS: ${(error as Error).message || 'Unknown error'}`);
     }
   };
 
@@ -214,7 +226,8 @@ const ClickSendTab: React.FC = () => {
         </div>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Use the "Send Ad-Hoc SMS" button to send a one-time message to any phone number</li>
-          <li>• Always include the country code with the phone number (e.g., +1 for US/Canada)</li>
+          <li>• USA numbers: You can enter with or without +1 (system will automatically add +1 if missing)</li>
+          <li>• Examples: "5164550980", "+15164550980", or "1-516-455-0980" all work</li>
           <li>• Messages are limited to 160 characters</li>
           <li>• Message status will be displayed in the Recent Messages section</li>
         </ul>

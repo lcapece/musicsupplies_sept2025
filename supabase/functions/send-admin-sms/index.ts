@@ -27,8 +27,7 @@ async function sendClickSendSms(to: string, message: string) {
     body: JSON.stringify({
       messages: [
         {
-          source: 'api',
-          from: '18338291702',
+          source: 'MusicSupplies',
           body: message,
           to: to
         }
