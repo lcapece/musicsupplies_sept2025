@@ -10,7 +10,7 @@ echo 1. Set Password Feature Failing
 echo 2. Order History Not Loading  
 echo 3. New Account Application Fixed (code already updated)
 echo.
-echo INSTRUCTIONS:
+echo INSTRUCTIONS:3
 echo 1. Go to your Supabase Dashboard
 echo 2. Open the SQL Editor
 echo 3. Copy the contents of fix_admin_rls_policies.sql

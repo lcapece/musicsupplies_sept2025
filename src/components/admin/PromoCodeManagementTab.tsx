@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { RefreshCw, Search, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
 interface PromoCode {
   id: string;
@@ -45,7 +45,6 @@ const PromoCodeManagementTab: React.FC = () => {
   const [promoStats, setPromoStats] = useState<PromoCodeStats[]>([]);
   const [selectedPromo, setSelectedPromo] = useState<string>('');
   const [accountUsage, setAccountUsage] = useState<AccountUsage[]>([]);
-  const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<{success: boolean; message: string} | null>(null);
   const [testCode, setTestCode] = useState('');
   const [testAccount, setTestAccount] = useState('');
@@ -58,7 +57,6 @@ const PromoCodeManagementTab: React.FC = () => {
 
   const fetchPromoCodes = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('promo_codes')
         .select('*')
@@ -68,8 +66,6 @@ const PromoCodeManagementTab: React.FC = () => {
       setPromoCodes(data || []);
     } catch (error) {
       console.error('Error fetching promo codes:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

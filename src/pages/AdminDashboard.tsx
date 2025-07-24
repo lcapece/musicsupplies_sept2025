@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Header from '../components/Header';
+import { LogOut } from 'lucide-react';
 import AccountsTab from '../components/admin/AccountsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import WebOrdersTab from '../components/admin/WebOrdersTab';
 import HistoryTab from '../components/admin/HistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
-import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 
-type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes';
+type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend';
 
 const AdminDashboard: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
-  const [headerView, setHeaderView] = useState<'products' | 'orders' | 'weborders'>('products');
 
   if (!isAuthenticated || user?.accountNumber !== '999') {
     return (
@@ -33,7 +31,6 @@ const AdminDashboard: React.FC = () => {
     { id: 'history', label: 'Order History', icon: '📊' },
     { id: 'sms', label: 'SMS Notifications', icon: '📱' },
     { id: 'clicksend', label: 'ClickSend', icon: '📨' },
-    { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
   ];
 
   const renderTabContent = () => {
@@ -50,8 +47,6 @@ const AdminDashboard: React.FC = () => {
         return <div className="text-center py-8 text-gray-500">SMS Notifications coming soon...</div>;
       case 'clicksend':
         return <ClickSendTab />;
-      case 'promocodes':
-        return <PromoCodeManagementTab />;
       default:
         return <AccountsTab />;
     }
@@ -59,10 +54,21 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header 
-        onViewChange={setHeaderView}
-        activeView={headerView}
-      />
+      {/* Simple header with just logout button */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center h-16">
+            <h1 className="text-xl font-semibold text-gray-900">Admin Backend System</h1>
+            <button
+              onClick={logout}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
       
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-lg">
