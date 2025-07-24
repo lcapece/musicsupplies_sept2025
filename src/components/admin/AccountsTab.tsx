@@ -144,8 +144,13 @@ const AccountsTab: React.FC = () => {
     }
   };
 
-  const handleSetDefaultPassword = async (accountNumber: number, newPassword: string) => {
+  const handleSetPassword = async (accountNumber: number, newPassword: string) => {
     try {
+      // Get the account details to check if password matches default pattern
+      const account = accounts.find(a => a.account_number === accountNumber);
+      const defaultPattern = account ? getDefaultPassword(account.acct_name, account.zip) : '';
+      const isDefaultPattern = newPassword.toLowerCase() === defaultPattern.toLowerCase();
+
       // Check if account already has a password entry
       const { data: existingPassword, error: checkError } = await supabase
         .from('logon_lcmd')
@@ -189,22 +194,18 @@ const AccountsTab: React.FC = () => {
         }
       }
 
-      // Update the account to require password change (this is on accounts_lcmd table)
-      const { error: accountUpdateError } = await supabase
-        .from('accounts_lcmd')
-        .update({ requires_password_change: true })
-        .eq('account_number', accountNumber);
-
-      if (accountUpdateError) {
-        console.error('Error updating account:', accountUpdateError);
-      }
-
       setShowPasswordModal(false);
       fetchAccounts();
-      alert('Default password set successfully. User will be required to change it on next login.');
+      
+      // Show appropriate message based on whether password matches default pattern
+      if (isDefaultPattern) {
+        alert('Default password has been set');
+      } else {
+        alert('A new password has been set');
+      }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error setting default password');
+      alert('Error setting password');
     }
   };
 
@@ -283,20 +284,20 @@ const AccountsTab: React.FC = () => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
           <h3 className="text-2xl font-semibold text-gray-900 mb-6">
-            Set Default Password for Account {account.account_number}
+            Set Password for Account {account.account_number}
           </h3>
           <div className="mb-6">
             <p className="text-lg text-gray-600 mb-3">
               <strong>Account:</strong> {account.acct_name}
             </p>
             <p className="text-lg text-gray-600 mb-6">
-              <strong>Current Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
+              <strong>Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
             </p>
           </div>
           <div className="space-y-6">
             <div>
               <label className="block text-lg font-medium text-gray-700 mb-2">
-                New Default Password
+                New Password
               </label>
               <input
                 type="password"
@@ -317,12 +318,6 @@ const AccountsTab: React.FC = () => {
                 placeholder="Confirm password..."
                 className="w-full border border-gray-300 rounded-md px-4 py-3 text-lg"
               />
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-md">
-              <p className="text-lg text-yellow-800">
-                <strong>Note:</strong> This will set a custom default password for this account. 
-                The user will be required to change it on their next login.
-              </p>
             </div>
           </div>
           <div className="flex justify-end space-x-4 mt-8">
@@ -345,9 +340,9 @@ const AccountsTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Search */}
-      <div className="bg-white p-6 rounded-lg shadow">
+      <div className="bg-white p-6 rounded-lg shadow mt-0">
         <div className="flex items-center space-x-4">
           <div className="w-[85%]">
             <label className="block text-lg font-semibold text-gray-700 mb-2">
@@ -371,7 +366,7 @@ const AccountsTab: React.FC = () => {
       </div>
 
       {/* Accounts Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden mt-6">
         <div className="px-8 py-6 border-b border-gray-200">
           <h3 className="text-2xl font-bold text-gray-900">
             Account List (Showing {filteredAccounts.length} of {totalAccountCount} accounts)
@@ -517,7 +512,7 @@ const AccountsTab: React.FC = () => {
         <PasswordModal
           account={selectedAccount}
           onClose={() => setShowPasswordModal(false)}
-          onSave={handleSetDefaultPassword}
+          onSave={handleSetPassword}
         />
       )}
     </div>

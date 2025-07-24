@@ -73,17 +73,8 @@ const AdminDashboard: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-lg">
           <div className="border-b border-gray-200">
-            <div className="px-6 py-6">
-              <h1 className="text-5xl font-bold text-gray-900">
-                Admin Dashboard
-              </h1>
-              <p className="text-2xl text-gray-600 mt-2">
-                Welcome back, {user?.acctName || 'Administrator'}
-              </p>
-            </div>
-            
             {/* Tab Navigation */}
-            <div className="px-6">
+            <div className="px-6 pt-6">
               <nav className="-mb-px flex space-x-8">
                 {tabs.map((tab) => (
                   <button
