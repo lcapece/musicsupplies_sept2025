@@ -28,12 +28,13 @@ const ClickSendTab: React.FC = () => {
     setTestMessages(prev => [newTestMessage, ...prev]);
 
     try {
-      const { data, error } = await supabase.functions.invoke('send-test-sms', {
+      const { data, error } = await supabase.functions.invoke('send-admin-sms', {
         body: {
-          accountNumber: 'Ad-Hoc',
-          accountName: 'Admin Direct Message',
+          eventName: 'Ad-Hoc',
           smsNumber: smsNumber,
-          message: message
+          message: message,
+          accountNumber: 'Ad-Hoc',
+          accountName: 'Admin Direct Message'
         }
       });
 
@@ -208,6 +209,9 @@ const ClickSendTab: React.FC = () => {
       {/* Instructions */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <h4 className="text-sm font-semibold text-blue-900 mb-2">SMS Messaging Instructions</h4>
+        <div className="text-sm text-blue-600 mb-2">
+          SMS will be sent from: <span className="font-mono font-bold">+18338291653</span> (Carrier Approved)
+        </div>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Use the "Send Ad-Hoc SMS" button to send a one-time message to any phone number</li>
           <li>• Always include the country code with the phone number (e.g., +1 for US/Canada)</li>
