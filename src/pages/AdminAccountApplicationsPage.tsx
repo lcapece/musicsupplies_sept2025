@@ -10,20 +10,26 @@ interface TradeReference {
 }
 
 interface AccountApplication {
-  id: string;
+  id: number;
   created_at: string;
-  submission_date?: string; // from existing table schema
-  business_name: string;
+  company_name: string;
   contact_name: string;
-  business_email: string;
-  business_phone: string;
+  contact_email: string;
+  contact_phone: string;
+  business_address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  business_type: string;
+  tax_id: string;
+  years_in_business: string;
+  annual_revenue_range: string;
+  primary_music_focus: string;
+  how_did_you_hear: string;
+  additional_info?: string;
   status: string;
-  resale_cert_number?: string;
-  state_registration?: string; // state_of_certificate_issue
-  business_type?: string;
-  requesting_credit_line?: boolean;
-  trade_references?: TradeReference[] | null;
-  // Add other fields from your table you want to display
+  reviewed_at?: string;
+  reviewed_by?: string;
   notes?: string;
 }
 
@@ -32,6 +38,38 @@ const AdminAccountApplicationsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<AccountApplication | null>(null);
+  const [processingAction, setProcessingAction] = useState<boolean>(false);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  const handleUpdateStatus = async (id: number, status: string) => {
+    try {
+      setProcessingAction(true);
+      const { error } = await supabase
+        .from('new_account_applications')
+        .update({ 
+          status,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: 'Admin'
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error updating application status:', error);
+        alert('Error updating application status: ' + error.message);
+        return;
+      }
+
+      // Refresh applications list
+      setRefreshTrigger(prev => prev + 1);
+      alert(`Application ${status} successfully`);
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert('Error updating application status');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -39,9 +77,9 @@ const AdminAccountApplicationsPage: React.FC = () => {
       setError(null);
       try {
         const { data, error: fetchError } = await supabase
-          .from('account_applications')
+          .from('new_account_applications')
           .select('*') // Select all columns for now, can be specific later
-          .order('submission_date', { ascending: false }); // Show newest first
+          .order('created_at', { ascending: false }); // Show newest first
 
         if (fetchError) {
           console.error("Error fetching account applications:", fetchError);
@@ -60,7 +98,7 @@ const AdminAccountApplicationsPage: React.FC = () => {
     };
 
     fetchApplications();
-  }, []);
+  }, [refreshTrigger]);
 
   if (loading) {
     return <div className="p-6 text-center">Loading applications...</div>;
@@ -70,11 +108,58 @@ const AdminAccountApplicationsPage: React.FC = () => {
     return <div className="p-6 text-red-600 text-center">Error loading applications: {error}</div>;
   }
 
+  // Filter applications based on selected status
+  const filteredApplications = applications.filter(app => {
+    if (filterStatus === 'all') return true;
+    return app.status === filterStatus;
+  });
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <h1 className="text-4xl font-bold text-gray-800 mb-8">New Account Applications</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold text-gray-800">New Account Applications</h1>
+        <div className="flex items-center space-x-4">
+          <label className="text-sm font-medium text-gray-700">Filter by Status:</label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+          >
+            <option value="all">All Applications</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <button
+            onClick={() => setRefreshTrigger(prev => prev + 1)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-md text-sm font-medium"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
       
-      {applications.length === 0 ? (
+      {/* Status counts */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Total Applications</div>
+          <div className="text-2xl font-bold text-blue-600">{applications.length}</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Pending</div>
+          <div className="text-2xl font-bold text-yellow-600">{applications.filter(app => app.status === 'pending').length}</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Approved</div>
+          <div className="text-2xl font-bold text-green-600">{applications.filter(app => app.status === 'approved').length}</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Rejected</div>
+          <div className="text-2xl font-bold text-red-600">{applications.filter(app => app.status === 'rejected').length}</div>
+        </div>
+      </div>
+      
+      {filteredApplications.length === 0 ? (
         <p className="text-center text-gray-500 text-xl">No account applications found.</p>
       ) : (
         <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
@@ -91,15 +176,15 @@ const AdminAccountApplicationsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {applications.map((app) => (
+              {filteredApplications.map((app) => (
                 <tr key={app.id} className="hover:bg-gray-50">
                   <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">
-                    {app.submission_date ? new Date(app.submission_date).toLocaleDateString() : new Date(app.created_at).toLocaleDateString()}
+                    {new Date(app.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-5 whitespace-nowrap text-base font-semibold text-gray-900">{app.business_name}</td>
+                  <td className="px-6 py-5 whitespace-nowrap text-base font-semibold text-gray-900">{app.company_name}</td>
                   <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.contact_name}</td>
-                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.business_email}</td>
-                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.business_phone}</td>
+                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.contact_email}</td>
+                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-700">{app.contact_phone}</td>
                   <td className="px-6 py-5 whitespace-nowrap text-base">
                     <span className={`px-3 py-1 inline-flex text-sm font-bold rounded-full ${
                       app.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -137,32 +222,50 @@ const AdminAccountApplicationsPage: React.FC = () => {
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">
-                      Application Details: {selectedApplication.business_name}
+                      Application Details: {selectedApplication.company_name}
                     </h3>
                     <div className="mt-2 text-sm text-gray-600 space-y-2">
-                      <p><strong>Submitted:</strong> {selectedApplication.submission_date ? new Date(selectedApplication.submission_date).toLocaleString() : new Date(selectedApplication.created_at).toLocaleString()}</p>
+                      <p><strong>Submitted:</strong> {new Date(selectedApplication.created_at).toLocaleString()}</p>
                       <p><strong>Status:</strong> {selectedApplication.status}</p>
-                      <p><strong>Contact:</strong> {selectedApplication.contact_name} ({selectedApplication.business_email}, {selectedApplication.business_phone})</p>
-                      <p><strong>Resale Cert #:</strong> {selectedApplication.resale_cert_number || 'N/A'}</p>
-                      <p><strong>State of Issue:</strong> {selectedApplication.state_registration || 'N/A'}</p>
-                      <p><strong>Retailer Type:</strong> {selectedApplication.business_type || 'N/A'}</p>
-                      <p><strong>Credit Line Requested:</strong> {selectedApplication.requesting_credit_line ? 'Yes' : 'No'}</p>
-                      {selectedApplication.requesting_credit_line && selectedApplication.trade_references && (
-                        <div>
-                          <strong>Trade References:</strong>
-                          <ul className="list-disc list-inside ml-4">
-                            {selectedApplication.trade_references.map((ref, idx) => (
-                              <li key={idx}>{ref.name} - {ref.phone} ({ref.addn_info || 'No addn info'})</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                       <p><strong>Notes:</strong> {selectedApplication.notes || 'N/A'}</p>
+                      <p><strong>Contact:</strong> {selectedApplication.contact_name} ({selectedApplication.contact_email}, {selectedApplication.contact_phone})</p>
+                      <p><strong>Resale Cert #:</strong> {selectedApplication.tax_id || 'N/A'}</p>
+                      <p><strong>Business Type:</strong> {selectedApplication.business_type || 'N/A'}</p>
+                      <p><strong>Years in Business:</strong> {selectedApplication.years_in_business || 'N/A'}</p>
+                      <p><strong>Revenue Range:</strong> {selectedApplication.annual_revenue_range || 'N/A'}</p>
+                      <p><strong>Address:</strong> {selectedApplication.business_address}, {selectedApplication.city}, {selectedApplication.state} {selectedApplication.zip_code}</p>
+                      <p><strong>Additional Info:</strong> {selectedApplication.additional_info || 'N/A'}</p>
+                      <p><strong>Notes:</strong> {selectedApplication.notes || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {selectedApplication.status === 'pending' && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={processingAction}
+                      className="ml-3 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={() => {
+                        handleUpdateStatus(selectedApplication.id, 'approved');
+                        setSelectedApplication(null);
+                      }}
+                    >
+                      {processingAction ? 'Processing...' : 'Approve'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={processingAction}
+                      className="ml-3 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={() => {
+                        handleUpdateStatus(selectedApplication.id, 'rejected');
+                        setSelectedApplication(null);
+                      }}
+                    >
+                      {processingAction ? 'Processing...' : 'Reject'}
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
@@ -170,7 +273,6 @@ const AdminAccountApplicationsPage: React.FC = () => {
                 >
                   Close
                 </button>
-                {/* TODO: Add buttons for Approve/Reject status changes if needed */}
               </div>
             </div>
           </div>

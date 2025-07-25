@@ -161,18 +161,37 @@ const NewAccountApplicationPage: React.FC = () => {
         return;
     }
 
-    // Remove other_retailer_type_description from submission since it's merged into notes
-    const { other_retailer_type_description, ...dataToSubmit } = {
-      ...formData,
-      // If 'Other' type, combine into notes or ensure a dedicated field exists if preferred
-      notes: formData.business_type === "Other" 
-             ? `Retailer Type: Other - ${formData.other_retailer_type_description}. ${formData.notes}` 
-             : formData.notes,
-      trade_references: formData.requesting_credit_line ? formData.trade_references : null, // Send null if not requesting
+    const dataToSubmit: any = {
+      company_name: formData.business_name,
+      contact_name: formData.contact_name,
+      contact_email: formData.business_email,
+      contact_phone: formData.business_phone,
+      business_address: formData.business_address,
+      city: formData.business_city,
+      state: formData.business_state,
+      zip_code: formData.business_zip,
+      business_type: formData.business_type,
+      tax_id: formData.resale_cert_number,
+      years_in_business: formData.year_established,
+      annual_revenue_range: formData.estimated_annual_purchases,
+      primary_music_focus: 'Not Specified', // Placeholder for missing form field
+      how_did_you_hear: 'Not Specified', // Placeholder for missing form field
+      additional_info: `Contact Title: ${formData.contact_title}\nState Registration: ${formData.state_registration}\nWebsite: ${formData.business_website}`,
+      notes: formData.business_type === "Other"
+        ? `Retailer Type: Other - ${formData.other_retailer_type_description}. ${formData.notes}`
+        : formData.notes,
     };
 
+    if (formData.requesting_credit_line) {
+        const references_info = formData.trade_references
+            .filter(ref => ref.name && ref.phone)
+            .map(ref => `${ref.name} (${ref.phone}) - ${ref.addn_info}`)
+            .join(', ');
+        dataToSubmit.additional_info += `\n\nCredit Line Requested. References: [${references_info}]`;
+    }
+
     try {
-      const { error } = await supabase.from('account_applications').insert([dataToSubmit]);
+      const { error } = await supabase.from('new_account_applications').insert([dataToSubmit]);
       if (error) {
         console.error("Error submitting application:", error);
         setFormError(`Submission failed: ${error.message}`);
