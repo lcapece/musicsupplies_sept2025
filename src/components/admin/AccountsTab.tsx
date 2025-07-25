@@ -18,6 +18,8 @@ interface LogonEntry {
   password: string;
 }
 
+type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone';
+
 const AccountsTab: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,11 +29,19 @@ const AccountsTab: React.FC = () => {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortColumn, setSortColumn] = useState<SortableColumn>('account_number');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const itemsPerPage = 10;
 
   useEffect(() => {
     fetchAccounts();
-  }, [currentPage]);
+  }, [currentPage, sortColumn, sortDirection, searchTerm]);
+
+  useEffect(() => {
+    if (searchTerm) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm]);
 
   const getDefaultPassword = (acctName: string, zip: string) => {
     if (!acctName || !zip) return '';
@@ -44,20 +54,7 @@ const AccountsTab: React.FC = () => {
     try {
       setLoading(true);
       
-      // First get the total count
-      const { count, error: countError } = await supabase
-        .from('accounts_lcmd')
-        .select('*', { count: 'exact', head: true });
-      
-      if (!countError && count) {
-        setTotalAccountCount(count);
-      }
-
-      // Calculate offset for pagination
-      const offset = (currentPage - 1) * itemsPerPage;
-
-      // Fetch only the accounts for current page
-      const { data, error } = await supabase
+      let query = supabase
         .from('accounts_lcmd')
         .select(`
           account_number,
@@ -68,13 +65,39 @@ const AccountsTab: React.FC = () => {
           zip,
           phone,
           requires_password_change
-        `)
-        .order('account_number', { ascending: true })
-        .range(offset, offset + itemsPerPage - 1);
+        `, { count: 'exact' });
+
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const numericSearchTerm = parseInt(searchTerm, 10);
+        const orConditions = [
+          `acct_name.ilike.%${searchLower}%`,
+          `city.ilike.%${searchLower}%`,
+          `state.ilike.%${searchLower}%`,
+        ];
+        if (!isNaN(numericSearchTerm)) {
+          orConditions.push(`account_number.eq.${numericSearchTerm}`);
+        }
+        query = query.or(orConditions.join(','));
+      } else {
+        // Calculate offset for pagination only when not searching
+        const offset = (currentPage - 1) * itemsPerPage;
+        query = query.range(offset, offset + itemsPerPage - 1);
+      }
+
+      // Always apply sorting
+      query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+
+      const { data, error, count } = await query;
 
       if (error) {
         console.error('Error fetching accounts:', error);
+        setAccounts([]);
         return;
+      }
+
+      if (count) {
+        setTotalAccountCount(count);
       }
 
       // Get password entries only for the current page accounts
@@ -142,6 +165,15 @@ const AccountsTab: React.FC = () => {
       console.error('Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSort = (column: SortableColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
     }
   };
 
@@ -296,14 +328,7 @@ const AccountsTab: React.FC = () => {
     }
   };
 
-  const filteredAccounts = accounts.filter(account => {
-    const searchLower = searchTerm.toLowerCase();
-    return !searchTerm || 
-      account.account_number.toString().includes(searchTerm) ||
-      (account.acct_name || '').toLowerCase().includes(searchLower) ||
-      (account.city || '').toLowerCase().includes(searchLower) ||
-      (account.state || '').toLowerCase().includes(searchLower);
-  });
+  const filteredAccounts = accounts;
 
   const PasswordModal: React.FC<{
     account: Account;
@@ -520,7 +545,10 @@ const AccountsTab: React.FC = () => {
       <div className="bg-white rounded-lg shadow overflow-hidden mt-6">
         <div className="px-8 py-6 border-b border-gray-200">
           <h3 className="text-2xl font-bold text-gray-900">
-            Account List (Showing {filteredAccounts.length} of {totalAccountCount} accounts)
+            {searchTerm 
+              ? `Found ${totalAccountCount} matching accounts`
+              : `Account List (Showing ${filteredAccounts.length} of ${totalAccountCount} accounts)`
+            }
           </h3>
         </div>
         
@@ -537,17 +565,17 @@ const AccountsTab: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Account #
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('account_number')}>
+                    Account # {sortColumn === 'account_number' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Company Name
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('acct_name')}>
+                    Company Name {sortColumn === 'acct_name' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Location
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('city')}>
+                    Location {sortColumn === 'city' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Phone
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('phone')}>
+                    Phone {sortColumn === 'phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Password Status
@@ -626,7 +654,7 @@ const AccountsTab: React.FC = () => {
         )}
         
         {/* Pagination Controls */}
-        {totalAccountCount > itemsPerPage && (
+        {!searchTerm && totalAccountCount > itemsPerPage && (
           <div className="px-8 py-6 border-t border-gray-200 flex items-center justify-between">
             <div className="text-lg text-gray-700">
               Page {currentPage} of {Math.ceil(totalAccountCount / itemsPerPage)}
