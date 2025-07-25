@@ -23,6 +23,7 @@ const AccountsTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showTestPasswordModal, setShowTestPasswordModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -247,6 +248,54 @@ const AccountsTab: React.FC = () => {
     return getDefaultPassword(account.acct_name, account.zip) || 'N/A';
   };
 
+  const isInactiveAccount = (account: Account) => {
+    const defaultPattern = getDefaultPassword(account.acct_name, account.zip);
+    return defaultPattern && defaultPattern.slice(-5) === 'xxxxx';
+  };
+
+  const testPassword = async (accountNumber: number, testPassword: string) => {
+    try {
+      // Get the account's actual password
+      const { data: passwordData, error } = await supabase
+        .from('logon_lcmd')
+        .select('password')
+        .eq('account_number', accountNumber)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching password:', error);
+        return { success: false, message: 'Error checking password' };
+      }
+
+      // If no password entry exists, check against default pattern
+      if (!passwordData) {
+        const account = accounts.find(a => a.account_number === accountNumber);
+        if (account) {
+          const defaultPattern = getDefaultPassword(account.acct_name, account.zip);
+          const isCorrect = testPassword.toLowerCase() === defaultPattern.toLowerCase();
+          return { 
+            success: true, 
+            isCorrect, 
+            message: isCorrect ? 'CORRECT' : 'INCORRECT'
+          };
+        }
+        return { success: false, message: 'Account not found' };
+      }
+
+      // Check against stored password
+      const isCorrect = testPassword === passwordData.password;
+      return { 
+        success: true, 
+        isCorrect, 
+        message: isCorrect ? 'CORRECT' : 'INCORRECT'
+      };
+
+    } catch (error) {
+      console.error('Error testing password:', error);
+      return { success: false, message: 'Error testing password' };
+    }
+  };
+
   const filteredAccounts = accounts.filter(account => {
     const searchLower = searchTerm.toLowerCase();
     return !searchTerm || 
@@ -339,6 +388,108 @@ const AccountsTab: React.FC = () => {
     );
   };
 
+  const TestPasswordModal: React.FC<{
+    account: Account;
+    onClose: () => void;
+  }> = ({ account, onClose }) => {
+    const [testPasswordInput, setTestPasswordInput] = useState('');
+    const [result, setResult] = useState<{message: string; isCorrect?: boolean} | null>(null);
+    const [testing, setTesting] = useState(false);
+
+    const handleTest = async () => {
+      if (!testPasswordInput.trim()) {
+        alert('Please enter a password to test');
+        return;
+      }
+
+      setTesting(true);
+      const testResult = await testPassword(account.account_number, testPasswordInput);
+      setTesting(false);
+
+      if (testResult.success) {
+        setResult({
+          message: testResult.message,
+          isCorrect: testResult.isCorrect
+        });
+      } else {
+        alert(testResult.message);
+      }
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleTest();
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
+          <h3 className="text-2xl font-semibold text-gray-900 mb-6">
+            Test Password for Account {account.account_number}
+          </h3>
+          <div className="mb-6">
+            <p className="text-lg text-gray-600 mb-3">
+              <strong>Account:</strong> {account.acct_name}
+            </p>
+            <p className="text-lg text-gray-600 mb-6">
+              <strong>Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
+            </p>
+          </div>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Enter Password to Test
+              </label>
+              <input
+                type="password"
+                value={testPasswordInput}
+                onChange={(e) => setTestPasswordInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Enter password to verify..."
+                className="w-full border border-gray-300 rounded-md px-4 py-3 text-lg"
+                disabled={testing}
+              />
+            </div>
+            {result && (
+              <div className={`p-4 rounded-md text-center ${
+                result.isCorrect 
+                  ? 'bg-green-100 text-green-800 border border-green-200' 
+                  : 'bg-red-100 text-red-800 border border-red-200'
+              }`}>
+                <div className="text-3xl font-bold mb-2">
+                  {result.message}
+                </div>
+                <div className="text-lg">
+                  {result.isCorrect ? '✓ Password matches' : '✗ Password does not match'}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end space-x-4 mt-8">
+            <button
+              onClick={onClose}
+              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              Close
+            </button>
+            <button
+              onClick={handleTest}
+              disabled={testing}
+              className={`px-6 py-3 text-lg font-medium text-white rounded-md ${
+                testing
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+              }`}
+            >
+              {testing ? 'Testing...' : 'Test Password'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       {/* Search */}
@@ -411,7 +562,7 @@ const AccountsTab: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAccounts.map((account) => (
-                  <tr key={account.account_number} className="hover:bg-gray-50">
+                  <tr key={account.account_number} className={`${isInactiveAccount(account) ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-gray-50'}`}>
                     <td className="px-8 py-6 whitespace-nowrap text-lg font-bold text-gray-900">
                       {account.account_number}
                     </td>
@@ -454,16 +605,17 @@ const AccountsTab: React.FC = () => {
                           }}
                           className="text-blue-600 hover:text-blue-900 font-semibold text-base"
                         >
-                          Set Password
+                          Set Pwd
                         </button>
-                        {account.has_custom_password && (
-                          <button
-                            onClick={() => handleResetPassword(account.account_number)}
-                            className="text-orange-600 hover:text-orange-900 font-semibold text-base"
-                          >
-                            Reset to Default
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedAccount(account);
+                            setShowTestPasswordModal(true);
+                          }}
+                          className="text-green-600 hover:text-green-900 font-semibold text-base"
+                        >
+                          Test Pwd
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -513,6 +665,14 @@ const AccountsTab: React.FC = () => {
           account={selectedAccount}
           onClose={() => setShowPasswordModal(false)}
           onSave={handleSetPassword}
+        />
+      )}
+
+      {/* Test Password Modal */}
+      {showTestPasswordModal && selectedAccount && (
+        <TestPasswordModal
+          account={selectedAccount}
+          onClose={() => setShowTestPasswordModal(false)}
         />
       )}
     </div>
