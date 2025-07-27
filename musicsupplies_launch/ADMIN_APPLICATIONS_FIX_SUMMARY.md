@@ -39,17 +39,11 @@ After investigation, the following issues were identified:
    - Added status counters to quickly see application statistics
    - Implemented approve/reject functionality with automatic status updates
    - Added a refresh button to manually refresh the application list
-   - Added phone number masking to format numbers as (999) 999-9999
 
 4. **Added Application Management**:
    - Improved detail view to show all relevant application information
    - Added action buttons to approve or reject applications directly from the detail view
    - Implemented proper handling of application state with loading indicators
-
-5. **Improved Data Entry**:
-   - Added phone number formatting to automatically format phone numbers as (999) 999-9999
-   - Implemented formatting for both business phone numbers and trade reference phone numbers
-   - Enhanced user experience with visual formatting as users type
 
 ## How to Use the Fixed System
 

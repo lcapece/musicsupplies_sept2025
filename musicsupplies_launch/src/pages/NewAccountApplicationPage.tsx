@@ -122,29 +122,10 @@ const NewAccountApplicationPage: React.FC = () => {
     }
   };
 
-  // Format phone number as (999) 999-9999
-  const formatPhoneNumber = (value: string): string => {
-    // Strip all non-numeric characters
-    const phoneNumber = value.replace(/\D/g, '');
-    
-    // Format the phone number
-    if (phoneNumber.length <= 3) {
-      return phoneNumber;
-    } else if (phoneNumber.length <= 6) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-    } else {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
-    }
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    
     if (type === 'checkbox') {
       setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
-    } else if (name === 'business_phone' || name === 'contact_phone') {
-      // Apply phone number formatting for phone fields
-      setFormData(prev => ({ ...prev, [name]: formatPhoneNumber(value) }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -152,14 +133,7 @@ const NewAccountApplicationPage: React.FC = () => {
 
   const handleTradeReferenceChange = (index: number, field: keyof TradeReference, value: string) => {
     const updatedReferences = [...formData.trade_references];
-    
-    // Apply phone number formatting if it's a phone field
-    if (field === 'phone') {
-      updatedReferences[index] = { ...updatedReferences[index], [field]: formatPhoneNumber(value) };
-    } else {
-      updatedReferences[index] = { ...updatedReferences[index], [field]: value };
-    }
-    
+    updatedReferences[index] = { ...updatedReferences[index], [field]: value };
     setFormData(prev => ({ ...prev, trade_references: updatedReferences }));
   };
 
@@ -311,19 +285,7 @@ const NewAccountApplicationPage: React.FC = () => {
               {renderInput("business_state", "State", "text", true)}
               {renderInput("business_zip", "Zip Code", "text", true)}
             </div>
-      <div className="mb-4">
-        <label htmlFor="business_phone" className="block text-sm font-medium text-gray-700 mb-1">Business Phone<span className="text-red-500">*</span></label>
-        <input
-          type="tel"
-          id="business_phone"
-          name="business_phone"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          value={formData.business_phone}
-          onChange={handleChange}
-          required={true}
-          placeholder="(999) 999-9999"
-        />
-      </div>
+            {renderInput("business_phone", "Business Phone", "tel", true)}
             {renderInput("business_email", "Business Email", "email", true)}
             {renderInput("business_website", "Business Website (Optional)", "url")}
             {renderInput("year_established", "Year Established", "text", true)}
@@ -391,7 +353,7 @@ const NewAccountApplicationPage: React.FC = () => {
                     />
                     <input
                       type="tel"
-                      placeholder="(999) 999-9999"
+                      placeholder="Phone Number"
                       value={ref.phone}
                       onChange={(e) => handleTradeReferenceChange(index, 'phone', e.target.value)}
                       className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
