@@ -1,18 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogOut } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import AccountsTab from '../components/admin/AccountsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import WebOrdersTab from '../components/admin/WebOrdersTab';
 import HistoryTab from '../components/admin/HistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
+import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 
 type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
+  const [showSmsFailureModal, setShowSmsFailureModal] = useState(false);
+  const [hasCheckedForFailures, setHasCheckedForFailures] = useState(false);
+
+  // Check for SMS failures when admin logs in
+  useEffect(() => {
+    const checkForSmsFailures = async () => {
+      // CRITICAL: Only check for SMS failures if this is the admin account (999)
+      if (!hasCheckedForFailures && user?.accountNumber === '999' && isAuthenticated) {
+        try {
+          // Check if there are any unacknowledged SMS failures
+          const { data, error } = await supabase.rpc('get_unacknowledged_sms_failures');
+          
+          if (!error && data && data.length > 0) {
+            setShowSmsFailureModal(true);
+          }
+          
+          setHasCheckedForFailures(true);
+        } catch (error) {
+          console.error('Error checking for SMS failures:', error);
+          setHasCheckedForFailures(true);
+        }
+      } else if (user?.accountNumber !== '999') {
+        // Not admin, mark as checked to prevent any future attempts
+        setHasCheckedForFailures(true);
+      }
+    };
+
+    checkForSmsFailures();
+  }, [user, hasCheckedForFailures, isAuthenticated]);
 
   if (!isAuthenticated || user?.accountNumber !== '999') {
     return (
@@ -104,6 +135,12 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* SMS Failure Notification Modal */}
+      <SmsFailureNotificationModal 
+        isOpen={showSmsFailureModal} 
+        onClose={() => setShowSmsFailureModal(false)} 
+      />
     </div>
   );
 };

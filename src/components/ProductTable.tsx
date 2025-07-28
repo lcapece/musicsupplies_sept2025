@@ -92,6 +92,28 @@ const ProductTable: React.FC<ProductTableProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, totalPages]);
 
+  const [showRetryMessage, setShowRetryMessage] = useState<string | null>(null);
+  const [cartInitialized, setCartInitialized] = useState(false);
+
+  // Monitor cart initialization
+  React.useEffect(() => {
+    // Check if cart context is properly initialized by testing if addToCart function exists
+    if (addToCart && typeof addToCart === 'function') {
+      setCartInitialized(true);
+      console.log('ProductTable: Cart context initialized');
+    } else {
+      console.log('ProductTable: Waiting for cart context initialization...');
+      // Try again after a short delay
+      const checkTimer = setTimeout(() => {
+        if (addToCart && typeof addToCart === 'function') {
+          setCartInitialized(true);
+          console.log('ProductTable: Cart context initialized after delay');
+        }
+      }, 500);
+      return () => clearTimeout(checkTimer);
+    }
+  }, [addToCart]);
+
   const handleAddToCart = (product: Product) => {
     console.log('ProductTable: handleAddToCart called for:', product.partnumber);
     
@@ -106,26 +128,51 @@ const ProductTable: React.FC<ProductTableProps> = ({
       console.log('ProductTable: Already adding this product, ignoring click');
       return;
     }
+
+    // Check if cart is initialized
+    if (!cartInitialized || !addToCart || typeof addToCart !== 'function') {
+      console.log('ProductTable: Cart not initialized, showing retry message');
+      setShowRetryMessage(product.partnumber);
+      
+      // Try to initialize again
+      setTimeout(() => {
+        setShowRetryMessage(null);
+        if (addToCart && typeof addToCart === 'function') {
+          setCartInitialized(true);
+          // Automatically retry the add to cart
+          handleAddToCart(product);
+        }
+      }, 1000);
+      
+      return;
+    }
     
     console.log('ProductTable: Product has inventory, proceeding to add to cart');
     
     // Set loading state IMMEDIATELY
     setAddingToCart(product.partnumber);
     
-    // Call addToCart directly - it's synchronous!
-    addToCart({
-      partnumber: product.partnumber,
-      description: product.description,
-      price: product.price,
-      inventory: product.inventory
-    });
-    
-    console.log('ProductTable: addToCart called successfully');
-    
-    // Clear loading state with visual feedback
-    setTimeout(() => {
+    try {
+      // Call addToCart with error handling
+      addToCart({
+        partnumber: product.partnumber,
+        description: product.description,
+        price: product.price,
+        inventory: product.inventory
+      });
+      
+      console.log('ProductTable: addToCart called successfully');
+      
+      // Clear loading state with visual feedback
+      setTimeout(() => {
+        setAddingToCart(null);
+      }, 600);
+    } catch (error) {
+      console.error('ProductTable: Error adding to cart:', error);
       setAddingToCart(null);
-    }, 600);
+      setShowRetryMessage(product.partnumber);
+      setTimeout(() => setShowRetryMessage(null), 3000);
+    }
   };
 
   const getInventoryDisplay = (inventory: number | null) => {
@@ -404,7 +451,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     <td className="px-3 py-2 whitespace-nowrap text-lg text-center">
                       {getInventoryDisplay(product.inventory)}
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap text-center">
+                    <td className="px-2 py-2 whitespace-nowrap text-center relative">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -421,6 +468,12 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       >
                         {addingToCart === product.partnumber ? 'Added!' : 'Add to Cart'}
                       </button>
+                      {showRetryMessage === product.partnumber && (
+                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-2 py-1 rounded text-xs whitespace-nowrap z-10">
+                          Please click again
+                          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-yellow-100 border-r border-b border-yellow-400 rotate-45"></div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

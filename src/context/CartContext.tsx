@@ -318,7 +318,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...result,
           message: isAutoApplied 
             ? `Promo code ${code} has been automatically applied`
-            : result.message
+            : result.message,
+          // Ensure discount_amount is properly parsed as a number
+          discount_amount: result.discount_amount ? parseFloat(result.discount_amount.toString()) : 0
         };
         
         setAppliedPromoCode(customizedResult);

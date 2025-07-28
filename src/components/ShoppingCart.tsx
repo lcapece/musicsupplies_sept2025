@@ -38,6 +38,28 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const [email, setEmail] = useState(user?.email || user?.email_address || '');
   const [phone, setPhone] = useState(user?.mobile_phone || '');
+  const [validationErrors, setValidationErrors] = useState<{
+    phone?: boolean;
+    email?: boolean;
+  }>({});
+  const phoneInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Format phone number as (999) 999-9999
+  const formatPhoneNumber = (value: string): string => {
+    // Strip all non-numeric characters
+    const phoneNumber = value.replace(/\D/g, '');
+    
+    // Format the phone number
+    if (phoneNumber.length === 0) {
+      return '';
+    } else if (phoneNumber.length <= 3) {
+      return `(${phoneNumber}`;
+    } else if (phoneNumber.length <= 6) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    } else {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+    }
+  };
   
   // Promo code states
   const [selectedPromoCode, setSelectedPromoCode] = useState<string>('');
@@ -85,6 +107,26 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   }, [availablePromoCodes]);
 
   const handleCheckout = () => {
+    // Reset any previous validation errors
+    setValidationErrors({});
+    
+    // First check if the phone number is provided
+    if (!phone || phone.trim() === '') {
+      setValidationErrors(prev => ({ ...prev, phone: true }));
+      
+      // Set isCheckingOut to true to show the checkout form with the phone field
+      setIsCheckingOut(true);
+      
+      // After the component re-renders with the input field, focus on it
+      setTimeout(() => {
+        if (phoneInputRef.current) {
+          phoneInputRef.current.focus();
+        }
+      }, 100);
+      
+      return;
+    }
+    
     // Check if there are available promo codes but none is applied
     const hasUnusedPromoCodes = availablePromoCodes.length > 0 && !appliedPromoCode;
     const hasEligiblePromoCodes = availablePromoCodes.some(promo => totalPrice >= promo.min_order_value);
@@ -127,8 +169,27 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   };
   
   const handlePlaceOrder = async () => {
-    if (!email || !phone) {
-      alert('Please provide both email and phone number');
+    // Reset validation errors
+    setValidationErrors({});
+    
+    // Validate fields
+    let hasErrors = false;
+    
+    if (!phone) {
+      setValidationErrors(prev => ({ ...prev, phone: true }));
+      // Focus on the phone input field
+      if (phoneInputRef.current) {
+        phoneInputRef.current.focus();
+      }
+      hasErrors = true;
+    }
+    
+    if (!email) {
+      setValidationErrors(prev => ({ ...prev, email: true }));
+      hasErrors = true;
+    }
+    
+    if (hasErrors) {
       return;
     }
     
@@ -209,14 +270,48 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
 
           if (smsError) {
             console.error('Error sending customer SMS:', smsError);
-            // Don't fail the order if SMS fails, just log it
+            // Log the SMS failure to database for admin notification
+            try {
+              const { error: logError } = await supabase
+                .from('sms_notification_failures')
+                .insert({
+                  order_number: newOrderNumber,
+                  customer_phone: phone,
+                  customer_name: user?.acctName || email.split('@')[0],
+                  customer_account_number: user?.accountNumber,
+                  error_message: smsError.message || 'SMS sending failed'
+                });
+              
+              if (logError) {
+                console.error('Failed to log SMS error:', logError);
+              }
+            } catch (logError) {
+              console.error('Error logging SMS failure:', logError);
+            }
           } else {
             console.log('Customer SMS sent successfully:', smsResult);
           }
 
-        } catch (smsError) {
+        } catch (smsError: any) {
           console.error('Error sending customer SMS notification:', smsError);
-          // Don't fail the order if SMS fails, just log it
+          // Log the SMS failure to database for admin notification
+          try {
+            const { error: logError } = await supabase
+              .from('sms_notification_failures')
+              .insert({
+                order_number: newOrderNumber,
+                customer_phone: phone,
+                customer_name: user?.acctName || email.split('@')[0],
+                customer_account_number: user?.accountNumber,
+                error_message: smsError.message || 'SMS sending failed'
+              });
+            
+            if (logError) {
+              console.error('Failed to log SMS error:', logError);
+            }
+          } catch (logError) {
+            console.error('Error logging SMS failure:', logError);
+          }
         }
       }
     } catch (error) {
@@ -328,7 +423,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
             <div className="h-full flex flex-col bg-white shadow-xl">
               <div className="flex-1 py-6 overflow-y-auto px-4 sm:px-6">
                 <div className="flex items-start justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Shopping Cart</h2>
+                  <h2 className="text-4xl font-bold text-gray-900">Shopping Cart</h2>
                   <button
                     type="button"
                     className="ml-3 p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -341,9 +436,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
 
                 {orderPlaced ? (
                   <div className="mt-8 text-center">
-                    <h3 className="text-2xl font-semibold text-green-600">Order Placed Successfully!</h3>
-                    <p className="mt-2 text-lg text-gray-700">Your order number is: <strong>{orderNumber}</strong></p>
-                    <p className="mt-4 text-gray-600">You will receive an email confirmation shortly.</p>
+                    <h3 className="text-4xl font-semibold text-green-600">Order Placed Successfully!</h3>
+                    <p className="mt-2 text-2xl text-gray-700">Your order number is: <strong>{orderNumber}</strong></p>
+                    <p className="mt-4 text-xl text-gray-600">You will receive an email confirmation shortly.</p>
                     <button
                       onClick={() => {
                         setOrderPlaced(false);
@@ -360,10 +455,10 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                   <OrderConfirmationModal orderDetails={orderConfirmationDetails} onClose={handleCloseConfirmationModal} />
                 ) : isCheckingOut ? (
                   <div className="mt-8">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-6">Checkout</h3>
+                    <h3 className="text-3xl font-semibold text-gray-900 mb-6">Checkout</h3>
                     <div className="space-y-6">
                       <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">E-mail Address (required)</label>
+                        <label htmlFor="email" className="block text-base font-medium text-gray-700">E-mail Address (required)</label>
                         <input
                           type="email"
                           name="email"
@@ -375,29 +470,38 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                         />
                       </div>
                       <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number (required) - Mobile Preferred</label>
+                        <label htmlFor="phone" className={`block text-base font-medium ${validationErrors.phone ? 'subtle-required-pulse' : 'text-gray-700'}`}>
+                          Phone Number (required) - Mobile Preferred
+                        </label>
                         <input
+                          ref={phoneInputRef}
                           type="tel"
                           name="phone"
                           id="phone"
                           value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          placeholder="123-456-7890"
+                          onChange={(e) => {
+                            setPhone(formatPhoneNumber(e.target.value));
+                            if (e.target.value && validationErrors.phone) {
+                              setValidationErrors(prev => ({ ...prev, phone: false }));
+                            }
+                          }}
+                          className={`mt-1 block w-full px-3 py-2 border ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-base`}
+                          placeholder="(999) 999-9999"
+                          maxLength={14}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+                        <label className="block text-base font-medium text-gray-700">Payment Method</label>
                         <div className="mt-2 flex space-x-4">
                           <button
                             onClick={() => setPaymentMethod('net10')}
-                            className={`px-4 py-2 border rounded-md text-sm font-medium ${paymentMethod === 'net10' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            className={`px-4 py-2 border rounded-md text-base font-medium ${paymentMethod === 'net10' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                           >
                             Net-10 Open Account
                           </button>
                           <button
                             onClick={() => setPaymentMethod('credit')}
-                            className={`px-4 py-2 border rounded-md text-sm font-medium ${paymentMethod === 'credit' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            className={`px-4 py-2 border rounded-md text-base font-medium ${paymentMethod === 'credit' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                           >
                             Credit Card on File
                           </button>
@@ -408,7 +512,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                 ) : (
                   <div className="mt-8">
                     {items.length === 0 ? (
-                      <p className="text-center text-gray-500">Your cart is empty.</p>
+                      <p className="text-center text-xl text-gray-500">Your cart is empty.</p>
                     ) : (
                       <ul role="list" className="-my-6 divide-y divide-gray-200">
                         {items.map((item) => (
@@ -424,12 +528,12 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                             )}
                             <div className={`ml-4 flex flex-1 flex-col ${!item.image && 'ml-0'}`}>
                               <div>
-                                <div className="flex justify-between text-base font-medium text-gray-900">
+                                <div className="flex justify-between text-2xl font-medium text-gray-900">
                                   <h3>
                                     <a href="#">{item.partnumber}</a>
                                   </h3>
                                 </div>
-                                <p className="mt-1 text-sm text-gray-500">{item.description}</p>
+                                <p className="mt-1 text-base text-gray-500">{item.description}</p>
                               </div>
                               <div className="flex flex-1 items-center justify-between text-sm mt-2">
                                 {/* Quantity controls */}
@@ -445,7 +549,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                     type="number"
                                     value={item.quantity}
                                     onChange={(e) => updateQuantity(item.partnumber, parseInt(e.target.value) || 1)}
-                                    className="w-12 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm mx-2"
+                                    className="w-16 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-base mx-2"
                                     min="1"
                                   />
                                   <button
@@ -463,8 +567,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 {/* Prices and Remove button container */}
                                 <div className="flex items-center space-x-4">
                                   <div className="text-right">
-                                    <p className="text-xs text-gray-500">${(item.price || 0).toFixed(2)} ea.</p>
-                                    <p className="font-medium text-gray-900">${((item.price || 0) * item.quantity).toFixed(2)}</p>
+                                    <p className="text-sm text-gray-500">${(item.price || 0).toFixed(2)} ea.</p>
+                                    <p className="font-medium text-xl text-gray-900">${((item.price || 0) * item.quantity).toFixed(2)}</p>
                                   </div>
                                   <button
                                     type="button"
@@ -490,7 +594,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
 
               {!orderPlaced && (
                 <div className="border-t border-gray-200 py-6 px-4 sm:px-6">
-                  <div className="flex justify-between text-base font-medium text-gray-900">
+                  <div className="flex justify-between text-2xl font-medium text-gray-900">
                     <p>Subtotal</p>
                     <p>${totalPrice.toFixed(2)}</p>
                   </div>
@@ -537,11 +641,12 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500 border border-transparent' 
                                   : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
                               } ${
-                                // Add pulsing border effect when there are available promo codes and none applied
+                                // Add critical flashing red border when there are available promo codes and none applied
                                 !appliedPromoCode && selectedPromoCode && availablePromoCodes.length > 0 
-                                  ? 'promo-button-pulse' 
+                                  ? 'promo-button-pulse relative z-10' 
                                   : 'border border-transparent'
                               } focus:outline-none focus:ring-2 focus:ring-offset-2`}
+                              title={!appliedPromoCode && selectedPromoCode ? "CLICK TO APPLY PROMO CODE!" : ""}
                               disabled={applyingPromo || (!appliedPromoCode && !selectedPromoCode)}
                             >
                               {applyingPromo ? 'Applying...' : appliedPromoCode ? 'Remove' : 'Apply'}
@@ -573,11 +678,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     </div>
                   )}
 
-                  <div className="flex justify-between text-lg font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">
+                  <div className="flex justify-between text-3xl font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">
                     <p>Sub Total</p>
                     <p>${displayGrandTotal.toFixed(2)}</p>
                   </div>
-                  <p className="mt-0.5 text-sm text-gray-500">Does not inclued shipping charge. You will be emailed the Grand Total when shipped</p>
+                  <p className="mt-0.5 text-base text-gray-500">Does not inclued shipping charge. You will be emailed the Grand Total when shipped</p>
                   <div className="mt-6">
                     {isCheckingOut && (
                       <p className="text-red-600 text-sm font-medium text-center mb-4">
