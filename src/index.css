@@ -135,6 +135,28 @@ img[alt*="logo"]::after {
   animation: searchPromptPulse 2s ease-in-out infinite;
 }
 
+/* Promo code button pulsing border animation */
+@keyframes promoBorderPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7);
+    border-color: rgba(79, 70, 229, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(79, 70, 229, 0);
+    border-color: rgba(79, 70, 229, 1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+    border-color: rgba(79, 70, 229, 0.8);
+  }
+}
+
+.promo-button-pulse {
+  animation: promoBorderPulse 2s infinite;
+  border-width: 2px;
+  border-style: solid;
+}
+
 /* Custom scrollbar styles for product table */
 .product-table-scroll {
   /* Firefox scrollbar styling */

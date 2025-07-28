@@ -532,10 +532,15 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                             <button
                               type="button"
                               onClick={appliedPromoCode ? removePromoCode : handleApplyPromoCode}
-                              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-r-md text-white ${
+                              className={`inline-flex items-center px-3 py-2 text-sm leading-4 font-medium rounded-r-md text-white ${
                                 appliedPromoCode 
-                                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
+                                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500 border border-transparent' 
                                   : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                              } ${
+                                // Add pulsing border effect when there are available promo codes and none applied
+                                !appliedPromoCode && selectedPromoCode && availablePromoCodes.length > 0 
+                                  ? 'promo-button-pulse' 
+                                  : 'border border-transparent'
                               } focus:outline-none focus:ring-2 focus:ring-offset-2`}
                               disabled={applyingPromo || (!appliedPromoCode && !selectedPromoCode)}
                             >

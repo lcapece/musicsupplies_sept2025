@@ -128,8 +128,10 @@ const NewAccountApplicationPage: React.FC = () => {
     const phoneNumber = value.replace(/\D/g, '');
     
     // Format the phone number
-    if (phoneNumber.length <= 3) {
-      return phoneNumber;
+    if (phoneNumber.length === 0) {
+      return '';
+    } else if (phoneNumber.length <= 3) {
+      return `(${phoneNumber}`;
     } else if (phoneNumber.length <= 6) {
       return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
     } else {
@@ -322,6 +324,7 @@ const NewAccountApplicationPage: React.FC = () => {
           onChange={handleChange}
           required={true}
           placeholder="(999) 999-9999"
+          maxLength={14} // (999) 999-9999 = 14 characters
         />
       </div>
             {renderInput("business_email", "Business Email", "email", true)}
@@ -395,6 +398,7 @@ const NewAccountApplicationPage: React.FC = () => {
                       value={ref.phone}
                       onChange={(e) => handleTradeReferenceChange(index, 'phone', e.target.value)}
                       className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
+                      maxLength={14} // (999) 999-9999 = 14 characters
                       // required={index < 2} // Validation handled in handleSubmit
                     />
                     <input
