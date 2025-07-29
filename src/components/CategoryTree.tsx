@@ -24,6 +24,7 @@ export interface CategorySelection {
 interface CategoryTreeProps {
   onSelectCategory: (selection: CategorySelection | null) => void;
   selectedCategoryId: string | null;
+  fontSize?: 'smaller' | 'standard' | 'larger';
 }
 
 // Icon components removed
@@ -34,7 +35,8 @@ const CategoryTreeItem: React.FC<{
   onSelectCategory: (selection: CategorySelection) => void;
   selectedCategoryId: string | null;
   currentNamePath: string[];
-}> = ({ category, level, onSelectCategory, selectedCategoryId, currentNamePath }) => {
+  fontSize: 'smaller' | 'standard' | 'larger';
+}> = ({ category, level, onSelectCategory, selectedCategoryId, currentNamePath, fontSize }) => {
   const [isExpanded, setIsExpanded] = useState(selectedCategoryId !== null && level === 1);
   const hasChildren = category.children && category.children.length > 0;
   const isSelected = selectedCategoryId === category.id;
@@ -84,7 +86,11 @@ const CategoryTreeItem: React.FC<{
           <span className="mr-2 w-5 flex-shrink-0"></span>
         )}
         {/* Icon rendering removed */}
-        <span className={`text-sm text-left truncate ${level === 2 ? 'text-blue-600' : ''}`}>
+        <span className={`${
+          fontSize === 'smaller' ? 'text-sm' : 
+          fontSize === 'standard' ? 'text-base' : 
+          'text-lg'
+        } text-left truncate ${level === 2 ? 'text-blue-600' : ''}`}>
           {category.name}
         </span>
       </div>
@@ -99,6 +105,7 @@ const CategoryTreeItem: React.FC<{
               onSelectCategory={onSelectCategory}
               selectedCategoryId={selectedCategoryId}
               currentNamePath={[...currentNamePath, category.name]}
+              fontSize={fontSize}
             />
           ))}
         </div>
@@ -109,7 +116,8 @@ const CategoryTreeItem: React.FC<{
 
 const CategoryTree: React.FC<CategoryTreeProps> = ({ 
   onSelectCategory,
-  selectedCategoryId
+  selectedCategoryId,
+  fontSize = 'standard'
 }) => {
   const [categories, setCategories] = useState<ProductGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,6 +193,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
             onSelectCategory={onSelectCategory}
             selectedCategoryId={selectedCategoryId}
             currentNamePath={[]}
+            fontSize={fontSize}
           />
         ))}
         <div 

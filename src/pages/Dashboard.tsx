@@ -47,6 +47,46 @@ const Dashboard: React.FC = () => {
   const [promoStatusData, setPromoStatusData] = useState<PromotionalOffersStatus | null>(null);
   const [showPromoCodePopup, setShowPromoCodePopup] = useState(false); // State for PromoCodePopup
   const [inventoryRefreshTimestamp, setInventoryRefreshTimestamp] = useState<string | null>(null); // State for inventory refresh timestamp
+  const [fontSize, setFontSize] = useState<'smaller' | 'standard' | 'larger'>('standard'); // State for font size
+
+  // Load saved font preference on mount
+  useEffect(() => {
+    const loadUserFontPreference = async () => {
+      if (user?.accountNumber) {
+        try {
+          const { data, error } = await supabase.rpc('get_user_font_preference', {
+            user_account: user.accountNumber
+          });
+          
+          if (!error && data) {
+            setFontSize(data as 'smaller' | 'standard' | 'larger');
+          }
+        } catch (error) {
+          console.log('Font preference not loaded (table may not exist yet):', error);
+          // Fallback to standard - this is normal until migration is applied
+        }
+      }
+    };
+
+    loadUserFontPreference();
+  }, [user?.accountNumber]);
+
+  // Save font preference when changed
+  const handleFontSizeChange = async (newSize: 'smaller' | 'standard' | 'larger') => {
+    setFontSize(newSize);
+    
+    if (user?.accountNumber) {
+      try {
+        await supabase.rpc('save_user_font_preference', {
+          user_account: user.accountNumber,
+          font_preference: newSize
+        });
+      } catch (error) {
+        console.log('Font preference not saved (table may not exist yet):', error);
+        // This is normal until migration is applied
+      }
+    }
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -535,7 +575,7 @@ const Dashboard: React.FC = () => {
         {activeView === 'products' ? (
           <>
             <div className="py-2 px-4 sm:px-6 lg:px-8 flex-shrink-0">
-              <SearchBar onSearch={handleSearch} />
+              <SearchBar onSearch={handleSearch} fontSize={fontSize} />
             </div>
             
             <div className="flex-1 px-4 sm:px-6 lg:px-8 pb-2 overflow-hidden">
@@ -544,13 +584,16 @@ const Dashboard: React.FC = () => {
                   <CategoryTree 
                     onSelectCategory={handleCategorySelect}
                     selectedCategoryId={selectedCategoryId}
+                    fontSize={fontSize}
                   />
                 </div>
                 
                 <div className="flex-1 min-w-0 flex flex-col">
-                  <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 w-full overflow-visible">
-                    <div className="flex justify-between items-center">
-                      <div>
+                  {/* Single Consolidated Row - Layout matching user's image */}
+                  <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md w-full overflow-visible">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      {/* Left side: Path display */}
+                      <div className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>
                         {(() => {
                           const path = [];
                           if (selectedMainCategoryName) path.push(selectedMainCategoryName);
@@ -565,77 +608,82 @@ const Dashboard: React.FC = () => {
                           return "Showing all product groups";
                         })()}
                       </div>
-                      <div className="text-xs text-gray-600">
-                        {inventoryRefreshTimestamp ? `Inventory as of: ${inventoryRefreshTimestamp}` : 'Loading inventory timestamp...'}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Toggles Container - Single row layout */}
-                  <div className="mb-2 flex items-center flex-wrap ml-0">
-                    {/* Show Images & Specs checkbox */}
-                    <div className="mr-8 flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showImageAndSpecs"
-                        checked={showImageAndSpecs}
-                        onChange={(e) => {
-                          setShowImageAndSpecs(e.target.checked);
-                          if (!e.target.checked) {
-                            setSelectedProductForImage(null); // Clear selection when hiding
-                          }
-                        }}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="showImageAndSpecs" className="ml-2 block text-sm text-gray-900">
-                        Show Images & Specs
-                      </label>
-                    </div>
-                    
-                    {/* Show In-Stock Items Only checkbox */}
-                    <div className="mr-8 flex items-center">
-                      <input
-                        type="checkbox"
-                        id="inStockOnly"
-                        checked={inStockOnly}
-                        onChange={(e) => setInStockOnly(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <label htmlFor="inStockOnly" className="ml-2 block text-sm text-gray-900">
-                        Show In-Stock Items Only
-                      </label>
-                    </div>
-
-                    {/* Conditional checkboxes that appear only when showImageAndSpecs is off */}
-                    {!showImageAndSpecs && (
-                      <>
-                        <div className="mr-8 flex items-center">
-                          <input
-                            type="checkbox"
-                            id="showMsrp"
-                            checked={showMsrp}
-                            onChange={(e) => setShowMsrp(e.target.checked)}
-                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <label htmlFor="showMsrp" className="ml-2 block text-sm text-gray-900">
-                            Show MSRP
-                          </label>
-                        </div>
-                        
+                      {/* Center: Main checkboxes */}
+                      <div className="flex items-center justify-center gap-6">
+                        {/* Show Images & Specs checkbox */}
                         <div className="flex items-center">
                           <input
                             type="checkbox"
-                            id="showMapPrice"
-                            checked={showMapPrice}
-                            onChange={(e) => setShowMapPrice(e.target.checked)}
+                            id="showImageAndSpecs"
+                            checked={showImageAndSpecs}
+                            onChange={(e) => {
+                              setShowImageAndSpecs(e.target.checked);
+                              if (!e.target.checked) {
+                                setSelectedProductForImage(null);
+                              }
+                            }}
                             className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
-                          <label htmlFor="showMapPrice" className="ml-2 block text-sm text-gray-900">
-                            Show MAP Price
+                          <label htmlFor="showImageAndSpecs" className={`ml-2 block ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-900`}>
+                            Show Images & Specs
                           </label>
                         </div>
-                      </>
-                    )}
+                        
+                        {/* Show In-Stock Items Only checkbox */}
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="inStockOnly"
+                            checked={inStockOnly}
+                            onChange={(e) => setInStockOnly(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="inStockOnly" className={`ml-2 block ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-900`}>
+                            Show In-Stock Items Only
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Right side: Additional controls */}
+                      <div className="flex items-center flex-wrap gap-6">
+                        {/* Inventory timestamp */}
+                        <div className={`${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-base' : 'text-sm'} text-gray-600`}>
+                          {inventoryRefreshTimestamp ? `Inventory as of: ${inventoryRefreshTimestamp}` : 'Loading inventory timestamp...'}
+                        </div>
+
+                        {/* Conditional checkboxes that appear only when showImageAndSpecs is off */}
+                        {!showImageAndSpecs && (
+                          <>
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id="showMsrp"
+                                checked={showMsrp}
+                                onChange={(e) => setShowMsrp(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <label htmlFor="showMsrp" className={`ml-2 block ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-900`}>
+                                Show MSRP
+                              </label>
+                            </div>
+                            
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id="showMapPrice"
+                                checked={showMapPrice}
+                                onChange={(e) => setShowMapPrice(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <label htmlFor="showMapPrice" className={`ml-2 block ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-900`}>
+                                Show MAP Price
+                              </label>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {loading ? (
@@ -660,6 +708,8 @@ const Dashboard: React.FC = () => {
                           showMsrp={!showImageAndSpecs && showMsrp} // Only show MSRP when in wide view mode and checkbox is checked
                           showMapPrice={!showImageAndSpecs && showMapPrice} // Only show MAP when in wide view mode and checkbox is checked
                           className="h-full"
+                          fontSize={fontSize}
+                          onFontSizeChange={setFontSize}
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (

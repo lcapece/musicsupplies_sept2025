@@ -48,7 +48,9 @@ export interface User {
   password?: string; // Added password from accounts table
   requires_password_change?: boolean; // Flag to indicate if user needs to change password
   sms_consent?: boolean; // SMS consent flag
+  sms_consent_given?: boolean; // Tracks if they opted in for transactional SMS messages
   sms_consent_date?: string; // Date when SMS consent was given
+  marketing_sms_consent?: boolean; // Tracks express written consent for marketing SMS messages
   is_special_admin?: boolean; // Flag for special admin account (99)
 }
 

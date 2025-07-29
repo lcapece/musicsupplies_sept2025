@@ -438,7 +438,12 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                   <div className="mt-8 text-center">
                     <h3 className="text-4xl font-semibold text-green-600">Order Placed Successfully!</h3>
                     <p className="mt-2 text-2xl text-gray-700">Your order number is: <strong>{orderNumber}</strong></p>
-                    <p className="mt-4 text-xl text-gray-600">You will receive an email confirmation shortly.</p>
+                    <p className="mt-4 text-xl text-gray-600">
+                      {user?.sms_consent_given 
+                        ? "You will receive an email and text alert on the status of the order."
+                        : "You will receive an email confirmation shortly."
+                      }
+                    </p>
                     <button
                       onClick={() => {
                         setOrderPlaced(false);

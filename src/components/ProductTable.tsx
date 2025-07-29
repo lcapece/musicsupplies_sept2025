@@ -26,7 +26,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
   className, // Destructure className
   showUpcColumn = false, // Default to false
   showMsrp = true, // Default to true
-  showMapPrice = true // Default to true
+  showMapPrice = true, // Default to true
+  fontSize = 'standard',
+  onFontSizeChange
 }) => {
   const { addToCart } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
@@ -231,22 +233,47 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setCurrentPage(prev => Math.min(totalPages, prev + 1));
   };
 
+  // Font size mappings
+  const getFontSizeClasses = (type: 'header' | 'cell' | 'button' | 'pagination') => {
+    const sizeMap = {
+      smaller: {
+        header: 'text-sm',
+        cell: 'text-lg',
+        button: 'text-sm',
+        pagination: 'text-sm'
+      },
+      standard: {
+        header: 'text-base',
+        cell: 'text-xl',
+        button: 'text-base',
+        pagination: 'text-base'
+      },
+      larger: {
+        header: 'text-lg',
+        cell: 'text-2xl',
+        button: 'text-lg',
+        pagination: 'text-lg'
+      }
+    };
+    return sizeMap[fontSize][type];
+  };
+
   // Reusable pagination component
   const PaginationControls = ({ position }: { position: 'top' | 'bottom' }) => (
     <div className={`px-6 py-3 border-gray-200 flex items-center justify-between bg-gray-50 flex-shrink-0 ${
       position === 'top' ? 'border-b' : 'border-t'
     }`}>
       <div className="flex items-center gap-4">
-        <div className="text-sm text-gray-700">
+        <div className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>
           Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, products.length)} of {products.length} products
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor={`itemsPerPage-${position}`} className="text-sm text-gray-700">Show:</label>
+          <label htmlFor={`itemsPerPage-${position}`} className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>Show:</label>
           <select
             id={`itemsPerPage-${position}`}
             value={itemsPerPage}
             onChange={(e) => setItemsPerPage(Number(e.target.value))}
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
+            className={`border border-gray-300 rounded-md px-2 py-1 ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} focus:ring-2 focus:ring-blue-500`}
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -256,10 +283,48 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {/* Font Size Toggle - Only show on bottom */}
+        {position === 'bottom' && onFontSizeChange && (
+          <div className="flex items-center gap-1 mr-4 border border-gray-300 rounded-lg overflow-hidden">
+            <button
+              onClick={() => onFontSizeChange('smaller')}
+              className={`px-3 py-1 text-sm font-medium transition-colors ${
+                fontSize === 'smaller'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+              title="Smaller text (original size)"
+            >
+              A-
+            </button>
+            <button
+              onClick={() => onFontSizeChange('standard')}
+              className={`px-3 py-1 text-sm font-medium transition-colors border-x border-gray-300 ${
+                fontSize === 'standard'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+              title="Standard text (50% larger)"
+            >
+              A
+            </button>
+            <button
+              onClick={() => onFontSizeChange('larger')}
+              className={`px-3 py-1 text-sm font-medium transition-colors ${
+                fontSize === 'larger'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+              title="Larger text (100% larger)"
+            >
+              A+
+            </button>
+          </div>
+        )}
         <button
           onClick={handlePreviousPage}
           disabled={currentPage === 1}
-          className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
+          className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} font-medium transition-colors ${
             currentPage === 1
               ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
               : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
@@ -270,7 +335,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </button>
         
         <div className="flex items-center gap-1">
-          <span className="text-sm text-gray-700">Page</span>
+          <span className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>Page</span>
           <input
             type="number"
             min="1"
@@ -282,15 +347,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 setCurrentPage(page);
               }
             }}
-            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-16 px-2 py-1 ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} border border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
           />
-          <span className="text-sm text-gray-700">of {totalPages}</span>
+          <span className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>of {totalPages}</span>
         </div>
 
         <button
           onClick={handleNextPage}
           disabled={currentPage === totalPages}
-          className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
+          className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} font-medium transition-colors ${
             currentPage === totalPages
               ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
               : 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
@@ -308,15 +373,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
       ref={setTableContainerRef}
       className={`bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-full ${className || ''}`}
     >
-      <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-        <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
-      </div>
-      
       {products && products.length > 0 ? (
         <>
-          {/* Top Pagination */}
-          <PaginationControls position="top" />
-          
           {/* Scrollable table container with fixed height and visible scrollbar */}
           <div 
             className="flex-1 overflow-y-auto overflow-x-auto product-table-scroll"
@@ -329,7 +387,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
               <thead className="bg-gray-50">
                 <tr>
                   <th 
-                    className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[12%]"
+                    className={`px-3 py-2 text-left ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[12%]`}
                     onClick={() => requestSort('partnumber')}
                   >
                     Part Number 
@@ -338,7 +396,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[40%]"
+                    className={`px-3 py-2 text-left ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-[40%]`}
                     onClick={() => requestSort('description')}
                   >
                     Description
@@ -347,7 +405,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     )}
                   </th>
                   <th 
-                    className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className={`px-3 py-2 text-left ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
                     onClick={() => requestSort('brand')}
                   >
                     Brand
@@ -357,7 +415,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   </th>
                   {showUpcColumn && (
                     <th 
-                      className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className={`px-3 py-2 text-left ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
                       onClick={() => requestSort('upc')}
                     >
                       UPC
@@ -368,7 +426,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   )}
                   {showMsrp && (
                     <th 
-                      className="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
                       onClick={() => requestSort('webmsrp')}
                     >
                       MSRP
@@ -378,7 +436,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </th>
                   )}
                   <th 
-                    className="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]"
+                    className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]`}
                     onClick={() => requestSort('price')}
                   >
                     Your Price
@@ -388,7 +446,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   </th>
                   {showMapPrice && (
                     <th 
-                      className="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
                       onClick={() => requestSort('map')}
                     >
                       MAP
@@ -398,7 +456,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </th>
                   )}
                   <th 
-                    className="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className={`px-3 py-2 text-center ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
                     onClick={() => requestSort('inventory')}
                   >
                     Inventory
@@ -406,7 +464,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
                     )}
                   </th>
-                  <th className="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-3 py-2 text-center ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider`}>
                     Actions
                   </th>
                 </tr>
@@ -423,34 +481,34 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       }
                     }}
                   >
-                    <td className="px-3 py-2 whitespace-nowrap text-lg font-medium text-gray-900 w-[12%]">
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} font-medium text-gray-900 w-[12%]`}>
                       {product.partnumber}
                     </td>
-                    <td className="px-3 py-2 text-lg text-gray-500 w-[40%]">
+                    <td className={`px-3 py-2 ${getFontSizeClasses('cell')} text-gray-500 w-[40%]`}>
                       {product.description}
                     </td>
-                    <td className="px-3 py-2 text-lg text-gray-500">
+                    <td className={`px-3 py-2 ${getFontSizeClasses('cell')} text-gray-500`}>
                       {product && product.brand ? product.brand : '---'}
                     </td>
                     {showUpcColumn && (
-                      <td className="px-3 py-2 text-lg text-gray-500">
+                      <td className={`px-3 py-2 ${getFontSizeClasses('cell')} text-gray-500`}>
                         {product && product.upc ? product.upc : '---'}
                       </td>
                     )}
                     {showMsrp && (
-                      <td className="px-3 py-2 whitespace-nowrap text-lg text-right font-medium">
+                      <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium`}>
                         {formatListPrice(product.webmsrp)}
                       </td>
                     )}
-                    <td className="px-3 py-2 whitespace-nowrap text-lg text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%]">
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%]`}>
                       {formatPrice(product.price)}
                     </td>
                     {showMapPrice && (
-                      <td className="px-3 py-2 whitespace-nowrap text-lg text-right font-medium">
+                      <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium`}>
                         {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
                       </td>
                     )}
-                    <td className="px-3 py-2 whitespace-nowrap text-lg text-center">
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center`}>
                       {getInventoryDisplay(product.inventory)}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center relative">

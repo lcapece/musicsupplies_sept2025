@@ -2,9 +2,10 @@ import React, { useState, KeyboardEvent, useEffect } from 'react';
 
 interface SearchBarProps {
   onSearch: (primaryQuery: string, additionalQuery: string, excludeQuery: string) => void; // Removed inStockOnly from props
+  fontSize?: 'smaller' | 'standard' | 'larger';
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
+const SearchBar: React.FC<SearchBarProps> = ({ onSearch, fontSize = 'standard' }) => {
   const [primaryQuery, setPrimaryQuery] = useState('');
   const [additionalQuery, setAdditionalQuery] = useState('');
   const [excludeQuery, setExcludeQuery] = useState('');
@@ -36,6 +37,15 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
       handleSearch();
     }
   };
+
+  // Helper function to get font size classes
+  const getFontSizeClass = () => {
+    switch (fontSize) {
+      case 'smaller': return 'text-sm';
+      case 'larger': return 'text-lg';
+      default: return 'text-base';
+    }
+  };
   
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
@@ -44,7 +54,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
           <div className="flex-1 relative">
             <input
               type="text"
-              className={`block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              className={`block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${getFontSizeClass()} ${
                 primaryQuery ? 'bg-yellow-100' : 'bg-gray-50'
               }`}
               placeholder="Primary Search Terms"
@@ -65,7 +75,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
           <div className="flex-1">
             <input
               type="text"
-              className="block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className={`block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${getFontSizeClass()}`}
               placeholder="Additional Search Terms"
               value={additionalQuery}
               onChange={(e) => setAdditionalQuery(e.target.value)}
@@ -76,7 +86,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
           <div className="flex-1">
             <input
               type="text"
-              className="block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className={`block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${getFontSizeClass()}`}
               placeholder="Exclude this Term"
               value={excludeQuery}
               onChange={(e) => setExcludeQuery(e.target.value)}

@@ -231,3 +231,19 @@ img[alt*="logo"]::after {
 .product-table-scroll::-webkit-scrollbar-corner {
   background: #f3f4f6;
 }
+
+/* Fixed header size class - not subject to font scaling */
+.fixed-header-size {
+  font-size: inherit !important;
+  transform: none !important;
+  zoom: 1 !important;
+}
+
+/* Ensure header logo and phone are always visible and large */
+.fixed-header-size.text-4xl {
+  font-size: 2.25rem !important; /* 36px - doubled from original 18px */
+}
+
+.fixed-header-size.text-2xl {
+  font-size: 1.5rem !important; /* 24px - doubled from original 12px */
+}
