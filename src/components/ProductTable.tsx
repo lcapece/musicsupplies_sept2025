@@ -13,6 +13,8 @@ interface ProductTableProps {
   showUpcColumn?: boolean; // Whether to display the UPC column
   showMsrp?: boolean; // Whether to display the MSRP column
   showMapPrice?: boolean; // Whether to display the MAP Price column
+  fontSize?: 'smaller' | 'standard' | 'larger';
+  onFontSizeChange?: (size: 'smaller' | 'standard' | 'larger') => void;
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
