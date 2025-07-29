@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
 import ShoppingCartComponent from './ShoppingCart';
+import AccountSettingsModal from './AccountSettingsModal';
 
 interface HeaderProps {
   onViewChange: (view: 'products' | 'orders' | 'weborders') => void;
@@ -14,6 +15,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   
   const handleLogout = () => {
     logout();
@@ -25,6 +27,14 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
 
   const closeCart = () => {
     setIsCartOpen(false);
+  };
+
+  const openAccountSettings = () => {
+    setIsAccountSettingsOpen(true);
+  };
+
+  const closeAccountSettings = () => {
+    setIsAccountSettingsOpen(false);
   };
   
   return (
@@ -88,6 +98,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
               )}
             </button>
             <button
+              onClick={openAccountSettings}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
             >
               <Settings className="h-4 w-4 mr-2" />
@@ -119,6 +130,9 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
       
       {/* Shopping Cart Modal */}
       <ShoppingCartComponent isOpen={isCartOpen} onClose={closeCart} />
+      
+      {/* Account Settings Modal */}
+      <AccountSettingsModal isOpen={isAccountSettingsOpen} onClose={closeAccountSettings} />
     </header>
   );
 };

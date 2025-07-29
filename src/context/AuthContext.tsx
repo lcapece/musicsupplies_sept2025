@@ -19,6 +19,7 @@ interface AuthContextType {
   isLoading: boolean; 
   error: string | null;
   fetchUserAccount: (accountNumber: string) => Promise<User | null>; 
+  updateUser: (userData: Partial<User>) => void;
   maxDiscountRate: number | null;
   currentDiscountInfo: DiscountInfo | null;
   showPasswordChangeModal: boolean; 
@@ -41,6 +42,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true, 
   error: null,
   fetchUserAccount: async () => null, 
+  updateUser: () => {},
   maxDiscountRate: null,
   currentDiscountInfo: null,
   showPasswordChangeModal: false,
@@ -518,6 +520,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      console.log('[AuthContext] Updating user context with:', userData);
+      setUser(updatedUser);
+      sessionManager.setSession(updatedUser);
+      console.log('[AuthContext] User context and session updated successfully');
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -527,6 +539,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading, 
       error, 
       fetchUserAccount,
+      updateUser,
       maxDiscountRate,
       currentDiscountInfo,
       showPasswordChangeModal,
