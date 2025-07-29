@@ -189,7 +189,7 @@ const PromoCodeManagementTab: React.FC = () => {
       type: promo.type,
       value: promo.value,
       min_order_value: promo.min_order_value,
-      max_uses_per_account: promo.max_uses_per_account || 999,
+      max_uses_per_account: promo.max_uses_per_account ?? 999,
       start_date: promo.start_date ? promo.start_date.split('T')[0] : '',
       end_date: promo.end_date ? promo.end_date.split('T')[0] : '',
       is_active: promo.is_active
@@ -199,52 +199,104 @@ const PromoCodeManagementTab: React.FC = () => {
 
   const handleSavePromoCode = async () => {
     try {
+      console.log('=== PROMO CODE SAVE DEBUG START ===');
+      console.log('Form data received:', formData);
+      console.log('Editing promo:', editingPromo);
+      
+      // Ensure proper parsing of max_uses_per_account
+      const maxUsesPerAccount = parseInt(String(formData.max_uses_per_account), 10);
+      const isUnlimited = isNaN(maxUsesPerAccount) || maxUsesPerAccount >= 999;
+      
+      const updateData = {
+        code: formData.code.toUpperCase(),
+        name: formData.name,
+        type: formData.type,
+        value: Number(formData.value),
+        min_order_value: Number(formData.min_order_value),
+        max_uses_per_account: isUnlimited ? null : maxUsesPerAccount,
+        uses_per_account_tracking: !isUnlimited,
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        is_active: formData.is_active
+      };
+
+      console.log('Raw max_uses_per_account input:', formData.max_uses_per_account);
+      console.log('Parsed max_uses_per_account:', maxUsesPerAccount);
+      console.log('Is unlimited?', isUnlimited);
+      console.log('Final updateData:', JSON.stringify(updateData, null, 2));
+
+      // Check current auth state
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+      console.log('Current auth user:', user?.id);
+
       if (editingPromo) {
         // Update existing promo code
-        const { error } = await supabase
+        console.log('UPDATING existing promo code ID:', editingPromo.id);
+        console.log('UPDATE SQL would be:', `UPDATE promo_codes SET ... WHERE id = '${editingPromo.id}'`);
+        
+        const { data, error, count } = await supabase
           .from('promo_codes')
           .update({
-            code: formData.code.toUpperCase(),
-            name: formData.name,
-            type: formData.type,
-            value: formData.value,
-            min_order_value: formData.min_order_value,
-            max_uses_per_account: formData.max_uses_per_account === 999 ? null : formData.max_uses_per_account,
-            uses_per_account_tracking: formData.max_uses_per_account < 999,
-            start_date: formData.start_date || null,
-            end_date: formData.end_date || null,
-            is_active: formData.is_active,
+            ...updateData,
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingPromo.id);
+          .eq('id', editingPromo.id)
+          .select();
 
-        if (error) throw error;
+        console.log('Update response:');
+        console.log('- data:', data);
+        console.log('- error:', error);
+        console.log('- count:', count);
+
+        if (error) {
+          console.error('SUPABASE UPDATE ERROR:', error);
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          console.error('Error details:', error.details);
+          console.error('Error hint:', error.hint);
+          throw new Error(`Database update failed: ${error.message} (Code: ${error.code})`);
+        }
+
+        if (!data || data.length === 0) {
+          console.error('UPDATE RETURNED NO DATA - possible RLS policy block');
+          throw new Error('Update failed - no data returned. Check permissions.');
+        }
+
+        console.log('Update successful! Updated record:', data[0]);
       } else {
         // Create new promo code
-        const { error } = await supabase
+        console.log('CREATING new promo code');
+        const { data, error } = await supabase
           .from('promo_codes')
-          .insert({
-            code: formData.code.toUpperCase(),
-            name: formData.name,
-            type: formData.type,
-            value: formData.value,
-            min_order_value: formData.min_order_value,
-            max_uses_per_account: formData.max_uses_per_account === 999 ? null : formData.max_uses_per_account,
-            uses_per_account_tracking: formData.max_uses_per_account < 999,
-            start_date: formData.start_date || null,
-            end_date: formData.end_date || null,
-            is_active: formData.is_active
-          });
+          .insert(updateData)
+          .select();
 
-        if (error) throw error;
+        console.log('Insert response:');
+        console.log('- data:', data);
+        console.log('- error:', error);
+
+        if (error) {
+          console.error('SUPABASE INSERT ERROR:', error);
+          throw new Error(`Database insert failed: ${error.message}`);
+        }
+        console.log('Insert successful:', data);
       }
 
+      console.log('=== PROMO CODE SAVE DEBUG END ===');
       setShowPromoModal(false);
-      fetchPromoCodes();
-      fetchPromoStats();
+      await fetchPromoCodes();
+      await fetchPromoStats();
+      alert('Promo code saved successfully!');
     } catch (error) {
-      console.error('Error saving promo code:', error);
-      alert('Error saving promo code');
+      console.error('=== SAVE PROMO CODE ERROR ===');
+      console.error('Full error object:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error message:', errorMessage);
+      alert(`CRITICAL ERROR - Promo code save failed: ${errorMessage}`);
     }
   };
 
@@ -683,12 +735,10 @@ const PromoCodeManagementTab: React.FC = () => {
                   Uses Per Account (999 = unlimited)
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.max_uses_per_account}
                   onChange={(e) => setFormData({...formData, max_uses_per_account: parseInt(e.target.value) || 999})}
                   placeholder="999"
-                  min="1"
-                  max="999"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </div>

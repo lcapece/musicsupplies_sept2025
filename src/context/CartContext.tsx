@@ -196,6 +196,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  // Clear cart when user logs out
+  useEffect(() => {
+    // If user becomes null (logout), clear the cart
+    if (user === null) {
+      console.log('CartContext: User logged out, clearing cart');
+      clearCart();
+    }
+  }, [user]);
+
   // TEMPORARILY DISABLED: Auto-apply best promo code when conditions are met (but not immediately when items change)
   // useEffect(() => {
   //   const autoApplyBestPromoCode = async () => {
