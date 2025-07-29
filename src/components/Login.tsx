@@ -235,7 +235,7 @@ const Login: React.FC = () => {
       
       {/* Version info in lower left corner */}
       <div className="absolute bottom-2 left-2 text-xs text-gray-400">
-        Version: RC81
+        Version: RC729
       </div>
       
       {/* Contact info in lower right corner */}

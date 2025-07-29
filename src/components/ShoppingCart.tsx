@@ -43,6 +43,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     email?: boolean;
   }>({});
   const phoneInputRef = React.useRef<HTMLInputElement>(null);
+  const [poReference, setPoReference] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
 
   // Format phone number as (999) 999-9999
   const formatPhoneNumber = (value: string): string => {
@@ -194,7 +196,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     }
     
     try {
-      const newOrderNumber = await placeOrder(paymentMethod, email, phone);
+      const newOrderNumber = await placeOrder(paymentMethod, email, phone, poReference, specialInstructions);
       
       setOrderConfirmationDetails({
         webOrderNumber: newOrderNumber,
@@ -511,6 +513,41 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                             Credit Card on File
                           </button>
                         </div>
+                      </div>
+                      <div>
+                        <label htmlFor="poReference" className="block text-base font-medium text-gray-700">Your PO Reference (optional)</label>
+                        <input
+                          type="text"
+                          name="poReference"
+                          id="poReference"
+                          value={poReference}
+                          onChange={(e) => setPoReference(e.target.value)}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          placeholder="Enter your PO reference number"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="specialInstructions" className="block text-base font-medium text-gray-700">
+                          Special Instructions or Comment (optional)
+                          <span className="text-sm text-gray-500 ml-2">
+                            {specialInstructions.length}/140 characters
+                          </span>
+                        </label>
+                        <textarea
+                          name="specialInstructions"
+                          id="specialInstructions"
+                          rows={3}
+                          value={specialInstructions}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value.length <= 140) {
+                              setSpecialInstructions(value);
+                            }
+                          }}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          placeholder="Enter any special instructions or comments (max 140 characters)"
+                          maxLength={140}
+                        />
                       </div>
                     </div>
                   </div>

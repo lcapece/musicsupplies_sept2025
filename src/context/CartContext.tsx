@@ -11,7 +11,7 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
-  placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string) => Promise<string>;
+  placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string) => Promise<string>;
   // Promo code features
   applyPromoCode: (code: string, isAutoApplied?: boolean) => Promise<PromoCodeValidity>;
   removePromoCode: () => void;
@@ -358,7 +358,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAppliedPromoCode(null);
   };
 
-  const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string): Promise<string> => {
+  const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string): Promise<string> => {
     const orderNumberGenerated = `WB${nextOrderNumber++}`;
     const orderNumberForDb = parseInt(orderNumberGenerated.slice(2));
     
@@ -396,6 +396,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       orderItems.push({
         partnumber: discountPartNumber, description: discountDescription || 'Promo Code Discount',
         quantity: 1, price: -finalDiscountAmount, extended_price: -finalDiscountAmount
+      });
+    }
+
+    // Add special line items at the end (per requirements)
+    // Add PO Reference if provided
+    if (poReference && poReference.trim()) {
+      orderItems.push({
+        partnumber: 'PO',
+        description: `Customer PO: ${poReference.trim()}`,
+        quantity: 1,
+        price: 0,
+        extended_price: 0
+      });
+    }
+
+    // Add Special Instructions if provided
+    if (specialInstructions && specialInstructions.trim()) {
+      orderItems.push({
+        partnumber: 'COMMENT',
+        description: specialInstructions.trim(),
+        quantity: 1,
+        price: 0,
+        extended_price: 0
       });
     }
 

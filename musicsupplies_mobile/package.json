@@ -1,7 +1,7 @@
 {
   "name": "musicsupplies-mobile",
   "private": true,
-  "version": "1.0.0",
+  "version": "RC729",
   "type": "module",
   "scripts": {
     "dev": "vite",
