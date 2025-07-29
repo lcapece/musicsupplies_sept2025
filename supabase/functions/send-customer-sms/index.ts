@@ -63,7 +63,7 @@ serve(async (req) => {
     }
 
     // Construct the customer SMS message
-    const smsMessage = `Thank you for your order${customerName ? `, ${customerName}` : ''}! Your order #${orderNumber} has been received. You will receive another SMS with the grand total (including shipping fees) and UPS tracking number once your order is processed and shipped. - Lou Capece Music Distributors`;
+    const smsMessage = `From MusicSupplies.com: Thank you for your order${customerName ? `, ${customerName}` : ''}! Your order #${orderNumber} has been received. You will receive another SMS with the grand total (including shipping fees) and UPS tracking number once your order is processed and shipped. - Lou Capece Music Distributors`;
 
     // Send the SMS to customer
     const smsResponse = await sendClickSendSms(customerPhone, smsMessage);
