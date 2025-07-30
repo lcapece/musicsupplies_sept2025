@@ -3,6 +3,16 @@ import { CartItem, User, Product, PromoCodeValidity, AvailablePromoCode } from '
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
+interface ShippingAddress {
+  shippingDifferent: boolean;
+  shippingAddress?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingZip?: string;
+  shippingPhone?: string;
+  shippingContactName?: string;
+}
+
 interface CartContextType {
   items: CartItem[];
   addToCart: (product: Product, quantity?: number) => void;
@@ -11,7 +21,7 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
-  placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string) => Promise<string>;
+  placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string, shippingAddress?: ShippingAddress) => Promise<string>;
   // Promo code features
   applyPromoCode: (code: string, isAutoApplied?: boolean) => Promise<PromoCodeValidity>;
   removePromoCode: () => void;
@@ -358,7 +368,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAppliedPromoCode(null);
   };
 
-  const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string): Promise<string> => {
+  const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string, shippingAddress?: ShippingAddress): Promise<string> => {
     const orderNumberGenerated = `WB${nextOrderNumber++}`;
     const orderNumberForDb = parseInt(orderNumberGenerated.slice(2));
     
@@ -427,7 +437,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       order_number: orderNumberForDb, account_number: accountNumberInt, order_comments: orderComments,
       order_items: orderItems, subtotal: totalPrice, 
       discount_percentage: 0, // No percentage discounts, only fixed amount promo codes
-      discount_amount: finalDiscountAmount, grand_total: grandTotal, status: 'Pending Confirmation'
+      discount_amount: finalDiscountAmount, grand_total: grandTotal, status: 'Pending Confirmation',
+      // Include shipping address fields if provided
+      ...(shippingAddress?.shippingDifferent && {
+        shipped_to_address: shippingAddress.shippingAddress,
+        shipped_to_city: shippingAddress.shippingCity,
+        shipped_to_state: shippingAddress.shippingState,
+        shipped_to_zip: shippingAddress.shippingZip,
+        shipped_to_phone: shippingAddress.shippingPhone,
+        shipped_to_contact_name: shippingAddress.shippingContactName
+      })
     };
 
     try {

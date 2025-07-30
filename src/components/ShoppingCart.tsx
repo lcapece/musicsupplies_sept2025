@@ -45,6 +45,15 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const phoneInputRef = React.useRef<HTMLInputElement>(null);
   const [poReference, setPoReference] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
+  
+  // Shipping address state
+  const [shippingDifferent, setShippingDifferent] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [shippingCity, setShippingCity] = useState('');
+  const [shippingState, setShippingState] = useState('');
+  const [shippingZip, setShippingZip] = useState('');
+  const [shippingPhone, setShippingPhone] = useState('');
+  const [shippingContactName, setShippingContactName] = useState('');
 
   // Format phone number as (999) 999-9999
   const formatPhoneNumber = (value: string): string => {
@@ -196,7 +205,17 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     }
     
     try {
-      const newOrderNumber = await placeOrder(paymentMethod, email, phone, poReference, specialInstructions);
+      const shippingAddressData = shippingDifferent ? {
+        shippingDifferent,
+        shippingAddress,
+        shippingCity,
+        shippingState, 
+        shippingZip,
+        shippingPhone,
+        shippingContactName
+      } : undefined;
+      
+      const newOrderNumber = await placeOrder(paymentMethod, email, phone, poReference, specialInstructions, shippingAddressData);
       
       setOrderConfirmationDetails({
         webOrderNumber: newOrderNumber,
@@ -548,6 +567,124 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                           placeholder="Enter any special instructions or comments (max 140 characters)"
                           maxLength={140}
                         />
+                      </div>
+
+                      {/* Shipping Address Section */}
+                      <div className="border-t border-gray-200 pt-6">
+                        <div className="flex items-center">
+                          <input
+                            id="shippingDifferent"
+                            name="shippingDifferent"
+                            type="checkbox"
+                            checked={shippingDifferent}
+                            onChange={(e) => setShippingDifferent(e.target.checked)}
+                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="shippingDifferent" className="ml-2 block text-base font-medium text-gray-700">
+                            Shipping Address is Different than Bill-To Address
+                          </label>
+                        </div>
+
+                        {shippingDifferent && (
+                          <div className="mt-4 space-y-4 p-4 bg-gray-50 rounded-md">
+                            <h4 className="text-lg font-medium text-gray-900">Shipping Address</h4>
+                            
+                            <div>
+                              <label htmlFor="shippingContactName" className="block text-sm font-medium text-gray-700">
+                                Contact Name
+                              </label>
+                              <input
+                                type="text"
+                                name="shippingContactName"
+                                id="shippingContactName"
+                                value={shippingContactName}
+                                onChange={(e) => setShippingContactName(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                placeholder="Contact name for shipping"
+                              />
+                            </div>
+
+                            <div>
+                              <label htmlFor="shippingAddress" className="block text-sm font-medium text-gray-700">
+                                Street Address
+                              </label>
+                              <input
+                                type="text"
+                                name="shippingAddress"
+                                id="shippingAddress"
+                                value={shippingAddress}
+                                onChange={(e) => setShippingAddress(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                placeholder="Street address"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label htmlFor="shippingCity" className="block text-sm font-medium text-gray-700">
+                                  City
+                                </label>
+                                <input
+                                  type="text"
+                                  name="shippingCity"
+                                  id="shippingCity"
+                                  value={shippingCity}
+                                  onChange={(e) => setShippingCity(e.target.value)}
+                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  placeholder="City"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="shippingState" className="block text-sm font-medium text-gray-700">
+                                  State
+                                </label>
+                                <input
+                                  type="text"
+                                  name="shippingState"
+                                  id="shippingState"
+                                  value={shippingState}
+                                  onChange={(e) => setShippingState(e.target.value)}
+                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  placeholder="State"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label htmlFor="shippingZip" className="block text-sm font-medium text-gray-700">
+                                  ZIP Code
+                                </label>
+                                <input
+                                  type="text"
+                                  name="shippingZip"
+                                  id="shippingZip"
+                                  value={shippingZip}
+                                  onChange={(e) => setShippingZip(e.target.value)}
+                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  placeholder="ZIP Code"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="shippingPhone" className="block text-sm font-medium text-gray-700">
+                                  Phone Number
+                                </label>
+                                <input
+                                  type="tel"
+                                  name="shippingPhone"
+                                  id="shippingPhone"
+                                  value={shippingPhone}
+                                  onChange={(e) => setShippingPhone(formatPhoneNumber(e.target.value))}
+                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  placeholder="(999) 999-9999"
+                                  maxLength={14}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

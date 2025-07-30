@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Order WB765432</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: white;
+            color: #000;
+            line-height: 1.4;
+        }
+
+        /* Print-optimized container for 8.5" x 11" */
+        .invoice-container {
+            width: 8.5in;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 0.5in;
+            background: white;
+            box-sizing: border-box;
+        }
+
+        /* Clean Header Section */
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .company-section {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 5px;
+        }
+
+        .company-website {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .company-website .music { color: #2c5aa0; }
+        .company-website .supplies { color: #dc3545; }
+        .company-website .com { color: #000; }
+
+        .company-details {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* Invoice Meta Information */  
+        .invoice-meta {
+            text-align: right;
+            flex: 0 0 250px;
+        }
+
+        .invoice-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            font-size: 14px;
+            margin: 5px 0;
+            color: #333;
+        }
+
+        .meta-item strong {
+            color: #000;
+        }
+
+        /* Customer Information */
+        .customer-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #2c5aa0;
+        }
+
+        .bill-to-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 10px;
+        }
+
+        .customer-info {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* Items Table */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+            font-size: 13px;
+        }
+
+        .items-table th {
+            background: #2c5aa0;
+            color: white;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #ddd;
+        }
+
+        .items-table th.text-center { text-align: center; }
+        .items-table th.text-right { text-align: right; }
+
+        .items-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .items-table tbody tr.row-even {
+            background-color: #f8f9fa;
+        }
+
+        .items-table tbody tr.row-odd {
+            background-color: white;
+        }
+
+        .qty-cell {
+            text-align: center;
+            font-weight: bold;
+            width: 8%;
+        }
+
+        .part-cell {
+            font-family: monospace;
+            font-weight: bold;
+            width: 18%;
+        }
+
+        .desc-cell {
+            width: 44%;
+        }
+
+        .price-cell, .total-cell {
+            text-align: right;
+            font-family: monospace;
+            font-weight: bold;
+            width: 15%;
+        }
+
+        .empty-row td {
+            height: 25px;
+            border-color: #eee;
+        }
+
+        /* Summary Section */
+        .summary-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 25px;
+        }
+
+        .totals-table {
+            width: 300px;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .totals-table td {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+        }
+
+        .total-label {
+            text-align: right;
+            font-weight: bold;
+            background: #f8f9fa;
+            width: 60%;
+        }
+
+        .total-amount {
+            text-align: right;
+            font-family: monospace;
+            font-weight: bold;
+            width: 40%;
+        }
+
+        .grand-total-row {
+            background: #2c5aa0;
+            color: white;
+        }
+
+        .grand-total-row .total-label,
+        .grand-total-row .total-amount {
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Payment Information */
+        .payment-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+        }
+
+        .payment-method {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .payment-terms {
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+        }
+
+        /* Pro-Forma Notice */
+        .proforma-notice {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #ffebee;
+            border: 3px solid #dc3545;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+        }
+
+        .proforma-text {
+            color: #dc3545;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Footer */
+        .footer-section {
+            padding: 15px 0;
+            text-align: center;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .footer-text {
+            margin: 5px 0;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            
+            .invoice-container {
+                margin: 0;
+                padding: 0.5in;
+                box-shadow: none;
+                border: none;
+            }
+            
+            @page {
+                size: 8.5in 11in;
+                margin: 0.5in;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Clean Header -->
+        <header class="invoice-header">
+            <div class="company-section">
+                <h1 class="company-name">Lou Capece Music Distributors</h1>
+                <div class="company-website">
+                    <span class="music">Music</span><span class="supplies">Supplies</span><span class="com">.com</span>
+                </div>
+                <div class="company-details">
+                    <div>2555 North Jerusalem Rd.</div>
+                    <div>East Meadow, NY 11554</div>
+                    <div>Toll Free 1(800) 321-5584</div>
+                    <div>Reply to: marketing@loucapecemusic.com</div>
+                </div>
+            </div>
+            <div class="invoice-meta">
+                <h2 class="invoice-title">WEB ORDER</h2>
+                <div class="meta-item"><strong>Web Order:</strong> WB765432</div>
+                <div class="meta-item"><strong>Acct No.:</strong> 10123</div>
+                <div class="meta-item"><strong>Order Date:</strong> 1/29/2025</div>
+                <div class="meta-item"><strong>Terms:</strong> Credit Card</div>
+                <div class="meta-item"><strong>Sales Rep:</strong> Online Order</div>
+            </div>
+        </header>
+
+        <!-- Customer Information -->
+        <section class="customer-section">
+            <h3 class="bill-to-title">Bill To:</h3>
+            <div class="customer-info">
+                <div><strong>John Smith</strong></div>
+                <div>123 Main Street</div>
+                <div>Anytown, NY 12345</div>
+                <div>Email: john.smith@email.com</div>
+                <div>Phone: (555) 123-4567</div>
+            </div>
+        </section>
+
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th class="text-center">Qty Ord</th>
+                    <th class="text-center">Qty Shp</th>
+                    <th>Part Number</th>
+                    <th>Description</th>
+                    <th class="text-right">Unit Net</th>
+                    <th class="text-right">Extended Net</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="row-even">
+                    <td class="qty-cell">2</td>
+                    <td class="qty-cell">2</td>
+                    <td class="part-cell">CORD-GX100</td>
+                    <td class="desc-cell">Cordovox Guitar Cable 10ft - Premium Quality</td>
+                    <td class="price-cell">$15.99</td>
+                    <td class="total-cell">$31.98</td>
+                </tr>
+                <tr class="row-odd">
+                    <td class="qty-cell">1</td>
+                    <td class="qty-cell">1</td>
+                    <td class="part-cell">NYP-DRUM-KIT</td>
+                    <td class="desc-cell">New York Pro 5-Piece Drum Set - Complete Kit</td>
+                    <td class="price-cell">$299.99</td>
+                    <td class="total-cell">$299.99</td>
+                </tr>
+                <tr class="row-even">
+                    <td class="qty-cell">3</td>
+                    <td class="qty-cell">3</td>
+                    <td class="part-cell">STAD-PICK-SET</td>
+                    <td class="desc-cell">Stadium Guitar Pick Set - Assorted Colors</td>
+                    <td class="price-cell">$4.99</td>
+                    <td class="total-cell">$14.97</td>
+                </tr>
+                <tr class="row-odd empty-row">
+                    <td class="qty-cell">&nbsp;</td>
+                    <td class="qty-cell"></td>
+                    <td class="part-cell"></td>
+                    <td class="desc-cell"></td>
+                    <td class="price-cell"></td>
+                    <td class="total-cell"></td>
+                </tr>
+                <tr class="row-even empty-row">
+                    <td class="qty-cell">&nbsp;</td>
+                    <td class="qty-cell"></td>
+                    <td class="part-cell"></td>
+                    <td class="desc-cell"></td>
+                    <td class="price-cell"></td>
+                    <td class="total-cell"></td>
+                </tr>
+                <tr class="row-odd empty-row">
+                    <td class="qty-cell">&nbsp;</td>
+                    <td class="qty-cell"></td>
+                    <td class="part-cell"></td>
+                    <td class="desc-cell"></td>
+                    <td class="price-cell"></td>
+                    <td class="total-cell"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Summary Section -->
+        <section class="summary-section">
+            <table class="totals-table">
+                <tr>
+                    <td class="total-label">Subtotal:</td>
+                    <td class="total-amount">$346.94</td>
+                </tr>
+                <tr>
+                    <td class="total-label">Shipping:</td>
+                    <td class="total-amount">$15.50</td>
+                </tr>
+                <tr>
+                    <td class="total-label">Discount (SAVE10):</td>
+                    <td class="total-amount">-$34.69</td>
+                </tr>
+                <tr class="grand-total-row">
+                    <td class="total-label">Total Amount Due:</td>
+                    <td class="total-amount">$327.75</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Payment Information -->
+        <section class="payment-section">
+            <div class="payment-method">Payment Method: Credit Card on File</div>
+        </section>
+
+        <!-- Pro-Forma Notice -->
+        <section class="proforma-notice">
+            <p class="proforma-text">Note: This is a Pro-Forma Invoice. You will be notified of the Grand Total when Shipping Charges are calculated - Thank You!</p>
+        </section>
+
+        <!-- Footer -->
+        <section class="footer-section">
+            <div class="footer-text">Thank you for your business! Questions about this order?</div>
+            <div class="footer-text">Contact us at marketing@loucapecemusic.com or Toll Free 1(800) 321-5584</div>
+        </section>
+    </div>
+</body>
+</html>

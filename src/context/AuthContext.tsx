@@ -32,6 +32,8 @@ interface AuthContextType {
   showDeactivatedAccountModal: boolean;
   deactivatedAccountName: string;
   closeDeactivatedAccountModal: () => void;
+  validateAndRefreshSession: () => Promise<boolean>;
+  ensureAuthSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
