@@ -265,7 +265,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
     }
   };
 
-  const handleSmsConsent = (consented: boolean, marketingConsent?: boolean, phoneNumber?: string) => {
+  const handleSmsConsent = async (consented: boolean, marketingConsent?: boolean, phoneNumber?: string) => {
     setPreferences(prev => ({
       ...prev,
       smsConsent: consented,
@@ -278,6 +278,33 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
         ...prev,
         mobile_phone: phoneNumber
       }));
+    }
+    
+    // Immediately save SMS consent to database
+    if (user) {
+      try {
+        const { error: consentError } = await supabase
+          .from('accounts_lcmd')
+          .update({
+            sms_consent: consented,
+            marketing_sms_consent: marketingConsent || false,
+            sms_consent_date: consented ? new Date().toISOString() : null,
+            mobile_phone: phoneNumber || profileData.mobile_phone // Also update phone number if provided
+          })
+          .eq('account_number', user.accountNumber);
+
+        if (consentError) {
+          console.error('Error saving SMS consent:', consentError);
+          setError('Failed to save SMS preferences');
+        } else {
+          // Refresh user data to sync the context
+          await fetchUserAccount(user.accountNumber);
+          setSuccessMessage('SMS preferences updated successfully!');
+        }
+      } catch (err: any) {
+        console.error('Error saving SMS consent:', err);
+        setError('Failed to save SMS preferences');
+      }
     }
     
     setShowSmsConsentModal(false);

@@ -14,7 +14,6 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [mobilePhone, setMobilePhone] = useState('');
-  const [smsConsent, setSmsConsent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -28,10 +27,38 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
     }
   }, [accountData]);
 
+  const ensureLogonEntry = async (accountNumber: number, defaultPassword: string) => {
+    // Check if logon entry exists
+    const { data: existingEntry, error: checkError } = await supabase
+      .from('logon_lcmd')
+      .select('account_number')
+      .eq('account_number', accountNumber)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      // Error other than "not found"
+      throw checkError;
+    }
+
+    if (!existingEntry) {
+      // Create the logon entry with default password
+      const { error: insertError } = await supabase
+        .from('logon_lcmd')
+        .insert({
+          account_number: accountNumber,
+          password: defaultPassword
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+      console.log(`Created logon entry for account ${accountNumber} with default password`);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Immediate state updates for visual feedback - this ensures first click works
     setIsLoading(true);
     setError(null);
     setSuccessMessage(null);
@@ -49,47 +76,52 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
       }
 
-      // Step 1: Update password using the custom authentication system
-      const { data: passwordUpdateData, error: passwordError } = await supabase.rpc('update_user_password_lcmd', {
-        p_account_number: parseInt(accountData.accountNumber),
-        p_new_password: newPassword
-      });
+      const accountNumber = parseInt(accountData.accountNumber);
+      
+      // Step 1: Ensure logon_lcmd entry exists (with current/default password)
+      const currentPassword = accountData.currentPassword || 'p11554'; // Use default if not available
+      await ensureLogonEntry(accountNumber, currentPassword);
+
+      // Step 2: Update password directly in logon_lcmd
+      const { error: passwordError } = await supabase
+        .from('logon_lcmd')
+        .update({ password: newPassword })
+        .eq('account_number', accountNumber);
 
       if (passwordError) {
         console.error('Password update error:', passwordError);
         throw passwordError;
       }
 
-      // Step 2: Update other account details in the database
+      // Step 3: Update other account details and clear password change requirement
       const { data, error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
           email_address: email || null,
           mobile_phone: mobilePhone || null,
-          sms_consent_given: smsConsent && mobilePhone.trim() ? true : false,
-          sms_consent_date: smsConsent && mobilePhone.trim() ? new Date().toISOString() : null,
           requires_password_change: false
         })
-        .eq('account_number', parseInt(accountData.accountNumber))
+        .eq('account_number', accountNumber)
         .select();
 
       if (updateError) {
         console.error('Update error:', updateError);
-        // Note: At this point, the auth password has changed.
-        // You might want to add logic to handle this inconsistency.
         throw updateError;
       }
 
       console.log('Update successful:', data);
       setSuccessMessage("Account updated successfully!");
       
+      // Show SMS consent modal for first-time password changes
       if (accountData.requires_password_change) {
-        setShowSmsConsentModal(true);
+        setTimeout(() => {
+          setShowSmsConsentModal(true);
+        }, 1000);
       } else {
         // Wait a moment to show success message
         setTimeout(() => {
           onClose(true);
-        }, 1000);
+        }, 1500);
       }
 
     } catch (err: any) {
@@ -100,14 +132,22 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
     }
   };
 
-  const handleSmsConsent = async (consented: boolean) => {
+  const handleSmsConsent = async (consented: boolean, marketingConsent?: boolean, phoneNumber?: string) => {
     try {
+      // Update SMS consent and phone number if provided
+      const updateData: any = {
+        sms_consent: consented,
+        marketing_sms_consent: marketingConsent || false,
+        sms_consent_date: consented ? new Date().toISOString() : null,
+      };
+
+      if (phoneNumber) {
+        updateData.mobile_phone = phoneNumber;
+      }
+
       await supabase
         .from('accounts_lcmd')
-        .update({
-          sms_consent_given: consented,
-          sms_consent_date: consented ? new Date().toISOString() : null,
-        })
+        .update(updateData)
         .eq('account_number', parseInt(accountData.accountNumber));
       
       // Refresh user account data to reflect changes
@@ -180,7 +220,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
               />
             </div>
 
-            <div className="mb-4">
+            <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="mobilePhone">
                 Mobile Phone Number (Optional)
               </label>
@@ -192,23 +232,10 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
                 onChange={(e) => setMobilePhone(e.target.value)}
                 placeholder="(555) 123-4567"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                SMS preferences will be handled separately after password update
+              </p>
             </div>
-
-            {mobilePhone.trim() && (
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={smsConsent}
-                    onChange={(e) => setSmsConsent(e.target.checked)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">
-                    I consent to receive SMS messages from Music Supplies for order updates and promotional offers
-                  </span>
-                </label>
-              </div>
-            )}
 
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <button
