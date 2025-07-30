@@ -78,6 +78,49 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [showPromoWarning, setShowPromoWarning] = useState<boolean>(false);
   
+  // Modal drag functionality - positioned within shopping cart content area
+  const [modalPosition, setModalPosition] = useState({ x: 50, y: 100 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
+  // Handle modal dragging
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - modalPosition.x,
+      y: e.clientY - modalPosition.y
+    });
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    // Constrain within shopping cart content boundaries (relative positioning)
+    const constrainedX = Math.max(10, Math.min(newX, 300)); // Keep within cart content width
+    const constrainedY = Math.max(50, Math.min(newY, 400)); // Keep within cart content height
+    
+    setModalPosition({ x: constrainedX, y: constrainedY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Add event listeners for dragging
+  React.useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragStart, modalPosition]);
+  
   useEffect(() => {
     if (isOpen && user) {
       setEmail(user.email || user.email_address || '');
@@ -397,52 +440,78 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
 
   return (
     <>
-      {/* Promo Code Warning Modal */}
-      {showPromoWarning && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-60">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Save Money with Available Promo Codes!
-            </h3>
-            <p className="text-gray-600 mb-4">
-              You have available promo codes that could save you money on this order. Would you like to apply the best discount before checking out?
-            </p>
-            {availablePromoCodes.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-md">
-                <p className="text-sm text-blue-800">
-                  <strong>Best Available:</strong> {availablePromoCodes.find(p => p.is_best)?.code || availablePromoCodes[0].code}
-                  <br />
-                  <span className="text-blue-600">
-                    Save ${(availablePromoCodes.find(p => p.is_best)?.discount_amount || availablePromoCodes[0].discount_amount).toFixed(2)}
-                  </span>
-                </p>
-              </div>
-            )}
-            <div className="flex space-x-3">
-              <button
-                onClick={handleApplyBestPromoAndCheckout}
-                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              >
-                Apply & Checkout
-              </button>
-              <button
-                onClick={handleProceedWithoutPromo}
-                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-              >
-                Skip Discount
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="fixed inset-0 overflow-hidden z-50">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
           <div className="fixed inset-y-0 right-0 pl-10 max-w-full flex">
           <div className="w-screen max-w-4xl">
-            <div className="h-full flex flex-col bg-white shadow-xl">
-              <div className="flex-1 py-6 overflow-y-auto px-4 sm:px-6">
+            <div className="h-full flex flex-col bg-white shadow-xl relative">
+              <div className="flex-1 py-6 overflow-y-auto px-4 sm:px-6 relative">
+                
+                {/* Promo Code Warning Modal - Positioned within shopping cart content area */}
+                {showPromoWarning && (
+                  <div 
+                    className="absolute bg-white rounded-lg shadow-2xl border-2 border-indigo-200 z-50 max-w-sm"
+                    style={{
+                      left: `${modalPosition.x}px`,
+                      top: `${modalPosition.y}px`,
+                      cursor: isDragging ? 'grabbing' : 'grab'
+                    }}
+                    onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling up
+                  >
+                    {/* Draggable header bar */}
+                    <div 
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-t-lg flex justify-between items-center cursor-grab active:cursor-grabbing"
+                      onMouseDown={handleMouseDown}
+                    >
+                      <h3 className="text-sm font-semibold select-none">
+                        💰 Save Money with Promo Codes!
+                      </h3>
+                      <button
+                        onClick={() => setShowPromoWarning(false)}
+                        className="text-white hover:text-indigo-200 focus:outline-none"
+                        title="Close"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    
+                    {/* Modal content */}
+                    <div className="p-4">
+                      <p className="text-gray-600 text-sm mb-3">
+                        You have available promo codes that could save you money on this order. Apply the best discount before checking out?
+                      </p>
+                      
+                      {availablePromoCodes.length > 0 && (
+                        <div className="mb-4 p-3 bg-blue-50 rounded-md">
+                          <p className="text-xs text-blue-800">
+                            <strong>Best Available:</strong> {availablePromoCodes.find(p => p.is_best)?.code || availablePromoCodes[0].code}
+                            <br />
+                            <span className="text-blue-600 font-semibold">
+                              Save ${(availablePromoCodes.find(p => p.is_best)?.discount_amount || availablePromoCodes[0].discount_amount).toFixed(2)}
+                            </span>
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={handleApplyBestPromoAndCheckout}
+                          className="flex-1 bg-green-600 text-white px-3 py-2 text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+                        >
+                          Apply & Checkout
+                        </button>
+                        <button
+                          onClick={handleProceedWithoutPromo}
+                          className="flex-1 bg-gray-300 text-gray-700 px-3 py-2 text-sm rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                        >
+                          Skip Discount
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between">
                   <h2 className="text-4xl font-bold text-gray-900">Shopping Cart</h2>
                   <button
