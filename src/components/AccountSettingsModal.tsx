@@ -13,7 +13,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
   console.log('🔄 AccountSettingsModal rendering - isOpen:', isOpen);
   console.log('🔄 onClose function:', typeof onClose, onClose.toString().substring(0, 100));
   
-  const { user, fetchUserAccount, updateUser } = useAuth();
+  const { user, fetchUserAccount, updateUser, ensureAuthSession } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'preferences'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -112,6 +112,15 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
     clearMessages();
 
     try {
+      // Ensure auth session is valid before attempting update
+      console.log('[AccountSettingsModal] Ensuring auth session before profile update...');
+      const sessionValid = await ensureAuthSession();
+      if (!sessionValid) {
+        setError('Auth session missing! Please log in again.');
+        return;
+      }
+      console.log('[AccountSettingsModal] Auth session validated successfully');
+
       // Update auth user email if changed
       if (profileData.email !== (user.email || user.email_address)) {
         console.log('Updating auth email from', (user.email || user.email_address), 'to', profileData.email);

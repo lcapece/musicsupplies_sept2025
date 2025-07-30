@@ -49,15 +49,15 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
       }
 
-      // Step 1: Securely update the user's password and email via Supabase Auth
-      const { error: authError } = await supabase.auth.updateUser({
-        password: newPassword,
-        email: email,
+      // Step 1: Update password using the custom authentication system
+      const { data: passwordUpdateData, error: passwordError } = await supabase.rpc('update_user_password_lcmd', {
+        p_account_number: parseInt(accountData.accountNumber),
+        p_new_password: newPassword
       });
 
-      if (authError) {
-        console.error('Auth error:', authError);
-        throw authError;
+      if (passwordError) {
+        console.error('Password update error:', passwordError);
+        throw passwordError;
       }
 
       // Step 2: Update other account details in the database

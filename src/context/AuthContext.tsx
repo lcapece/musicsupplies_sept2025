@@ -57,6 +57,8 @@ const AuthContext = createContext<AuthContextType>({
   showDeactivatedAccountModal: false,
   deactivatedAccountName: '',
   closeDeactivatedAccountModal: () => {},
+  validateAndRefreshSession: async () => false,
+  ensureAuthSession: async () => false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -532,6 +534,122 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const validateAndRefreshSession = async (): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Validating and refreshing session...');
+      
+      // Check if we have a user in context
+      if (!user || !isAuthenticated) {
+        console.log('[AuthContext] No user in context, session invalid');
+        return false;
+      }
+
+      // Check if session manager has valid session
+      const sessionUser = sessionManager.getSession();
+      if (!sessionUser) {
+        console.log('[AuthContext] No valid session in sessionManager');
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsSpecialAdmin(false);
+        return false;
+      }
+
+      // Verify Supabase auth session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[AuthContext] Error getting Supabase session:', error);
+        return false;
+      }
+
+      // If no Supabase session, try to refresh
+      if (!session) {
+        console.log('[AuthContext] No Supabase session, attempting refresh...');
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          console.error('[AuthContext] Session refresh failed:', refreshError);
+          // Clear invalid session
+          sessionManager.clearSession();
+          setUser(null);
+          setIsAuthenticated(false);
+          setIsSpecialAdmin(false);
+          return false;
+        }
+        
+        console.log('[AuthContext] Session refreshed successfully');
+      }
+
+      // Ensure JWT claims are set for current user
+      if (user.accountNumber) {
+        try {
+          const accountNumber = parseInt(user.accountNumber, 10);
+          if (!isNaN(accountNumber)) {
+            await supabase.rpc('set_admin_jwt_claims', {
+              p_account_number: accountNumber
+            });
+            console.log('[AuthContext] JWT claims validated/refreshed for account:', accountNumber);
+          }
+        } catch (claimsError) {
+          console.error('[AuthContext] Failed to refresh JWT claims:', claimsError);
+          // Don't fail validation if claims setting fails, but log it
+        }
+      }
+
+      console.log('[AuthContext] Session validation successful');
+      return true;
+    } catch (error) {
+      console.error('[AuthContext] Session validation failed:', error);
+      return false;
+    }
+  };
+
+  const ensureAuthSession = async (): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Ensuring auth session...');
+      
+      // First try to validate current session
+      const isValid = await validateAndRefreshSession();
+      if (isValid) {
+        console.log('[AuthContext] Current session is valid');
+        return true;
+      }
+
+      // If validation failed, check if we can restore from sessionManager
+      const sessionUser = sessionManager.getSession();
+      if (sessionUser && sessionUser.accountNumber) {
+        console.log('[AuthContext] Attempting to restore session from sessionManager');
+        
+        // Try to set JWT claims for the stored user
+        try {
+          const accountNumber = parseInt(sessionUser.accountNumber, 10);
+          if (!isNaN(accountNumber)) {
+            await supabase.rpc('set_admin_jwt_claims', {
+              p_account_number: accountNumber
+            });
+            
+            // Update context with restored user
+            setUser(sessionUser);
+            setIsAuthenticated(true);
+            setIsSpecialAdmin(sessionUser.is_special_admin || false);
+            
+            console.log('[AuthContext] Session restored successfully');
+            return true;
+          }
+        } catch (error) {
+          console.error('[AuthContext] Failed to restore session:', error);
+        }
+      }
+
+      console.log('[AuthContext] No valid session could be ensured');
+      setError('Authentication session expired. Please log in again.');
+      return false;
+    } catch (error) {
+      console.error('[AuthContext] Error ensuring auth session:', error);
+      setError('Authentication error. Please try logging in again.');
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -553,7 +671,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSpecialAdmin,
       showDeactivatedAccountModal,
       deactivatedAccountName,
-      closeDeactivatedAccountModal
+      closeDeactivatedAccountModal,
+      validateAndRefreshSession,
+      ensureAuthSession
     }}>
       {children}
     </AuthContext.Provider>
