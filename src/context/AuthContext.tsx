@@ -370,7 +370,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (logError) { console.error('Failed to log successful login attempt:', logError); }
 
       // Map data from PL/pgSQL function to User type
-      // The function returns columns: account_number, acct_name, address, city, state, zip, id (UUID), email_address, mobile_phone, requires_password_change, is_special_admin, debug_info
+      // The function returns columns: account_number, acct_name, address, city, state, zip, id (UUID), email_address, phone, mobile_phone, requires_password_change, is_special_admin, debug_info
       const userData: User = {
         accountNumber: String(authenticatedUserData.account_number), // This is BIGINT from function
         acctName: authenticatedUserData.acct_name || '',
@@ -383,6 +383,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // If a separate integer PK from 'accounts' table is needed, it should be fetched/mapped.
         id: authenticatedUserData.account_number, // This is critical: ensure this 'id' is what CartContext expects for account_id
         email: authenticatedUserData.email_address || '', 
+        phone: authenticatedUserData.phone || '',
         mobile_phone: authenticatedUserData.mobile_phone || '',
         requires_password_change: authenticatedUserData.requires_password_change === true,
         is_special_admin: authenticatedUserData.is_special_admin === true,
@@ -509,6 +510,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           zip: data.zip || '',
           id: data.id,
           email: data.email_address || '',
+          phone: data.phone || '',
           mobile_phone: data.mobile_phone || '',
           requires_password_change: data.requires_password_change === true, // Explicitly treat only true as true
         };

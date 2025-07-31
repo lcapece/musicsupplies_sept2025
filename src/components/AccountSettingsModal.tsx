@@ -22,6 +22,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
   // Profile form state
   const [profileData, setProfileData] = useState({
     email: '',
+    phone: '',
     mobile_phone: '',
     address: '',
     city: '',
@@ -55,6 +56,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
       // Initialize form data with user information
       setProfileData({
         email: user.email || user.email_address || '',
+        phone: user.phone || '',
         mobile_phone: user.mobile_phone || '',
         address: user.address || '',
         city: user.city || '',
@@ -140,6 +142,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
         .from('accounts_lcmd')
         .update({
           email_address: profileData.email,
+          phone: profileData.phone,
           mobile_phone: profileData.mobile_phone,
           address: profileData.address,
           city: profileData.city,
@@ -163,6 +166,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
         const updatedUserData = {
           email: updatedRecord.email_address || profileData.email,
           email_address: updatedRecord.email_address || profileData.email,
+          phone: updatedRecord.phone || profileData.phone,
           mobile_phone: updatedRecord.mobile_phone || profileData.mobile_phone,
           address: updatedRecord.address || profileData.address,
           city: updatedRecord.city || profileData.city,
@@ -409,7 +413,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
               >
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Contact Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         <Mail className="h-4 w-4 inline mr-1" />
@@ -425,6 +429,18 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         <Phone className="h-4 w-4 inline mr-1" />
+                        Business Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={profileData.phone}
+                        onChange={(e) => setProfileData(prev => ({...prev, phone: e.target.value}))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <Phone className="h-4 w-4 inline mr-1" />
                         Mobile Phone
                       </label>
                       <input
@@ -432,6 +448,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
                         value={profileData.mobile_phone}
                         onChange={(e) => setProfileData(prev => ({...prev, mobile_phone: e.target.value}))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="For SMS notifications"
                       />
                     </div>
                   </div>

@@ -43,6 +43,7 @@ export interface User {
   zip: string;
   email?: string; // This will be the property used in the frontend User object
   email_address?: string; // Property from the database (corrected to lowercase)
+  phone?: string; // Business phone
   mobile_phone?: string; // Added mobile_phone
   id?: string; // Added id from accounts table
   password?: string; // Added password from accounts table
