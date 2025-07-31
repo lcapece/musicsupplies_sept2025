@@ -353,10 +353,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const orderNumberGenerated = `WB${nextOrderNumber++}`;
     const orderNumberForDb = parseInt(orderNumberGenerated.slice(2));
     
-    if (!user || !user.accountNumber || typeof user.id !== 'number') {
-      console.error('Place Order: User, account number, or valid user ID (for accounts.id) is not available.');
-      throw new Error('User not authenticated, account number or valid user ID missing.');
+    if (!user || !user.accountNumber) {
+      console.error('Place Order: User or account number is not available.');
+      throw new Error('User not authenticated or account number missing.');
     }
+    
+    // Log user details for debugging
+    console.log('Place Order: User validation - accountNumber:', user.accountNumber, 'id:', user.id, 'typeof id:', typeof user.id);
     
     const accountNumberInt = parseInt(user.accountNumber, 10);
     if (isNaN(accountNumberInt)) { throw new Error('Invalid user account number format.'); }

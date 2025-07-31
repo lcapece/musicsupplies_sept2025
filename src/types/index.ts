@@ -45,7 +45,7 @@ export interface User {
   email_address?: string; // Property from the database (corrected to lowercase)
   phone?: string; // Business phone
   mobile_phone?: string; // Added mobile_phone
-  id?: string; // Added id from accounts table
+  id?: number; // Added id from accounts table (should be number for database compatibility)
   password?: string; // Added password from accounts table
   requires_password_change?: boolean; // Flag to indicate if user needs to change password
   sms_consent?: boolean; // SMS consent flag

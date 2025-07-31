@@ -249,6 +249,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkUserAndFetchMaxDiscount();
   }, []);
 
+  // Function to clear orphaned auth.users records
+  const clearOrphanedAuthUsers = async (identifier: string): Promise<void> => {
+    try {
+      console.log('[AuthContext] Clearing orphaned auth.users records for:', identifier);
+      
+      // Find the account in accounts_lcmd
+      let query = supabase.from('accounts_lcmd').select('account_number, user_id');
+      
+      if (!isNaN(Number(identifier))) {
+        query = query.eq('account_number', parseInt(identifier, 10));
+      } else {
+        query = query.eq('email_address', identifier);
+      }
+      
+      const { data: accountData, error: accountError } = await query.single();
+      
+      if (accountError) {
+        console.log('[AuthContext] No account found for cleanup, skipping');
+        return;
+      }
+      
+      if (accountData && accountData.user_id) {
+        console.log('[AuthContext] Found user_id to clear:', accountData.user_id);
+        
+        // Clear the user_id from accounts_lcmd to break the connection
+        const { error: updateError } = await supabase
+          .from('accounts_lcmd')
+          .update({ user_id: null })
+          .eq('account_number', accountData.account_number);
+        
+        if (updateError) {
+          console.error('[AuthContext] Failed to clear user_id:', updateError);
+        } else {
+          console.log('[AuthContext] Successfully cleared user_id for account:', accountData.account_number);
+        }
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error during auth.users cleanup:', error);
+      // Don't fail login if cleanup fails
+    }
+  };
+
   const login = async (identifier: string, password: string): Promise<boolean> => {
     setError(null);
     
@@ -275,6 +317,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       identifier = accountValidation.sanitized || identifier;
     }
+
+    // CRITICAL: Clear any orphaned auth.users records before authentication
+    await clearOrphanedAuthUsers(identifier);
 
     // Check for deactivated account pattern: one letter + 5 identical characters (x's or other repeating chars)
     const deactivatedPattern = /^[a-zA-Z](.)\1{4}$/;
