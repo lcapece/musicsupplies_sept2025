@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../images/music_supplies_logo.png';
 
@@ -13,11 +13,71 @@ const SmsConsentModal: React.FC<SmsConsentModalProps> = ({ isOpen, onClose, onCo
   const [transactionalConsent, setTransactionalConsent] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
 
+  // Initialize with +1 when modal opens
+  useEffect(() => {
+    if (isOpen && phoneNumber === '') {
+      setPhoneNumber('+1 ');
+    }
+  }, [isOpen]);
+
+  // Format phone number as user types
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digit characters except + at the start
+    const cleaned = value.replace(/[^\d+]/g, '');
+    
+    // If it starts with +1, apply US formatting
+    if (cleaned.startsWith('+1')) {
+      const digits = cleaned.slice(2); // Remove +1
+      let formatted = '+1 ';
+      
+      if (digits.length > 0) {
+        if (digits.length <= 3) {
+          formatted += `(${digits}`;
+        } else if (digits.length <= 6) {
+          formatted += `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+        } else {
+          formatted += `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+        }
+      }
+      
+      return formatted;
+    }
+    
+    // If no +1, return as-is (user removed country code)
+    return value;
+  };
+
+  // Extract only digits for database storage
+  const extractDigitsOnly = (formattedNumber: string) => {
+    return formattedNumber.replace(/\D/g, '');
+  };
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    
+    // Allow user to delete everything including +1
+    if (inputValue === '') {
+      setPhoneNumber('');
+      return;
+    }
+    
+    // If user is typing and it starts with +1, apply formatting
+    if (inputValue.startsWith('+1')) {
+      const formatted = formatPhoneNumber(inputValue);
+      setPhoneNumber(formatted);
+    } else {
+      // User removed +1, allow freeform entry
+      setPhoneNumber(inputValue);
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = () => {
     if (transactionalConsent) {
-      onConsent(true, marketingConsent, phoneNumber);
+      // Extract only digits for database storage
+      const digitsOnly = extractDigitsOnly(phoneNumber);
+      onConsent(true, marketingConsent, digitsOnly);
     } else {
       onConsent(false, false, '');
     }
@@ -102,7 +162,7 @@ const SmsConsentModal: React.FC<SmsConsentModalProps> = ({ isOpen, onClose, onCo
                 <input
                   type="tel"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={handlePhoneNumberChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="+1 (555) 123-4567"
                 />

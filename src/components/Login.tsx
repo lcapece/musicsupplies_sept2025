@@ -52,10 +52,12 @@ const Login: React.FC = () => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isAuthenticated && user && !user.requires_password_change) {
+    // Only navigate if authenticated, user exists, doesn't require password change, 
+    // and password modal is not showing
+    if (isAuthenticated && user && !user.requires_password_change && !showPasswordChangeModal) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, showPasswordChangeModal]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,9 +65,8 @@ const Login: React.FC = () => {
     setIsLoading(true);
     try {
       const loginSuccess = await login(identifier, password);
-      if (loginSuccess && !user?.requires_password_change) {
-        navigate('/dashboard');
-      }
+      // Don't navigate immediately - let the AuthContext handle showing password change modal
+      // Navigation will happen after modal closes if password change is successful
     } catch (err) {
       console.error("Login submit error", err);
     } finally {
