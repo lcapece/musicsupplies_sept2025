@@ -106,7 +106,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const totalPrice = items.reduce((total, item) => total + ((item.price || 0) * item.quantity), 0);
 
-  // Fetch available promo codes
+  // Fetch available promo codes - CRITICAL FIX: Use get_available_promo_codes_only to prevent showing used single-use codes
   const fetchAvailablePromoCodes = async () => {
     if (!user || !user.accountNumber) {
       setAvailablePromoCodes([]);
@@ -115,54 +115,35 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setIsLoadingPromoCodes(true);
     try {
-      // Use the new function with status information
-      const { data: allPromos, error: queryError } = await supabase.rpc('get_all_promo_codes_with_status', {
+      // CRITICAL FIX: Use the new get_available_promo_codes_only function that excludes already-used single-use codes
+      const { data: availablePromos, error: queryError } = await supabase.rpc('get_available_promo_codes_only', {
         p_account_number: user.accountNumber,
         p_order_value: totalPrice
       });
       
-      if (!queryError && allPromos && allPromos.length > 0) {
-        // Convert to expected format with calculated discount amounts and status
-        const promoCodes: AvailablePromoCode[] = allPromos.map((promo: any) => ({
+      if (!queryError && availablePromos && availablePromos.length > 0) {
+        // Convert to expected format - these are already filtered and available
+        const promoCodes: AvailablePromoCode[] = availablePromos.map((promo: any) => ({
           code: promo.code,
           name: promo.name,
           description: promo.description,
           type: promo.type,
           value: promo.value,
           min_order_value: promo.min_order_value || 0,
-          discount_amount: calculateDiscountAmount(promo.type, promo.value, totalPrice),
+          discount_amount: promo.discount_amount, // Already calculated by the function
           is_best: promo.is_best,
-          uses_remaining_for_account: promo.uses_remaining_for_account,
-          status: promo.status
+          uses_remaining_for_account: null, // Not needed for available codes
+          status: 'available' // All returned codes are available
         }));
         
         setAvailablePromoCodes(promoCodes);
+        console.log(`Fetched ${promoCodes.length} available promo codes for account ${user.accountNumber}`);
         return;
       }
       
-      // Fallback to get_best_promo_code function
-      const { data: bestPromo, error: bestError } = await supabase.rpc('get_best_promo_code', {
-        p_account_number: user.accountNumber
-      });
-      
-      if (!bestError && bestPromo) {
-        const promoCode: AvailablePromoCode = {
-          code: bestPromo.code,
-          name: bestPromo.name,
-          description: bestPromo.description,
-          type: bestPromo.type || 'percent_off',
-          value: bestPromo.value || 0,
-          min_order_value: bestPromo.min_order_value || 0,
-          discount_amount: calculateDiscountAmount(bestPromo.type, bestPromo.value, totalPrice),
-          is_best: true,
-          uses_remaining_for_account: null,
-          status: 'available'
-        };
-        setAvailablePromoCodes([promoCode]);
-      } else {
-        console.warn('Could not fetch any promo codes');
-        setAvailablePromoCodes([]);
-      }
+      // If no available codes, set empty array
+      console.log(`No available promo codes found for account ${user.accountNumber}`);
+      setAvailablePromoCodes([]);
     } catch (err) {
       console.error('Error fetching available promo codes:', err);
       setAvailablePromoCodes([]);

@@ -609,42 +609,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('[AuthContext] Ensuring auth session...');
       
-      // First try to validate current session
-      const isValid = await validateAndRefreshSession();
-      if (isValid) {
-        console.log('[AuthContext] Current session is valid');
-        return true;
+      // Check if we have a user in context and sessionManager
+      const sessionUser = sessionManager.getSession();
+      if (!sessionUser || !sessionUser.accountNumber) {
+        console.log('[AuthContext] No valid session in sessionManager');
+        setError('Authentication session expired. Please log in again.');
+        return false;
       }
 
-      // If validation failed, check if we can restore from sessionManager
-      const sessionUser = sessionManager.getSession();
-      if (sessionUser && sessionUser.accountNumber) {
-        console.log('[AuthContext] Attempting to restore session from sessionManager');
+      // Check Supabase auth session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('[AuthContext] Error getting Supabase session:', sessionError);
+      }
+
+      // If no Supabase session, try to refresh it
+      if (!session) {
+        console.log('[AuthContext] No Supabase session found, attempting refresh...');
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         
-        // Try to set JWT claims for the stored user
-        try {
-          const accountNumber = parseInt(sessionUser.accountNumber, 10);
-          if (!isNaN(accountNumber)) {
-            await supabase.rpc('set_admin_jwt_claims', {
-              p_account_number: accountNumber
-            });
-            
-            // Update context with restored user
-            setUser(sessionUser);
-            setIsAuthenticated(true);
-            setIsSpecialAdmin(sessionUser.is_special_admin || false);
-            
-            console.log('[AuthContext] Session restored successfully');
-            return true;
-          }
-        } catch (error) {
-          console.error('[AuthContext] Failed to restore session:', error);
+        if (refreshError || !refreshData.session) {
+          console.log('[AuthContext] Session refresh failed, but continuing with stored session');
+          // Don't fail immediately - we might still be able to use stored session
+        } else {
+          console.log('[AuthContext] Supabase session refreshed successfully');
         }
       }
 
-      console.log('[AuthContext] No valid session could be ensured');
-      setError('Authentication session expired. Please log in again.');
-      return false;
+      // Ensure user context is up to date
+      if (!user || user.accountNumber !== sessionUser.accountNumber) {
+        setUser(sessionUser);
+        setIsAuthenticated(true);
+        setIsSpecialAdmin(sessionUser.is_special_admin || false);
+      }
+
+      // Try to set JWT claims for database operations
+      try {
+        const accountNumber = parseInt(sessionUser.accountNumber, 10);
+        if (!isNaN(accountNumber)) {
+          await supabase.rpc('set_admin_jwt_claims', {
+            p_account_number: accountNumber
+          });
+          console.log('[AuthContext] JWT claims set successfully for account:', accountNumber);
+        }
+      } catch (claimsError) {
+        console.error('[AuthContext] Failed to set JWT claims:', claimsError);
+        
+        // If JWT claims fail, the user's session might be truly expired
+        // Try one more refresh attempt
+        try {
+          const { data: retryRefresh, error: retryError } = await supabase.auth.refreshSession();
+          if (!retryError && retryRefresh.session) {
+            // Retry JWT claims with fresh session
+            const accountNumber = parseInt(sessionUser.accountNumber, 10);
+            if (!isNaN(accountNumber)) {
+              await supabase.rpc('set_admin_jwt_claims', {
+                p_account_number: accountNumber
+              });
+              console.log('[AuthContext] JWT claims set after session refresh');
+            }
+          } else {
+            // Session is truly expired, clear everything
+            console.log('[AuthContext] Session is truly expired, clearing session');
+            sessionManager.clearSession();
+            setUser(null);
+            setIsAuthenticated(false);
+            setIsSpecialAdmin(false);
+            setError('Your session has expired. Please log in again.');
+            return false;
+          }
+        } catch (retryError) {
+          // Final attempt failed
+          console.error('[AuthContext] Final session restoration attempt failed:', retryError);
+          sessionManager.clearSession();
+          setUser(null);
+          setIsAuthenticated(false);
+          setIsSpecialAdmin(false);
+          setError('Your session has expired. Please log in again.');
+          return false;
+        }
+      }
+
+      console.log('[AuthContext] Session ensured successfully');
+      return true;
     } catch (error) {
       console.error('[AuthContext] Error ensuring auth session:', error);
       setError('Authentication error. Please try logging in again.');

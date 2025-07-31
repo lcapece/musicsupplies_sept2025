@@ -118,27 +118,21 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
       console.log('[AccountSettingsModal] Ensuring auth session before profile update...');
       const sessionValid = await ensureAuthSession();
       if (!sessionValid) {
-        setError('Auth session missing! Please log in again.');
+        setError('Authentication session expired. Please log in again.');
+        setIsLoading(false);
         return;
       }
       console.log('[AccountSettingsModal] Auth session validated successfully');
 
-      // Update auth user email if changed
+      // Note: Email will be updated in the database below
+      // Skip Supabase auth email update since we use custom authentication
       if (profileData.email !== (user.email || user.email_address)) {
-        console.log('Updating auth email from', (user.email || user.email_address), 'to', profileData.email);
-        const { error: authError } = await supabase.auth.updateUser({
-          email: profileData.email
-        });
-        
-        if (authError) {
-          console.error('Auth update error:', authError);
-          throw authError;
-        }
+        console.log('Email will be updated in database from', (user.email || user.email_address), 'to', profileData.email);
       }
 
       // Update profile in accounts_lcmd table
       console.log('Updating database record for account:', user.accountNumber);
-      const { error: updateError, data } = await supabase
+      let { error: updateError, data } = await supabase
         .from('accounts_lcmd')
         .update({
           email_address: profileData.email,
@@ -154,11 +148,43 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
 
       if (updateError) {
         console.error('Database update error:', updateError);
-        throw updateError;
+        
+        // If database update fails due to auth/session issues, try once more
+        if (updateError.message?.includes('JWT') || updateError.message?.includes('auth') || updateError.message?.includes('permission')) {
+          console.log('Retrying database update after potential auth issue...');
+          const retrySessionValid = await ensureAuthSession();
+          if (retrySessionValid) {
+            const retryResult = await supabase
+              .from('accounts_lcmd')
+              .update({
+                email_address: profileData.email,
+                phone: profileData.phone,
+                mobile_phone: profileData.mobile_phone,
+                address: profileData.address,
+                city: profileData.city,
+                state: profileData.state,
+                zip: profileData.zip
+              })
+              .eq('account_number', user.accountNumber)
+              .select();
+            
+            if (retryResult.error) {
+              throw new Error(`Profile update failed: ${retryResult.error.message}`);
+            }
+            
+            // Use retry data for success processing
+            data = retryResult.data;
+            updateError = null; // Clear the error since retry succeeded
+          } else {
+            throw new Error('Session expired. Please log in again.');
+          }
+        } else {
+          throw new Error(`Profile update failed: ${updateError.message}`);
+        }
       }
 
       console.log('Database update successful:', data);
-      console.log('Updated record details:', JSON.stringify(data[0], null, 2));
+      console.log('Updated record details:', JSON.stringify(data?.[0], null, 2));
 
       // Update the user context with the new data so it persists when modal reopens
       if (data && data.length > 0) {
@@ -183,7 +209,17 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
       console.log('Profile update completed successfully - modal should stay open');
     } catch (err: any) {
       console.error('Profile update failed:', err);
-      setError(err.message || 'Failed to update profile');
+      
+      // Show user-friendly error messages
+      if (err.message?.includes('Session expired') || err.message?.includes('log in again')) {
+        setError('Your session has expired. Please log in again.');
+      } else if (err.message?.includes('Email update failed')) {
+        setError(err.message);
+      } else if (err.message?.includes('Profile update failed')) {
+        setError(err.message);
+      } else {
+        setError('Failed to update profile. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
