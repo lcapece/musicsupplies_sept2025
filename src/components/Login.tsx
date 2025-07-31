@@ -8,6 +8,7 @@ import { User } from '../types';
 import { validateEmail, validateAccountNumber } from '../utils/validation';
 import logo from '../images/music_supplies_logo.png';
 import building from '../images/buildings.png';
+import packageJson from '../../package.json';
 
 // Import all brand logos
 import logo1 from '../images/logo_1.png';
@@ -236,7 +237,7 @@ const Login: React.FC = () => {
       
       {/* Version info in lower left corner */}
       <div className="absolute bottom-2 left-2 text-xs text-gray-400">
-        Version: RC730
+        Version: {packageJson.version}
       </div>
       
       {/* Contact info in lower right corner */}
