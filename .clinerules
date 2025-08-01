@@ -1,0 +1,16 @@
+# Project-Specific Cline Rules
+
+## CRITICAL REMINDER: SUPABASE MCP IS AVAILABLE!
+
+Before attempting ANY Supabase-related task:
+1. CHECK if there's an MCP tool that can do it directly
+2. USE the MCP tool instead of creating scripts or manual instructions
+3. The Supabase MCP is connected at: github.com/supabase-community/supabase-mcp
+
+Common MCP tools to remember:
+- `deploy_edge_function` - Deploy edge functions WITHOUT Docker
+- `apply_migration` - Apply SQL migrations directly
+- `execute_sql` - Run SQL queries directly
+- `get_logs` - Check service logs
+
+STOP defaulting to CLI commands and batch files when MCP tools are available!

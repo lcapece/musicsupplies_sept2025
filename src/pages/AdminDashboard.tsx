@@ -8,9 +8,10 @@ import WebOrdersTab from '../components/admin/WebOrdersTab';
 import HistoryTab from '../components/admin/HistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
+import ImageManagementTab from '../components/admin/ImageManagementTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 
-type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes';
+type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'images';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -58,6 +59,7 @@ const AdminDashboard: React.FC = () => {
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'accounts', label: 'Accounts', icon: '👥' },
+    { id: 'images', label: 'Image Management', icon: '🖼️' },
     { id: 'applications', label: 'Applications', icon: '📝' },
     { id: 'orders', label: 'Web Orders', icon: '🛒' },
     { id: 'history', label: 'Order History', icon: '📊' },
@@ -82,6 +84,8 @@ const AdminDashboard: React.FC = () => {
         return <ClickSendTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
+      case 'images':
+        return <ImageManagementTab />;
       default:
         return <AccountsTab />;
     }
@@ -110,12 +114,12 @@ const AdminDashboard: React.FC = () => {
           <div className="border-b border-gray-200">
             {/* Tab Navigation */}
             <div className="px-6 pt-6">
-              <nav className="-mb-px flex space-x-8">
+              <nav className="-mb-px flex space-x-8 overflow-x-auto pb-2">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`py-4 px-2 border-b-4 font-medium text-base whitespace-nowrap ${
+                    className={`py-4 px-2 border-b-4 font-medium text-base whitespace-nowrap flex-shrink-0 ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
