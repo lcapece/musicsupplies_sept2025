@@ -475,6 +475,19 @@ const Dashboard: React.FC = () => {
       // Filter out test products - COMMENTED OUT to allow TEST products in search results
       // query = query.not('partnumber', 'ilike', 'TEST-%');
 
+      // PHASE 3: Filter out promo codes from product search results
+      // Get list of promo codes to exclude from product search
+      const { data: promoCodes, error: promoError } = await supabase
+        .from('promo_codes')
+        .select('code');
+      
+      if (!promoError && promoCodes && promoCodes.length > 0) {
+        // Exclude products whose partnumber matches any promo code
+        const promoCodeList = promoCodes.map(promo => promo.code);
+        query = query.not('partnumber', 'in', `(${promoCodeList.join(',')})`);
+        console.log('Filtered out promo codes from product search:', promoCodeList);
+      }
+
       // Apply search terms by checking partnumber and description
       if (searchTerms.primary) {
         query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);

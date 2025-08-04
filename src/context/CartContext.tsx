@@ -293,7 +293,25 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Applying promo code:', code, 'for account:', user.accountNumber, 'order value:', totalPrice, 'auto-applied:', isAutoApplied);
       
-      // Call the database function to check if the promo code is valid
+      // PHASE 1: Dual-table validation - Check if promo code exists in both tables
+      console.log('Validating promo code exists in products table...');
+      const { data: productData, error: productError } = await supabase
+        .from('products_supabase')
+        .select('partnumber, description, price')
+        .eq('partnumber', code)
+        .single();
+      
+      if (productError || !productData) {
+        console.error('Promo code not found in products table:', productError);
+        return {
+          is_valid: false,
+          message: `Promo code ${code} not found in product catalog. Please contact support.`
+        };
+      }
+      
+      console.log('Promo code found in products table:', productData);
+      
+      // Call the database function to check if the promo code is valid in promo_codes table
       const { data, error } = await supabase.rpc('check_promo_code_validity', {
         p_code: code,
         p_account_number: user.accountNumber,
@@ -316,6 +334,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Customize the message based on whether it was auto-applied
         const customizedResult = {
           ...result,
+          code: code, // Store the actual promo code
+          product_description: productData.description, // Store product description
           message: isAutoApplied 
             ? `Promo code ${code} has been automatically applied`
             : result.message,
@@ -374,8 +394,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Apply Promo Code discount if available
     if (appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount && items.length > 0) {
       finalDiscountAmount = appliedPromoCode.discount_amount;
-      discountPartNumber = `PROMO-${appliedPromoCode.promo_id?.slice(0, 8)}`;
-      discountDescription = `Promo Code Discount: ${appliedPromoCode.message}`;
+      // PHASE 2: Use actual promo code as partnumber (e.g., "SAVE10")
+      discountPartNumber = appliedPromoCode.code || null;
+      // Use description from products table
+      discountDescription = appliedPromoCode.product_description || appliedPromoCode.message || 'Promo Code Discount';
       orderComments += ` | ${discountDescription} ($${finalDiscountAmount.toFixed(2)})`;
       promoCodeUsedInThisOrder = true;
     }
@@ -385,11 +407,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       price: item.price || 0, extended_price: (item.price || 0) * item.quantity
     }));
 
-    // Only add discount item if it's from a promo code
+    // PHASE 2: Add promo code as line item with actual promo code partnumber
     if (promoCodeUsedInThisOrder && discountPartNumber && finalDiscountAmount > 0) {
       orderItems.push({
-        partnumber: discountPartNumber, description: discountDescription || 'Promo Code Discount',
-        quantity: 1, price: -finalDiscountAmount, extended_price: -finalDiscountAmount
+        partnumber: discountPartNumber, // Now uses actual promo code (e.g., "SAVE10")
+        description: discountDescription || 'Promo Code Discount',
+        quantity: 1, 
+        price: -finalDiscountAmount, // Negative price for discount
+        extended_price: -finalDiscountAmount
       });
     }
 

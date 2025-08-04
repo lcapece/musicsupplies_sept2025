@@ -114,6 +114,8 @@ export interface PromoCodeValidity {
   promo_type?: string;
   promo_value?: number;
   discount_amount?: number;
+  code?: string; // Added for actual promo code (e.g., "SAVE10")
+  product_description?: string; // Added for description from products table
 }
 
 export interface PromoCodeSummary {

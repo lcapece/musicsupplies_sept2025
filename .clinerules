@@ -14,3 +14,18 @@ Common MCP tools to remember:
 - `get_logs` - Check service logs
 
 STOP defaulting to CLI commands and batch files when MCP tools are available!
+
+## 🚨 NEVER USE LOCAL SUPABASE! 🚨
+
+**ABSOLUTELY FORBIDDEN:**
+- NEVER run `supabase` CLI commands locally
+- NEVER attempt local database connections (127.0.0.1:54322)
+- NEVER use `supabase migration up` or similar local commands
+- NEVER create batch files that run local Supabase commands
+
+**ALWAYS USE:**
+- Supabase MCP tools for hosted database operations
+- Only work on HOSTED/REMOTE Supabase via MCP
+- If MCP is unavailable, provide SQL scripts for manual execution
+
+**VIOLATION OF THIS RULE IS STRICTLY PROHIBITED!**

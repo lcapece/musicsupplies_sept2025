@@ -9,6 +9,7 @@ interface Account {
   state: string;
   zip: string;
   phone: string;
+  mobile_phone?: string;
   requires_password_change: boolean;
   has_custom_password: boolean;
 }
@@ -18,14 +19,13 @@ interface LogonEntry {
   password: string;
 }
 
-type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone';
+type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone' | 'mobile_phone';
 
 const AccountsTab: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showTestPasswordModal, setShowTestPasswordModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,10 +44,9 @@ const AccountsTab: React.FC = () => {
   }, [searchTerm]);
 
   const getDefaultPassword = (acctName: string, zip: string) => {
-    if (!acctName || !zip) return '';
-    const firstLetter = acctName.charAt(0).toLowerCase();
+    if (!zip) return '';
     const zipFirst5 = zip.substring(0, 5);
-    return `${firstLetter}${zipFirst5}`;
+    return zipFirst5;
   };
 
   const fetchAccounts = async () => {
@@ -64,6 +63,7 @@ const AccountsTab: React.FC = () => {
           state,
           zip,
           phone,
+          mobile_phone,
           requires_password_change
         `, { count: 'exact' });
 
@@ -243,7 +243,7 @@ const AccountsTab: React.FC = () => {
   };
 
   const handleResetPassword = async (accountNumber: number) => {
-    if (window.confirm('This will reset the account to use the default password pattern (first letter + ZIP). Continue?')) {
+    if (window.confirm('This will reset the account to use the default password pattern (ZIP code). Continue?')) {
       try {
         // Remove custom password entry
         const { error: deleteError } = await supabase
@@ -285,48 +285,6 @@ const AccountsTab: React.FC = () => {
     return defaultPattern && defaultPattern.slice(-5) === 'xxxxx';
   };
 
-  const testPassword = async (accountNumber: number, testPassword: string) => {
-    try {
-      // Get the account's actual password
-      const { data: passwordData, error } = await supabase
-        .from('logon_lcmd')
-        .select('password')
-        .eq('account_number', accountNumber)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching password:', error);
-        return { success: false, message: 'Error checking password' };
-      }
-
-      // If no password entry exists, check against default pattern
-      if (!passwordData) {
-        const account = accounts.find(a => a.account_number === accountNumber);
-        if (account) {
-          const defaultPattern = getDefaultPassword(account.acct_name, account.zip);
-          const isCorrect = testPassword.toLowerCase() === defaultPattern.toLowerCase();
-          return { 
-            success: true, 
-            isCorrect, 
-            message: isCorrect ? 'CORRECT' : 'INCORRECT'
-          };
-        }
-        return { success: false, message: 'Account not found' };
-      }
-
-      // Check against stored password
-      const isCorrect = testPassword === passwordData.password;
-      return { 
-        success: true, 
-        isCorrect, 
-        message: isCorrect ? 'CORRECT' : 'INCORRECT'
-      };
-
-    } catch (error) {
-      console.error('Error testing password:', error);
-      return { success: false, message: 'Error testing password' };
-    }
-  };
 
   const filteredAccounts = accounts;
 
@@ -413,107 +371,6 @@ const AccountsTab: React.FC = () => {
     );
   };
 
-  const TestPasswordModal: React.FC<{
-    account: Account;
-    onClose: () => void;
-  }> = ({ account, onClose }) => {
-    const [testPasswordInput, setTestPasswordInput] = useState('');
-    const [result, setResult] = useState<{message: string; isCorrect?: boolean} | null>(null);
-    const [testing, setTesting] = useState(false);
-
-    const handleTest = async () => {
-      if (!testPasswordInput.trim()) {
-        alert('Please enter a password to test');
-        return;
-      }
-
-      setTesting(true);
-      const testResult = await testPassword(account.account_number, testPasswordInput);
-      setTesting(false);
-
-      if (testResult.success) {
-        setResult({
-          message: testResult.message,
-          isCorrect: testResult.isCorrect
-        });
-      } else {
-        alert(testResult.message);
-      }
-    };
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        handleTest();
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
-          <h3 className="text-2xl font-semibold text-gray-900 mb-6">
-            Test Password for Account {account.account_number}
-          </h3>
-          <div className="mb-6">
-            <p className="text-lg text-gray-600 mb-3">
-              <strong>Account:</strong> {account.acct_name}
-            </p>
-            <p className="text-lg text-gray-600 mb-6">
-              <strong>Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
-            </p>
-          </div>
-          <div className="space-y-6">
-            <div>
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                Enter Password to Test
-              </label>
-              <input
-                type="password"
-                value={testPasswordInput}
-                onChange={(e) => setTestPasswordInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter password to verify..."
-                className="w-full border border-gray-300 rounded-md px-4 py-3 text-lg"
-                disabled={testing}
-              />
-            </div>
-            {result && (
-              <div className={`p-4 rounded-md text-center ${
-                result.isCorrect 
-                  ? 'bg-green-100 text-green-800 border border-green-200' 
-                  : 'bg-red-100 text-red-800 border border-red-200'
-              }`}>
-                <div className="text-3xl font-bold mb-2">
-                  {result.message}
-                </div>
-                <div className="text-lg">
-                  {result.isCorrect ? '✓ Password matches' : '✗ Password does not match'}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end space-x-4 mt-8">
-            <button
-              onClick={onClose}
-              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-            >
-              Close
-            </button>
-            <button
-              onClick={handleTest}
-              disabled={testing}
-              className={`px-6 py-3 text-lg font-medium text-white rounded-md ${
-                testing
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
-              }`}
-            >
-              {testing ? 'Testing...' : 'Test Password'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div>
@@ -575,13 +432,13 @@ const AccountsTab: React.FC = () => {
                     Location {sortColumn === 'city' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('phone')}>
-                    Phone {sortColumn === 'phone' && (sortDirection === 'asc' ? '▲' : '▼')}
+                    Busn Phone {sortColumn === 'phone' && (sortDirection === 'asc' ? '▲' : '▼')}
+                  </th>
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('mobile_phone')}>
+                    Mobile Phone {sortColumn === 'mobile_phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Password Status
-                  </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Default Pattern
+                    Zip Code
                   </th>
                   <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Actions
@@ -603,48 +460,22 @@ const AccountsTab: React.FC = () => {
                     <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
                       {account.phone || 'N/A'}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base">
-                      <div className="space-y-2">
-                        <span className={`inline-flex px-3 py-2 text-sm font-bold rounded-full ${
-                          account.has_custom_password 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {account.has_custom_password ? 'Custom Password' : 'Default Pattern'}
-                        </span>
-                        {account.requires_password_change && (
-                          <div>
-                            <span className="inline-flex px-3 py-2 text-sm font-bold rounded-full bg-orange-100 text-orange-800">
-                              Requires Change
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
+                      {account.mobile_phone || 'N/A'}
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600 font-mono font-bold">
                       {getDefaultPasswordDisplay(account)}
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap text-base text-gray-500">
-                      <div className="flex space-x-3">
-                        <button
-                          onClick={() => {
-                            setSelectedAccount(account);
-                            setShowPasswordModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-900 font-semibold text-base"
-                        >
-                          Set Pwd
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedAccount(account);
-                            setShowTestPasswordModal(true);
-                          }}
-                          className="text-green-600 hover:text-green-900 font-semibold text-base"
-                        >
-                          Test Pwd
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedAccount(account);
+                          setShowPasswordModal(true);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold text-base"
+                      >
+                        Change Password
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -696,13 +527,6 @@ const AccountsTab: React.FC = () => {
         />
       )}
 
-      {/* Test Password Modal */}
-      {showTestPasswordModal && selectedAccount && (
-        <TestPasswordModal
-          account={selectedAccount}
-          onClose={() => setShowTestPasswordModal(false)}
-        />
-      )}
     </div>
   );
 };
