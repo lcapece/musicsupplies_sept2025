@@ -8,10 +8,9 @@ import WebOrdersTab from '../components/admin/WebOrdersTab';
 import HistoryTab from '../components/admin/HistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
-import ImageManagementTab from '../components/admin/ImageManagementTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 
-type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'images';
+type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -59,7 +58,6 @@ const AdminDashboard: React.FC = () => {
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'accounts', label: 'Accounts', icon: '👥' },
-    { id: 'images', label: 'Image Management', icon: '🖼️' },
     { id: 'applications', label: 'Applications', icon: '📝' },
     { id: 'orders', label: 'Web Orders', icon: '🛒' },
     { id: 'history', label: 'Order History', icon: '📊' },
@@ -84,8 +82,6 @@ const AdminDashboard: React.FC = () => {
         return <ClickSendTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
-      case 'images':
-        return <ImageManagementTab />;
       default:
         return <AccountsTab />;
     }

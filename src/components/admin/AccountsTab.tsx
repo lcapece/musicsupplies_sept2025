@@ -243,7 +243,7 @@ const AccountsTab: React.FC = () => {
   };
 
   const handleResetPassword = async (accountNumber: number) => {
-    if (window.confirm('This will reset the account to use the default password pattern (ZIP code). Continue?')) {
+    if (window.confirm('This will reset the account to use the default password pattern (ZIP code) as a one-time password. Continue?')) {
       try {
         // Remove custom password entry
         const { error: deleteError } = await supabase
@@ -257,18 +257,33 @@ const AccountsTab: React.FC = () => {
           return;
         }
 
-        // Update account to require password change (this is on accounts_lcmd table)
+        // Update account to require password change and reset initial_password_used flag
         const { error: updateError } = await supabase
           .from('accounts_lcmd')
-          .update({ requires_password_change: true })
+          .update({ 
+            requires_password_change: true,
+            initial_password_used: false  // Reset this so they can use zip code once
+          })
           .eq('account_number', accountNumber);
 
         if (updateError) {
           console.error('Error updating account:', updateError);
+          alert('Error updating account settings');
+          return;
+        }
+
+        // Clear any auth.users connection
+        const { error: clearUserError } = await supabase
+          .from('accounts_lcmd')
+          .update({ user_id: null })
+          .eq('account_number', accountNumber);
+
+        if (clearUserError) {
+          console.error('Error clearing user connection:', clearUserError);
         }
 
         fetchAccounts();
-        alert('Password reset successfully. Account will use default password pattern.');
+        alert('Password reset successfully. Account can now use their ZIP code as a one-time password.');
       } catch (error) {
         console.error('Error:', error);
         alert('Error resetting password');
@@ -292,7 +307,8 @@ const AccountsTab: React.FC = () => {
     account: Account;
     onClose: () => void;
     onSave: (accountNumber: number, password: string) => void;
-  }> = ({ account, onClose, onSave }) => {
+    onResetZip: (accountNumber: number) => void;
+  }> = ({ account, onClose, onSave, onResetZip }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -312,18 +328,23 @@ const AccountsTab: React.FC = () => {
       onSave(account.account_number, password);
     };
 
+    const handleResetZip = () => {
+      onResetZip(account.account_number);
+      onClose();
+    };
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
           <h3 className="text-2xl font-semibold text-gray-900 mb-6">
-            Set Password for Account {account.account_number}
+            Password Management for Account {account.account_number}
           </h3>
           <div className="mb-6">
             <p className="text-lg text-gray-600 mb-3">
               <strong>Account:</strong> {account.acct_name}
             </p>
             <p className="text-lg text-gray-600 mb-6">
-              <strong>Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
+              <strong>Current Zip Code:</strong> {getDefaultPasswordDisplay(account)}
             </p>
           </div>
           <div className="space-y-6">
@@ -352,19 +373,28 @@ const AccountsTab: React.FC = () => {
               />
             </div>
           </div>
-          <div className="flex justify-end space-x-4 mt-8">
+          <div className="flex justify-between mt-8">
             <button
-              onClick={onClose}
-              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              onClick={handleResetZip}
+              className="px-6 py-3 text-lg font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+              title="Remove current password and allow customer to use their ZIP code once to log in"
             >
-              Cancel
+              Reset Zip Default
             </button>
-            <button
-              onClick={handleSubmit}
-              className="px-6 py-3 text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
-            >
-              Set Password
-            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={onClose}
+                className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="px-6 py-3 text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              >
+                Set Password
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -524,6 +554,7 @@ const AccountsTab: React.FC = () => {
           account={selectedAccount}
           onClose={() => setShowPasswordModal(false)}
           onSave={handleSetPassword}
+          onResetZip={handleResetPassword}
         />
       )}
 
