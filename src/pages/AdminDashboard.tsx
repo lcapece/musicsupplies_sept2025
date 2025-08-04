@@ -4,13 +4,13 @@ import { LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AccountsTab from '../components/admin/AccountsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
-import WebOrdersTab from '../components/admin/WebOrdersTab';
-import HistoryTab from '../components/admin/HistoryTab';
+import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
+import InvoiceManagementTab from '../components/admin/InvoiceManagementTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 
-type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes';
+type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'invoices';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -59,8 +59,8 @@ const AdminDashboard: React.FC = () => {
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'accounts', label: 'Accounts', icon: '👥' },
     { id: 'applications', label: 'Applications', icon: '📝' },
-    { id: 'orders', label: 'Web Orders', icon: '🛒' },
     { id: 'history', label: 'Order History', icon: '📊' },
+    { id: 'invoices', label: 'Invoice Management', icon: '📄' },
     { id: 'sms', label: 'SMS Notifications', icon: '📱' },
     { id: 'clicksend', label: 'ClickSend', icon: '📨' },
     { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
@@ -72,16 +72,16 @@ const AdminDashboard: React.FC = () => {
         return <AccountsTab />;
       case 'applications':
         return <AccountApplicationsTab />;
-      case 'orders':
-        return <WebOrdersTab />;
       case 'history':
-        return <HistoryTab />;
+        return <OrderHistoryTab />;
       case 'sms':
         return <div className="text-center py-16 text-2xl text-gray-500">SMS Notifications coming soon...</div>;
       case 'clicksend':
         return <ClickSendTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
+      case 'invoices':
+        return <InvoiceManagementTab />;
       default:
         return <AccountsTab />;
     }

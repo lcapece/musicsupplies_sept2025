@@ -1,0 +1,478 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+
+interface WebOrder {
+  id: string;
+  order_number: string;
+  created_at: string;
+  account_number?: string;
+  order_comments?: string;
+  order_items?: any[];
+  subtotal: number;
+  discount_amount?: number;
+  grand_total: number;
+  payment_method?: string;
+  order_status: string;
+  status?: string;
+  email?: string;
+  phone?: string;
+  promo_code_used?: string;
+  customer_name?: string;
+  invoice_sent?: boolean;
+}
+
+const OrderHistoryTab: React.FC = () => {
+  const [orders, setOrders] = useState<WebOrder[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [dateFilter, setDateFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<WebOrder | null>(null);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState<string | null>(null);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setDateFilter(today);
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('web_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Apply date filter if set
+      if (dateFilter) {
+        const startDate = new Date(dateFilter);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(dateFilter);
+        endDate.setHours(23, 59, 59, 999);
+        
+        query = query
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
+      }
+
+      // Apply search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        // Search by order number, email, or phone
+        query = query.or(`order_number.ilike.%${searchLower}%,email.ilike.%${searchLower}%,phone.ilike.%${searchLower}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching orders:', error);
+        setOrders([]);
+      } else {
+        setOrders(data || []);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  const handleViewDetails = (order: WebOrder) => {
+    setSelectedOrder(order);
+    setShowOrderDetails(true);
+  };
+
+  const handleCancelOrder = async (order: WebOrder) => {
+    if (!confirm(`Are you sure you want to cancel order ${order.order_number}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setCancellingOrder(order.id);
+    try {
+      // Update order status to Canceled
+      const { error: orderError } = await supabase
+        .from('web_orders')
+        .update({ order_status: 'Canceled' })
+        .eq('id', order.id);
+
+      if (orderError) {
+        console.error('Error canceling order:', orderError);
+        alert('Failed to cancel order. Please try again.');
+        return;
+      }
+
+      // If promo code was used, roll it back to unused
+      if (order.promo_code_used) {
+        const { error: promoError } = await supabase
+          .from('promo_codes')
+          .update({ 
+            used: false,
+            used_by_account: null,
+            used_at: null
+          })
+          .eq('code', order.promo_code_used);
+
+        if (promoError) {
+          console.error('Error rolling back promo code:', promoError);
+          // Don't fail the entire operation, just log the error
+        }
+      }
+
+      // Refresh the orders list
+      fetchOrders();
+      alert(`Order ${order.order_number} has been canceled successfully.`);
+    } catch (error) {
+      console.error('Error canceling order:', error);
+      alert('Failed to cancel order. Please try again.');
+    } finally {
+      setCancellingOrder(null);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusColors = {
+      'Not Shipped': 'bg-yellow-100 text-yellow-800',
+      'Processing': 'bg-blue-100 text-blue-800',
+      'Shipped': 'bg-green-100 text-green-800',
+      'Canceled': 'bg-red-100 text-red-800'
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs rounded-full ${statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}`}>
+        {status}
+      </span>
+    );
+  };
+
+  const OrderDetailsModal: React.FC<{ order: WebOrder; onClose: () => void }> = ({ order, onClose }) => {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">
+              Order Details - {order.order_number}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <p className="text-sm text-gray-600">Order Date</p>
+              <p className="font-medium">{formatDate(order.created_at)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Payment Method</p>
+              <p className="font-medium">{order.payment_method === 'credit' ? 'Credit Card' : 'Net-10'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Customer Email</p>
+              <p className="font-medium">{order.email}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Customer Phone</p>
+              <p className="font-medium">{order.phone}</p>
+            </div>
+            {order.account_number && (
+              <div>
+                <p className="text-sm text-gray-600">Account Number</p>
+                <p className="font-medium">{order.account_number}</p>
+              </div>
+            )}
+            {order.promo_code_used && (
+              <div>
+                <p className="text-sm text-gray-600">Promo Code Used</p>
+                <p className="font-medium">{order.promo_code_used}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <h4 className="font-semibold mb-2">Order Items</h4>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Part Number</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {(order.order_items || []).map((item: any, index: number) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">{item.partnumber}</td>
+                      <td className="px-4 py-2 text-sm">{item.description || 'N/A'}</td>
+                      <td className="px-4 py-2 text-sm text-right">{item.quantity}</td>
+                      <td className="px-4 py-2 text-sm text-right">{formatCurrency(item.price || 0)}</td>
+                      <td className="px-4 py-2 text-sm text-right font-medium">
+                        {formatCurrency((item.price || 0) * item.quantity)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <div className="flex justify-between mb-2">
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="font-medium">{formatCurrency(order.subtotal)}</span>
+            </div>
+            {order.discount_amount && order.discount_amount > 0 && (
+              <div className="flex justify-between mb-2 text-green-600">
+                <span>Discount:</span>
+                <span>-{formatCurrency(order.discount_amount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-lg font-semibold">
+              <span>Total:</span>
+              <span>{formatCurrency(order.total_amount)}</span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={onClose}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Calculate summary statistics
+  const totalOrders = orders.length;
+  const totalRevenue = orders.reduce((sum, order) => sum + order.grand_total, 0);
+  const totalDiscounts = orders.reduce((sum, order) => sum + (order.discount_amount || 0), 0);
+  const creditOrders = orders.filter(o => o.payment_method === 'credit').length;
+  const net10Orders = orders.filter(o => o.payment_method === 'net10').length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Web Order History</h2>
+          <p className="text-sm text-gray-600 mt-1">View and manage all web orders placed through the system</p>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Total Orders</div>
+          <div className="text-2xl font-bold text-blue-600">{totalOrders}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {dateFilter ? `On ${dateFilter}` : 'All time'}
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Total Revenue</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</div>
+          <div className="text-xs text-gray-500 mt-1">After discounts</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Total Discounts</div>
+          <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalDiscounts)}</div>
+          <div className="text-xs text-gray-500 mt-1">From promo codes</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-600">Payment Methods</div>
+          <div className="text-lg font-bold">
+            <span className="text-blue-600">{creditOrders} Credit</span>
+            <span className="mx-2">|</span>
+            <span className="text-purple-600">{net10Orders} Net-10</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Date</label>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search Orders</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Order #, email, or phone..."
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex items-end space-x-2">
+            <button
+              onClick={() => {
+                setDateFilter('');
+                setSearchTerm('');
+                fetchOrders();
+              }}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Clear Filters
+            </button>
+            <button
+              onClick={fetchOrders}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Orders Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Web Orders ({orders.length} found)
+          </h3>
+        </div>
+        
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="text-gray-600">Loading orders...</div>
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="text-gray-600">No orders found</div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Order Number
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date/Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Items
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {orders.map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {order.order_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {formatDate(order.created_at)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      <div>{order.email}</div>
+                      <div className="text-xs text-gray-500">{order.phone}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {(order.order_items || []).length} items
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {getStatusBadge(order.order_status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {formatCurrency(order.grand_total)}
+                      {order.discount_amount && order.discount_amount > 0 && (
+                        <div className="text-xs text-green-600">
+                          (-{formatCurrency(order.discount_amount)})
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        order.payment_method === 'credit' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {order.payment_method === 'credit' ? 'Credit Card' : 'Net-10'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                      <button
+                        onClick={() => handleViewDetails(order)}
+                        className="text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        View Details
+                      </button>
+                      {order.order_status !== 'Canceled' && order.order_status !== 'Shipped' && (
+                        <button
+                          onClick={() => handleCancelOrder(order)}
+                          disabled={cancellingOrder === order.id}
+                          className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {cancellingOrder === order.id ? 'Canceling...' : 'Cancel Order'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Order Details Modal */}
+      {showOrderDetails && selectedOrder && (
+        <OrderDetailsModal
+          order={selectedOrder}
+          onClose={() => {
+            setShowOrderDetails(false);
+            setSelectedOrder(null);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+export default OrderHistoryTab;

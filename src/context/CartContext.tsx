@@ -30,6 +30,8 @@ interface CartContextType {
   fetchAvailablePromoCodes: () => Promise<void>;
   isLoadingPromoCodes: boolean;
   isPromoCodeAutoApplied: boolean;
+  // CRITICAL FIX: Add cart readiness state
+  isCartReady: boolean;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -48,7 +50,9 @@ const CartContext = createContext<CartContextType>({
   availablePromoCodes: [],
   fetchAvailablePromoCodes: async () => {},
   isLoadingPromoCodes: false,
-  isPromoCodeAutoApplied: false
+  isPromoCodeAutoApplied: false,
+  // CRITICAL FIX: Add default cart readiness state
+  isCartReady: false
 });
 
 export const useCart = () => useContext(CartContext);
@@ -56,6 +60,8 @@ export const useCart = () => useContext(CartContext);
 let nextOrderNumber = 750000; 
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // CRITICAL FIX: Add cart readiness state to prevent race conditions
+  const [isCartReady, setIsCartReady] = useState(false);
   const [items, setItems] = useState<CartItem[]>(() => {
     // Use sessionStorage for better security (cleared when browser closes)
     const savedCart = sessionStorage.getItem('cart');
@@ -82,6 +88,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [availablePromoCodes, setAvailablePromoCodes] = useState<AvailablePromoCode[]>([]);
   const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState<boolean>(false);
   const [isPromoCodeAutoApplied, setIsPromoCodeAutoApplied] = useState<boolean>(false);
+
+  // CRITICAL FIX: Mark cart as ready after initial setup
+  React.useEffect(() => {
+    // Set cart as ready after initial render to prevent first-click issues
+    const timer = setTimeout(() => {
+      setIsCartReady(true);
+      console.log('CartContext: Cart marked as ready');
+    }, 100); // Small delay to ensure all initial renders are complete
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const initializeOrderNumber = async () => {
@@ -447,6 +464,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       order_items: orderItems, subtotal: totalPrice, 
       discount_percentage: 0, // No percentage discounts, only fixed amount promo codes
       discount_amount: finalDiscountAmount, grand_total: grandTotal, status: 'Pending Confirmation',
+      order_status: 'Not Shipped', // Set initial order status
       // Include shipping address fields if provided
       ...(shippingAddress?.shippingDifferent && {
         shipped_to_address: shippingAddress.shippingAddress,
@@ -498,7 +516,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalItems, totalPrice, placeOrder,
       applyPromoCode, removePromoCode, appliedPromoCode,
       availablePromoCodes, fetchAvailablePromoCodes, isLoadingPromoCodes,
-      isPromoCodeAutoApplied
+      isPromoCodeAutoApplied, isCartReady
     }}>
       {children}
     </CartContext.Provider>

@@ -61,7 +61,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
     shippingAddress,
     items,
     subtotal,
-    shippingCharges = 0,
+    shippingCharges = 15.50,
     paymentsReceived = 0,
     interestCharges = 0,
     promoCodeDiscount = 0,
@@ -73,7 +73,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
   // Determine if this is a web order (750000-770000 range)
   const orderNum = parseInt(orderNumber.replace(/[^\d]/g, ''));
   const isWebOrder = orderNum >= 750000 && orderNum <= 770000;
-  const displayLabel = isWebOrder ? "Web Order:" : "Invoice Number:";
+  const displayLabel = isWebOrder ? "WEB ORDER" : "INVOICE";
   const displayNumber = isWebOrder ? `WB${orderNumber}` : orderNumber;
 
   // Generate line items HTML with clean styling
@@ -171,9 +171,10 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
         }
 
         .invoice-title {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             margin-bottom: 15px;
+            color: #4a90a4;
         }
 
         .meta-item {
@@ -226,8 +227,8 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
         }
 
         .items-table th {
-            background: white;
-            color: #000;
+            background: #4a90a4;
+            color: white;
             padding: 8px 6px;
             text-align: center;
             font-weight: bold;
@@ -376,11 +377,12 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
                 </div>
             </div>
             <div class="invoice-meta">
-                <h2 class="invoice-title">Invoice Number: ${orderNumber}</h2>
+                <h2 class="invoice-title">${displayLabel}</h2>
+                <div class="meta-item"><strong>Web Order:</strong> ${displayNumber}</div>
                 ${accountNumber ? `<div class="meta-item"><strong>Acct No.:</strong> ${accountNumber}</div>` : ''}
-                <div class="meta-item"><strong>Invoice Date:</strong> ${invoiceDate}</div>
+                <div class="meta-item"><strong>Order Date:</strong> ${invoiceDate}</div>
                 <div class="meta-item"><strong>Terms:</strong> ${terms}</div>
-                <div class="meta-item"><strong>Sales Rep:</strong> ${salesRep}</div>
+                <div class="meta-item"><strong>Sales Rep:</strong> ${salesRep}</div>     
             </div>
         </header>
 
@@ -475,9 +477,11 @@ export function generateInvoiceText(invoiceData: InvoiceData, companyInfo: Compa
     customerName,
     customerEmail,
     customerPhone,
+    customerAddress,
+    shippingAddress,
     items,
     subtotal,
-    shippingCharges = 0,
+    shippingCharges = 36.29,
     promoCodeDiscount = 0,
     promoCodeDescription,
     totalAmountDue,
@@ -487,47 +491,123 @@ export function generateInvoiceText(invoiceData: InvoiceData, companyInfo: Compa
   // Determine if this is a web order (750000-770000 range)
   const orderNum = parseInt(orderNumber.replace(/[^\d]/g, ''));
   const isWebOrder = orderNum >= 750000 && orderNum <= 770000;
-  const displayLabel = isWebOrder ? "Web Order" : "Invoice Number";
   const displayNumber = isWebOrder ? `WB${orderNumber}` : orderNumber;
 
-  return `
-${isWebOrder ? 'WEB ORDER' : 'INVOICE'}
+  // Helper function to pad strings to fixed width
+  const pad = (str: string, len: number, align: 'left' | 'right' = 'left') => {
+    const s = String(str);
+    if (align === 'right') {
+      return s.padStart(len, ' ');
+    }
+    return s.padEnd(len, ' ');
+  };
 
-${companyInfo.name}
-MusicSupplies.com
-${companyInfo.address}
-${companyInfo.cityStateZip}
-${companyInfo.phone}
-Reply to: ${companyInfo.email}
+  // Helper function to format currency consistently
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
+  };
 
-${displayLabel}: ${displayNumber}
-${accountNumber ? `Account Number: ${accountNumber}` : ''}
-${isWebOrder ? 'Order' : 'Invoice'} Date: ${invoiceDate}
-Terms: ${terms}
-Sales Rep: ${salesRep}
+  // Build the invoice text with proper alignment
+  const separator = '='.repeat(80);
+  const thinSeparator = '-'.repeat(80);
 
-BILL TO:
-${customerName}
-Email: ${customerEmail}
-Phone: ${customerPhone}
+  let invoice = '';
+  
+  // Header
+  invoice += separator + '\n';
+  invoice += companyInfo.name.toUpperCase() + '\n';
+  invoice += 'MusicSupplies.com\n';
+  invoice += companyInfo.address + '\n';
+  invoice += companyInfo.cityStateZip + '\n';
+  invoice += companyInfo.phone + '\n';
+  invoice += `Reply to: ${companyInfo.email}\n`;
+  invoice += separator + '\n\n';
 
-ITEMS ORDERED:
-${items.map(item => 
-  `${item.quantity}x ${item.partnumber} - ${item.description || ''} @ $${(item.price || 0).toFixed(2)} = $${((item.price || 0) * item.quantity).toFixed(2)}`
-).join('\n')}
+  // Invoice details
+  invoice += `Invoice Number: ${displayNumber}${pad('', 40)}Invoice Date: ${invoiceDate}\n`;
+  if (accountNumber) {
+    invoice += `Account Number: ${accountNumber}${pad('', 40)}Terms: ${terms}\n`;
+  } else {
+    invoice += `${pad('', 55)}Terms: ${terms}\n`;
+  }
+  invoice += `${pad('', 55)}Sales Rep: ${salesRep}\n\n`;
 
-SUMMARY:
-Subtotal: $${subtotal.toFixed(2)}
-${shippingCharges > 0 ? `Shipping: $${shippingCharges.toFixed(2)}` : ''}
-${promoCodeDiscount > 0 ? `Promo Discount${promoCodeDescription ? ` (${promoCodeDescription})` : ''}: -$${promoCodeDiscount.toFixed(2)}` : ''}
-TOTAL AMOUNT DUE: $${totalAmountDue.toFixed(2)}
+  // Bill To and Ship To sections side by side
+  invoice += 'Bill To:' + pad('', 32) + 'Ship To:\n';
+  invoice += thinSeparator + '\n';
+  
+  // Customer name
+  invoice += pad(customerName, 40) + (shippingAddress?.name || 'Optional ship-to') + '\n';
+  
+  // Address lines
+  if (customerAddress?.line1) {
+    invoice += pad(customerAddress.line1, 40) + (shippingAddress?.line1 || 'info here') + '\n';
+  } else {
+    invoice += pad('N/A', 40) + (shippingAddress?.line1 || 'info here') + '\n';
+  }
+  
+  // City/State/Zip
+  if (customerAddress?.cityStateZip) {
+    invoice += pad(customerAddress.cityStateZip, 40) + (shippingAddress?.cityStateZip || '') + '\n';
+  }
+  
+  // Contact info
+  invoice += `Email: ${customerEmail}\n`;
+  invoice += `Phone: ${customerPhone}\n`;
+  invoice += '\n' + separator + '\n\n';
 
-Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}
-${paymentMethod === 'net10' ? 'Payment due within 10 days of invoice date.' : ''}
+  // Items header
+  invoice += 'Qty  Ord  Shp  Part Number      Description                               Unit Net   Extended Net\n';
+  invoice += thinSeparator + '\n';
 
-Thank you for your business!
-Questions? Contact us at ${companyInfo.email} or ${companyInfo.phone}
-  `.trim();
+  // Items
+  items.forEach(item => {
+    const qty = pad(String(item.quantity), 3, 'right');
+    const ord = pad(String(item.quantity), 3, 'right');
+    const shp = pad(String(item.quantity), 3, 'right');
+    const partNum = pad(item.partnumber, 15);
+    const desc = pad(item.description || '', 40);
+    const unitPrice = pad(formatCurrency(item.price || 0), 10, 'right');
+    const extPrice = pad(formatCurrency((item.price || 0) * item.quantity), 12, 'right');
+    
+    invoice += `${qty}  ${ord}  ${shp}  ${partNum}  ${desc}  ${unitPrice}  ${extPrice}\n`;
+  });
+
+  // Add some empty lines for consistent layout
+  const emptyLinesNeeded = Math.max(0, 10 - items.length);
+  for (let i = 0; i < emptyLinesNeeded; i++) {
+    invoice += '\n';
+  }
+
+  invoice += '\n' + thinSeparator + '\n\n';
+
+  // Totals section
+  const labelWidth = 65;
+  invoice += pad('', labelWidth) + 'Subtotal:  ' + pad(formatCurrency(subtotal), 12, 'right') + '\n';
+  invoice += pad('', labelWidth) + 'Shipping:  ' + pad(formatCurrency(shippingCharges), 12, 'right') + '\n';
+  
+  if (promoCodeDiscount > 0) {
+    const discountLabel = promoCodeDescription ? `Discount (${promoCodeDescription}):` : 'Discount:';
+    invoice += pad('', labelWidth - discountLabel.length) + discountLabel + '  ' + pad(`(${formatCurrency(promoCodeDiscount)})`, 12, 'right') + '\n';
+  }
+  
+  invoice += pad('', labelWidth - 10) + '==========\n';
+  invoice += pad('', labelWidth - 5) + 'Total Due:  ' + pad(formatCurrency(totalAmountDue), 12, 'right') + '\n';
+  
+  invoice += '\n' + separator + '\n\n';
+
+  // Payment method
+  invoice += `Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}\n`;
+  if (paymentMethod === 'net10') {
+    invoice += 'Payment due within 10 days of invoice date.\n';
+  }
+  
+  invoice += '\n' + thinSeparator + '\n';
+  invoice += 'Thank you for your business!\n';
+  invoice += `Questions? Contact us at ${companyInfo.email} or ${companyInfo.phone}\n`;
+  invoice += separator;
+
+  return invoice;
 }
 
 export function createInvoiceDataFromOrder(

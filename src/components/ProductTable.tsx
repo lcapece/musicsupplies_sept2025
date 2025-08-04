@@ -30,7 +30,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   fontSize = 'standard',
   onFontSizeChange
 }) => {
-  const { addToCart } = useCart();
+  const { addToCart, isCartReady } = useCart();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -133,25 +133,40 @@ const ProductTable: React.FC<ProductTableProps> = ({
       return;
     }
 
-    // Check if cart is initialized
-    if (!cartInitialized || !addToCart || typeof addToCart !== 'function') {
-      console.log('ProductTable: Cart not initialized, showing retry message');
+    // CRITICAL FIX: Check cart readiness state first
+    if (!isCartReady) {
+      console.log('ProductTable: Cart not ready yet, showing retry message');
       setShowRetryMessage(product.partnumber);
       
-      // Try to initialize again
+      // Wait for cart to be ready and retry
+      setTimeout(() => {
+        setShowRetryMessage(null);
+        if (isCartReady) {
+          console.log('ProductTable: Cart now ready, retrying add to cart');
+          handleAddToCart(product);
+        }
+      }, 500);
+      
+      return;
+    }
+
+    // Additional check for function availability
+    if (!addToCart || typeof addToCart !== 'function') {
+      console.log('ProductTable: addToCart function not available, showing retry message');
+      setShowRetryMessage(product.partnumber);
+      
+      // Try to initialize again with shorter delay since cart should be ready
       setTimeout(() => {
         setShowRetryMessage(null);
         if (addToCart && typeof addToCart === 'function') {
-          setCartInitialized(true);
-          // Automatically retry the add to cart
           handleAddToCart(product);
         }
-      }, 1000);
+      }, 300);
       
       return;
     }
     
-    console.log('ProductTable: Product has inventory, proceeding to add to cart');
+    console.log('ProductTable: Cart ready and product has inventory, proceeding to add to cart');
     
     // Set loading state IMMEDIATELY
     setAddingToCart(product.partnumber);
