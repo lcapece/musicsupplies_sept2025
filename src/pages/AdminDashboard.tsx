@@ -7,10 +7,9 @@ import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
-import InvoiceManagementTab from '../components/admin/InvoiceManagementTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 
-type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'invoices';
+type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -60,7 +59,6 @@ const AdminDashboard: React.FC = () => {
     { id: 'accounts', label: 'Accounts', icon: '👥' },
     { id: 'applications', label: 'Applications', icon: '📝' },
     { id: 'history', label: 'Order History', icon: '📊' },
-    { id: 'invoices', label: 'Invoice Management', icon: '📄' },
     { id: 'sms', label: 'SMS Notifications', icon: '📱' },
     { id: 'clicksend', label: 'ClickSend', icon: '📨' },
     { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
@@ -80,8 +78,6 @@ const AdminDashboard: React.FC = () => {
         return <ClickSendTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
-      case 'invoices':
-        return <InvoiceManagementTab />;
       default:
         return <AccountsTab />;
     }

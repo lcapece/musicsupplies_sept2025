@@ -10,6 +10,8 @@ interface WebOrder {
   subtotal: string;
   status: string;
   customer_name: string;
+  promo_code: string | null;
+  discount_amount: string;
 }
 
 const WebOrdersDisplay: React.FC = () => {
@@ -42,6 +44,7 @@ const WebOrdersDisplay: React.FC = () => {
           created_at,
           subtotal,
           status,
+          discount_amount,
           accounts_lcmd!inner(acct_name)
         `)
         .eq('account_number', parseInt(user.accountNumber))
@@ -52,10 +55,36 @@ const WebOrdersDisplay: React.FC = () => {
         throw fetchError;
       }
 
+      // Get promo codes used for these orders
+      const orderIds = data?.map(order => order.id) || [];
+      let promoLookup = new Map();
+      
+      if (orderIds.length > 0) {
+        const { data: promoData, error: promoError } = await supabase
+          .from('promo_code_usage')
+          .select(`
+            order_id,
+            promo_codes(code)
+          `)
+          .in('order_id', orderIds);
+
+        if (promoError) {
+          console.warn('Error fetching promo codes:', promoError);
+        } else {
+          promoData?.forEach((item: any) => {
+            if (item.promo_codes && typeof item.promo_codes === 'object' && 'code' in item.promo_codes) {
+              promoLookup.set(item.order_id, item.promo_codes.code);
+            }
+          });
+        }
+      }
+
       // Process the data to extract customer name from the joined table
       const processedOrders: WebOrder[] = data?.map(order => ({
         ...order,
-        customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown'
+        customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown',
+        promo_code: promoLookup.get(order.id) || null,
+        discount_amount: order.discount_amount || '0'
       })) || [];
 
       setOrders(processedOrders);
@@ -130,16 +159,22 @@ const WebOrdersDisplay: React.FC = () => {
                     Order Number
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer Name
+                    Customer
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
+                    Promo Code
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date/Time
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Discount
                   </th>
                 </tr>
               </thead>
@@ -150,10 +185,19 @@ const WebOrdersDisplay: React.FC = () => {
                       {order.order_number}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.customer_name}
+                      {order.customer_name} ({order.account_number})
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(order.created_at).toLocaleDateString()}
+                      {order.promo_code ? (
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                          {order.promo_code}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -168,8 +212,17 @@ const WebOrdersDisplay: React.FC = () => {
                         {order.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-right">
                       ${parseFloat(order.subtotal).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-right">
+                      {order.discount_amount && parseFloat(order.discount_amount) > 0 ? (
+                        <span className="text-green-600">
+                          ${parseFloat(order.discount_amount).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}

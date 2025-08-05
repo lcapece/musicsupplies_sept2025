@@ -288,7 +288,16 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
           } : undefined,
           {
             name: user?.acctName || email.split('@')[0],
-            accountNumber: user?.accountNumber
+            accountNumber: user?.accountNumber,
+            address: user?.address && user?.city && user?.state && user?.zip ? {
+              line1: user.address,
+              cityStateZip: `${user.city}, ${user.state} ${user.zip}`
+            } : undefined,
+            shippingAddress: shippingDifferent && shippingAddress ? {
+              name: shippingContactName || user?.acctName || email.split('@')[0],
+              line1: shippingAddress,
+              cityStateZip: `${shippingCity}, ${shippingState} ${shippingZip}`
+            } : undefined
           }
         );
 

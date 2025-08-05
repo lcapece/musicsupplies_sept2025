@@ -57,8 +57,6 @@ const CartContext = createContext<CartContextType>({
 
 export const useCart = () => useContext(CartContext);
 
-let nextOrderNumber = 750000; 
-
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // IMPROVED FIX: Simplified cart readiness without arbitrary delays
   const [isCartReady, setIsCartReady] = useState(true);
@@ -88,21 +86,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [availablePromoCodes, setAvailablePromoCodes] = useState<AvailablePromoCode[]>([]);
   const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState<boolean>(false);
   const [isPromoCodeAutoApplied, setIsPromoCodeAutoApplied] = useState<boolean>(false);
-
-
-  useEffect(() => {
-    const initializeOrderNumber = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const { data, error } = await supabase.from('web_orders').select('order_number').order('order_number', { ascending: false }).limit(1).abortSignal(controller.signal);
-        clearTimeout(timeoutId);
-        if (error) { console.warn('Warning: Could not fetch max order number:', error.message); return; }
-        if (data && data.length > 0 && data[0].order_number) { nextOrderNumber = data[0].order_number + 1; }
-      } catch (e: any) { console.warn('Warning: Error fetching order number:', e.message); }
-    };
-    initializeOrderNumber();
-  }, []);
   
   useEffect(() => {
     // Use sessionStorage for better security
@@ -377,8 +360,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string, shippingAddress?: ShippingAddress): Promise<string> => {
-    const orderNumberGenerated = `WB${nextOrderNumber++}`;
-    const orderNumberForDb = parseInt(orderNumberGenerated.slice(2));
+    // CRITICAL FIX: Use atomic order number generation to prevent duplicate constraint violations
+    const { data: orderNumberForDb, error: orderNumberError } = await supabase.rpc('get_next_order_number');
+    
+    if (orderNumberError || !orderNumberForDb) {
+      console.error('Failed to generate order number:', orderNumberError);
+      throw new Error('Unable to generate order number. Please try again.');
+    }
+    
+    const orderNumberGenerated = `WB${orderNumberForDb}`;
+    console.log('Generated atomic order number:', orderNumberGenerated);
     
     if (!user || !user.accountNumber) {
       console.error('Place Order: User or account number is not available.');

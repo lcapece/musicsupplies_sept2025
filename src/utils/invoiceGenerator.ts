@@ -61,7 +61,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
     shippingAddress,
     items,
     subtotal,
-    shippingCharges = 15.50,
+    shippingCharges = 0,
     paymentsReceived = 0,
     interestCharges = 0,
     promoCodeDiscount = 0,
@@ -70,11 +70,14 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
     paymentMethod
   } = invoiceData;
 
-  // Determine if this is a web order (750000-770000 range)
+  // Fix order number display - ensure single WB prefix for web orders
   const orderNum = parseInt(orderNumber.replace(/[^\d]/g, ''));
   const isWebOrder = orderNum >= 750000 && orderNum <= 770000;
   const displayLabel = isWebOrder ? "WEB ORDER" : "INVOICE";
-  const displayNumber = isWebOrder ? `WB${orderNumber}` : orderNumber;
+  // Fix: Don't add WB if orderNumber already contains it
+  const displayNumber = isWebOrder ? 
+    (orderNumber.startsWith('WB') ? orderNumber : `WB${orderNumber}`) : 
+    orderNumber;
 
   // Generate line items HTML with clean styling
   const lineItemsHTML = items.map((item, index) => `
@@ -392,7 +395,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
                 <h3 class="bill-to-title">Bill To:</h3>
                 <div class="customer-info">
                     <div><strong>${customerName}</strong></div>
-                    ${customerAddress?.line1 ? `<div>${customerAddress.line1}</div>` : '<div class="na-text">N/A</div>'}
+                    ${customerAddress?.line1 ? `<div>${customerAddress.line1}</div>` : ''}
                     ${customerAddress?.cityStateZip ? `<div>${customerAddress.cityStateZip}</div>` : ''}
                     <div>Email: ${customerEmail}</div>
                     <div>Phone: ${customerPhone}</div>
@@ -401,13 +404,14 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
             <div class="customer-section">
                 <h3 class="ship-to-title">Ship To:</h3>
                 <div class="customer-info">
-                    ${shippingAddress ? `
+                    ${shippingAddress && shippingAddress.line1 ? `
                         <div><strong>${shippingAddress.name || customerName}</strong></div>
-                        <div>${shippingAddress.line1 || ''}</div>
+                        <div>${shippingAddress.line1}</div>
                         <div>${shippingAddress.cityStateZip || ''}</div>
                     ` : `
-                        <div class="na-text">optional ship-to</div>
-                        <div class="na-text">info here</div>
+                        <div>&nbsp;</div>
+                        <div>&nbsp;</div>
+                        <div>&nbsp;</div>
                     `}
                 </div>
             </div>
@@ -434,18 +438,29 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
         <!-- Totals Section with Discount Box -->
         <section class="totals-section">
             <div class="discount-box">
-                <div class="discount-text">Insert line for</div>
-                <div class="discount-text">discount</div>
+                ${promoCodeDiscount > 0 && promoCodeDescription ? `
+                    <div class="discount-text">${promoCodeDescription}</div>
+                    <div class="discount-text">Discount: $${promoCodeDiscount.toFixed(2)}</div>
+                ` : `
+                    <div class="discount-text">&nbsp;</div>
+                    <div class="discount-text">&nbsp;</div>
+                `}
             </div>
             <table class="totals-table">
                 <tr>
                     <td class="total-label">Subtotal:</td>
                     <td class="total-amount">$${subtotal.toFixed(2)}</td>
                 </tr>
+                ${promoCodeDiscount > 0 ? `
+                <tr>
+                    <td class="total-label">Discount ${promoCodeDescription ? `(${promoCodeDescription})` : ''}:</td>
+                    <td class="total-amount">-$${promoCodeDiscount.toFixed(2)}</td>
+                </tr>` : ''}
+                ${shippingCharges > 0 ? `
                 <tr>
                     <td class="total-label">Shipping:</td>
                     <td class="total-amount">$${shippingCharges.toFixed(2)}</td>
-                </tr>
+                </tr>` : ''}
                 ${paymentsReceived > 0 ? `
                 <tr>
                     <td class="total-label">Payments Received:</td>

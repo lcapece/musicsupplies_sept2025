@@ -41,7 +41,10 @@ const OrderHistoryTab: React.FC = () => {
     try {
       let query = supabase
         .from('web_orders')
-        .select('*')
+        .select(`
+          *,
+          accounts_lcmd!inner(acct_name)
+        `)
         .order('created_at', { ascending: false });
 
       // Apply date filter if set
@@ -69,7 +72,38 @@ const OrderHistoryTab: React.FC = () => {
         console.error('Error fetching orders:', error);
         setOrders([]);
       } else {
-        setOrders(data || []);
+        // Get promo codes used for these orders
+        const orderIds = data?.map(order => order.id) || [];
+        let promoLookup = new Map();
+        
+        if (orderIds.length > 0) {
+          const { data: promoData, error: promoError } = await supabase
+            .from('promo_code_usage')
+            .select(`
+              order_id,
+              promo_codes(code)
+            `)
+            .in('order_id', orderIds);
+
+          if (promoError) {
+            console.warn('Error fetching promo codes:', promoError);
+          } else {
+            promoData?.forEach((item: any) => {
+              if (item.promo_codes && typeof item.promo_codes === 'object' && 'code' in item.promo_codes) {
+                promoLookup.set(item.order_id, item.promo_codes.code);
+              }
+            });
+          }
+        }
+
+        // Process the data to extract customer name and promo codes
+        const processedOrders = data?.map(order => ({
+          ...order,
+          customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown',
+          promo_code_used: promoLookup.get(order.id) || null
+        })) || [];
+
+        setOrders(processedOrders);
       }
     } catch (err) {
       console.error('Error:', err);
@@ -247,7 +281,7 @@ const OrderHistoryTab: React.FC = () => {
             )}
             <div className="flex justify-between text-lg font-semibold">
               <span>Total:</span>
-              <span>{formatCurrency(order.total_amount)}</span>
+              <span>{formatCurrency(order.grand_total)}</span>
             </div>
           </div>
 
@@ -384,13 +418,16 @@ const OrderHistoryTab: React.FC = () => {
                     Customer
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Items
+                    Promo Code
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Discount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Payment
@@ -410,22 +447,24 @@ const OrderHistoryTab: React.FC = () => {
                       {formatDate(order.created_at)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      <div>{order.email}</div>
-                      <div className="text-xs text-gray-500">{order.phone}</div>
+                      <div className="font-medium">
+                        {order.customer_name} ({order.account_number})
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {(order.order_items || []).length} items
+                      {order.promo_code_used || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {getStatusBadge(order.order_status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
                       {formatCurrency(order.grand_total)}
-                      {order.discount_amount && order.discount_amount > 0 && (
-                        <div className="text-xs text-green-600">
-                          (-{formatCurrency(order.discount_amount)})
-                        </div>
-                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {order.discount_amount && order.discount_amount > 0 
+                        ? formatCurrency(order.discount_amount)
+                        : '-'
+                      }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       <span className={`px-2 py-1 text-xs rounded-full ${
