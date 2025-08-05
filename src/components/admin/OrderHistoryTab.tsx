@@ -39,12 +39,10 @@ const OrderHistoryTab: React.FC = () => {
   const fetchOrders = async () => {
     setLoading(true);
     try {
+      // First get the web orders
       let query = supabase
         .from('web_orders')
-        .select(`
-          *,
-          accounts_lcmd!inner(acct_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       // Apply date filter if set
@@ -59,52 +57,80 @@ const OrderHistoryTab: React.FC = () => {
           .lte('created_at', endDate.toISOString());
       }
 
+      const { data: ordersData, error: ordersError } = await query;
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        setOrders([]);
+        return;
+      }
+
+      if (!ordersData || ordersData.length === 0) {
+        setOrders([]);
+        return;
+      }
+
+      // Get unique account numbers from orders
+      const accountNumbers = [...new Set(ordersData.map(order => order.account_number))];
+      
+      // Get account information
+      const { data: accountsData, error: accountsError } = await supabase
+        .from('accounts_lcmd')
+        .select('account_number, acct_name')
+        .in('account_number', accountNumbers);
+
+      if (accountsError) {
+        console.warn('Error fetching account data:', accountsError);
+      }
+
+      // Create account lookup map
+      const accountLookup = new Map();
+      accountsData?.forEach(account => {
+        accountLookup.set(account.account_number, account.acct_name);
+      });
+
+      // Get promo codes used for these orders
+      const orderIds = ordersData.map(order => order.id);
+      let promoLookup = new Map();
+      
+      if (orderIds.length > 0) {
+        const { data: promoData, error: promoError } = await supabase
+          .from('promo_code_usage')
+          .select(`
+            order_id,
+            promo_codes(code)
+          `)
+          .in('order_id', orderIds);
+
+        if (promoError) {
+          console.warn('Error fetching promo codes:', promoError);
+        } else {
+          promoData?.forEach((item: any) => {
+            if (item.promo_codes && typeof item.promo_codes === 'object' && 'code' in item.promo_codes) {
+              promoLookup.set(item.order_id, item.promo_codes.code);
+            }
+          });
+        }
+      }
+
+      // Process the orders and apply search filter
+      let processedOrders = ordersData.map(order => ({
+        ...order,
+        customer_name: accountLookup.get(order.account_number) || 'Unknown',
+        promo_code_used: promoLookup.get(order.id) || null
+      }));
+
       // Apply search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        // Search by order number, email, or phone
-        query = query.or(`order_number.ilike.%${searchLower}%,email.ilike.%${searchLower}%,phone.ilike.%${searchLower}%`);
+        processedOrders = processedOrders.filter(order => 
+          order.order_number.toString().toLowerCase().includes(searchLower) ||
+          (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) ||
+          (order.account_number && order.account_number.toString().toLowerCase().includes(searchLower))
+        );
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error fetching orders:', error);
-        setOrders([]);
-      } else {
-        // Get promo codes used for these orders
-        const orderIds = data?.map(order => order.id) || [];
-        let promoLookup = new Map();
-        
-        if (orderIds.length > 0) {
-          const { data: promoData, error: promoError } = await supabase
-            .from('promo_code_usage')
-            .select(`
-              order_id,
-              promo_codes(code)
-            `)
-            .in('order_id', orderIds);
-
-          if (promoError) {
-            console.warn('Error fetching promo codes:', promoError);
-          } else {
-            promoData?.forEach((item: any) => {
-              if (item.promo_codes && typeof item.promo_codes === 'object' && 'code' in item.promo_codes) {
-                promoLookup.set(item.order_id, item.promo_codes.code);
-              }
-            });
-          }
-        }
-
-        // Process the data to extract customer name and promo codes
-        const processedOrders = data?.map(order => ({
-          ...order,
-          customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown',
-          promo_code_used: promoLookup.get(order.id) || null
-        })) || [];
-
-        setOrders(processedOrders);
-      }
+      setOrders(processedOrders);
     } catch (err) {
       console.error('Error:', err);
       setOrders([]);

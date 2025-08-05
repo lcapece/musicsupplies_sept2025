@@ -82,10 +82,15 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       const currentPassword = accountData.currentPassword || 'p11554'; // Use default if not available
       await ensureLogonEntry(accountNumber, currentPassword);
 
-      // Step 2: Update password directly in logon_lcmd
+      // Step 2: Update password directly in logon_lcmd and mark as non-default
       const { error: passwordError } = await supabase
         .from('logon_lcmd')
-        .update({ password: newPassword })
+        .update({ 
+          password: newPassword,
+          is_default_password: false,
+          updated_at: new Date().toISOString(),
+          password_set_date: new Date().toISOString()
+        })
         .eq('account_number', accountNumber);
 
       if (passwordError) {
