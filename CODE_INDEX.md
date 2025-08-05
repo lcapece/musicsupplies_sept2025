@@ -5,11 +5,12 @@ A React-based e-commerce application built with TypeScript, Vite, and Supabase. 
 
 ## Technology Stack
 - **Frontend**: React 18.3.1, TypeScript 5.5.3, Vite 5.4.2
-- **UI**: Tailwind CSS 3.4.1, Lucide React Icons
+- **UI**: Tailwind CSS 3.4.1, Lucide React Icons, React Icons 5.5.0
 - **Backend**: Supabase (PostgreSQL, Edge Functions)
 - **Authentication**: Custom auth system with Supabase
 - **Routing**: React Router DOM 7.6.0
-- **Additional**: OpenAI API integration, XLSX file handling
+- **State Management**: React Context API (Auth, Cart, Notifications)
+- **Additional**: OpenAI API 5.1.0, XLSX 0.18.5, TanStack React Table 8.21.3
 
 ## Project Structure
 
@@ -54,6 +55,7 @@ A React-based e-commerce application built with TypeScript, Vite, and Supabase. 
 #### Communication & Notifications
 - `NotificationModal.tsx` - System notifications
 - `SmsConsentModal.tsx` - SMS consent management
+- `SmsFailureNotificationModal.tsx` - SMS failure notifications
 - `PromotionalPopupModal.tsx` - Promotional popup display
 
 #### Layout & Navigation
@@ -61,11 +63,14 @@ A React-based e-commerce application built with TypeScript, Vite, and Supabase. 
 - `Dashboard.tsx` - Main dashboard component
 - `ErrorBoundary.tsx` - Error handling wrapper
 
+#### Account & User Management
+- `AccountSettingsModal.tsx` - User account settings interface
+- `DeactivatedAccountModal.tsx` - Deactivated account notification
+
 ### Admin Components (`src/components/admin/`)
 
 #### Account Management
-- `AccountManagementTab.tsx` - Account management interface
-- `AccountsTab.tsx` - Account listing
+- `AccountsTab.tsx` - Account listing and management
 - `AccountApplicationsTab.tsx` - Account application processing
 - `AddPromoCodeModal.tsx` - Create new promo codes
 - `EditPromoCodeModal.tsx` - Edit existing promo codes
@@ -86,7 +91,6 @@ A React-based e-commerce application built with TypeScript, Vite, and Supabase. 
 
 #### Communication & Settings
 - `EmailTab.tsx` - Email configuration
-- `SmsNotificationTab.tsx` - SMS notification settings
 - `ClickSendTab.tsx` - ClickSend SMS integration
 - `GeneralSettingsTab.tsx` - General system settings
 
@@ -97,14 +101,21 @@ A React-based e-commerce application built with TypeScript, Vite, and Supabase. 
 - `UnresolvedIssuesTab.tsx` - Issue tracking
 - `IconGenerationTab.tsx` - Icon generation utilities
 - `ManagementTab.tsx` - General management interface
+- `ImageManagementTab.tsx` - Product image management
+- `InvoiceManagementTab.tsx` - Invoice template management
+- `S3ImageCacheTab.tsx` - S3 image cache management
+- `NetlifyTab.tsx` - Netlify deployment management
+- `WebOrdersTab.tsx` - Web orders administration
 
 ### Pages (`src/pages/`)
 
 #### Public Pages
 - `Dashboard.tsx` - Main customer dashboard
 - `PrivacyPolicyPage.tsx` - Privacy policy
+- `TermsAndConditionsPage.tsx` - Terms and conditions
 - `NewAccountApplicationPage.tsx` - New account registration
 - `ForgotPasswordPage.tsx` - Password recovery
+- `UpdatePasswordPage.tsx` - Password update page
 
 #### Customer Pages
 - `CustomerAccountPage.tsx` - Customer account management
@@ -119,6 +130,7 @@ A React-based e-commerce application built with TypeScript, Vite, and Supabase. 
 #### Communication Pages
 - `EmailCommunicationsPage.tsx` - Email communication preferences
 - `SmsCommunicationsPage.tsx` - SMS communication preferences
+- `SmsConsentPreviewPage.tsx` - SMS consent preview
 
 ### Context Providers (`src/context/`)
 - `AuthContext.tsx` - Authentication state management
@@ -139,10 +151,16 @@ Key interfaces:
 - `PromoCodeValidity` - Promo code validation result
 
 ### Utilities (`src/utils/`)
+- `adminSessionManager.ts` - Admin session management
 - `applyMigration.ts` - Database migration utilities
 - `applyPromoCodeLimitsUpdates.ts` - Promo code limit updates
 - `checkDbUpdate.ts` - Database update checking
 - `iconGenerator.ts` - Icon generation utilities
+- `invoiceGenerator.ts` - Invoice generation utilities
+- `securityConfig.ts` - Security configuration
+- `securityHeaders.ts` - Security headers configuration
+- `sessionManager.ts` - User session management
+- `validation.ts` - Input validation utilities
 
 ### Libraries (`src/lib/`)
 - `supabase.ts` - Supabase client configuration
@@ -165,6 +183,12 @@ Key interfaces:
 #### Communication Functions
 - `send-mailgun-email/` - Email sending via Mailgun
 - `send-order-sms/` - SMS notifications for orders
+- `send-admin-sms/` - SMS notifications for admins
+- `send-customer-sms/` - SMS notifications for customers
+
+#### File Management Functions
+- `list-s3-files/` - List files from S3 bucket
+- `list-s3-images/` - List image files from S3 bucket
 
 #### Shared Utilities
 - `_shared/cors.ts` - CORS configuration for edge functions
@@ -247,3 +271,43 @@ Key migration patterns:
 - Mailgun for email services
 - ClickSend for SMS services
 - XLSX for spreadsheet import/export
+- AWS S3 for image storage
+
+## Deployment & Infrastructure
+
+### Deployment Configurations
+- `netlify.toml` - Netlify deployment settings
+- `Dockerfile` - Docker containerization
+- `nginx.conf` - Nginx web server configuration
+- `deploy.sh` / `deploy.bat` - Deployment scripts
+
+### Environment Variables
+- `VITE_SUPABASE_URL` - Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key
+- `VITE_OPENAI_API_KEY` - OpenAI API key
+- Additional secrets configured in Supabase dashboard
+
+## Mobile Companion App
+The project includes a mobile-optimized version in `musicsupplies_mobile/` directory with:
+- Responsive mobile UI
+- Touch-optimized interfaces
+- Simplified navigation
+- Same core functionality as main app
+
+## Documentation Files
+The project includes extensive documentation:
+- Implementation summaries for major features
+- Fix documentation for resolved issues
+- Security audit reports
+- API endpoint documentation
+- Database schema documentation
+- Deployment guides
+
+## Testing & Development
+- Test accounts documented in `test_accounts.md`
+- PowerShell test scripts for API endpoints
+- JavaScript test scripts for functionality
+- SQL scripts for database operations
+
+## Version
+Current version: RC804 (as per package.json)

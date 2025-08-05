@@ -375,9 +375,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                   ? authFunctionResponse[0] 
                                   : null;
 
-      // Debug info might be returned even when authentication fails
-      if (authenticatedUserData && authenticatedUserData.debug_info) {
-        console.log('Authentication debug info:', authenticatedUserData.debug_info);
+      // SECURITY FIX: Remove debug info logging that exposed passwords
+      // Debug info is only logged in development mode and passwords are excluded
+      if (authenticatedUserData && authenticatedUserData.debug_info && import.meta.env.DEV) {
+        // Never log the actual debug_info as it may contain sensitive data
+        console.log('Authentication debug info available (hidden for security)');
       }
       
       // Check if this is the special admin account (99)
@@ -436,9 +438,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // auth_user_id: authenticatedUserData.id 
       };
       
-      // Store debug info in console but don't save it to localStorage
-      if (authenticatedUserData.debug_info) {
-        console.log('Authentication successful with debug info:', authenticatedUserData.debug_info);
+      // SECURITY FIX: Never log debug info that might contain passwords
+      // This is completely removed to prevent password exposure
+      if (authenticatedUserData.debug_info && import.meta.env.DEV) {
+        console.log('Authentication successful (debug info hidden for security)');
       }
       
       setUser(userData);

@@ -96,28 +96,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, totalPages]);
 
-  const [showRetryMessage, setShowRetryMessage] = useState<string | null>(null);
-  const [cartInitialized, setCartInitialized] = useState(false);
-
-  // Monitor cart initialization
-  React.useEffect(() => {
-    // Check if cart context is properly initialized by testing if addToCart function exists
-    if (addToCart && typeof addToCart === 'function') {
-      setCartInitialized(true);
-      console.log('ProductTable: Cart context initialized');
-    } else {
-      console.log('ProductTable: Waiting for cart context initialization...');
-      // Try again after a short delay
-      const checkTimer = setTimeout(() => {
-        if (addToCart && typeof addToCart === 'function') {
-          setCartInitialized(true);
-          console.log('ProductTable: Cart context initialized after delay');
-        }
-      }, 500);
-      return () => clearTimeout(checkTimer);
-    }
-  }, [addToCart]);
-
   const handleAddToCart = (product: Product) => {
     console.log('ProductTable: handleAddToCart called for:', product.partnumber);
     
@@ -133,46 +111,19 @@ const ProductTable: React.FC<ProductTableProps> = ({
       return;
     }
 
-    // CRITICAL FIX: Check cart readiness state first
-    if (!isCartReady) {
-      console.log('ProductTable: Cart not ready yet, showing retry message');
-      setShowRetryMessage(product.partnumber);
-      
-      // Wait for cart to be ready and retry
-      setTimeout(() => {
-        setShowRetryMessage(null);
-        if (isCartReady) {
-          console.log('ProductTable: Cart now ready, retrying add to cart');
-          handleAddToCart(product);
-        }
-      }, 500);
-      
-      return;
-    }
-
-    // Additional check for function availability
+    // IMPROVED FIX: Simple validation and immediate execution
     if (!addToCart || typeof addToCart !== 'function') {
-      console.log('ProductTable: addToCart function not available, showing retry message');
-      setShowRetryMessage(product.partnumber);
-      
-      // Try to initialize again with shorter delay since cart should be ready
-      setTimeout(() => {
-        setShowRetryMessage(null);
-        if (addToCart && typeof addToCart === 'function') {
-          handleAddToCart(product);
-        }
-      }, 300);
-      
+      console.error('ProductTable: addToCart function not available');
       return;
     }
     
-    console.log('ProductTable: Cart ready and product has inventory, proceeding to add to cart');
+    console.log('ProductTable: Adding to cart immediately');
     
     // Set loading state IMMEDIATELY
     setAddingToCart(product.partnumber);
     
     try {
-      // Call addToCart with error handling
+      // Call addToCart directly - no delays or retry logic
       addToCart({
         partnumber: product.partnumber,
         description: product.description,
@@ -189,8 +140,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
     } catch (error) {
       console.error('ProductTable: Error adding to cart:', error);
       setAddingToCart(null);
-      setShowRetryMessage(product.partnumber);
-      setTimeout(() => setShowRetryMessage(null), 3000);
     }
   };
 
@@ -543,12 +492,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       >
                         {addingToCart === product.partnumber ? 'Added!' : 'Add to Cart'}
                       </button>
-                      {showRetryMessage === product.partnumber && (
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-2 py-1 rounded text-xs whitespace-nowrap z-10">
-                          Please click again
-                          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-yellow-100 border-r border-b border-yellow-400 rotate-45"></div>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 ))}

@@ -6,10 +6,9 @@ interface WebOrder {
   id: number;
   order_number: string;
   account_number: number;
-  order_date: string;
-  total_amount: number;
+  created_at: string;
+  subtotal: string;
   status: string;
-  items_count: number;
   customer_name: string;
 }
 
@@ -33,19 +32,33 @@ const WebOrdersDisplay: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // This is a placeholder query - adjust based on your actual web orders table structure
+      // Query to get web orders with account names
       const { data, error: fetchError } = await supabase
-        .from('web_orders') // Adjust table name as needed
-        .select('*')
+        .from('web_orders')
+        .select(`
+          id,
+          order_number,
+          account_number,
+          created_at,
+          subtotal,
+          status,
+          accounts_lcmd!inner(acct_name)
+        `)
         .eq('account_number', parseInt(user.accountNumber))
-        .order('order_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(50);
 
       if (fetchError) {
         throw fetchError;
       }
 
-      setOrders(data || []);
+      // Process the data to extract customer name from the joined table
+      const processedOrders: WebOrder[] = data?.map(order => ({
+        ...order,
+        customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown'
+      })) || [];
+
+      setOrders(processedOrders);
     } catch (err) {
       console.error('Error fetching web orders:', err);
       setError('Failed to load web orders. Please try again later.');
@@ -117,13 +130,13 @@ const WebOrdersDisplay: React.FC = () => {
                     Order Number
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Items
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total
@@ -136,8 +149,11 @@ const WebOrdersDisplay: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {order.order_number}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {order.customer_name}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(order.order_date).toLocaleDateString()}
+                      {new Date(order.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -152,11 +168,8 @@ const WebOrdersDisplay: React.FC = () => {
                         {order.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {order.items_count}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                      ${order.total_amount.toFixed(2)}
+                      ${parseFloat(order.subtotal).toFixed(2)}
                     </td>
                   </tr>
                 ))}

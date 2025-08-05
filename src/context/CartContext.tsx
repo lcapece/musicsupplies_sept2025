@@ -60,8 +60,8 @@ export const useCart = () => useContext(CartContext);
 let nextOrderNumber = 750000; 
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // CRITICAL FIX: Add cart readiness state to prevent race conditions
-  const [isCartReady, setIsCartReady] = useState(false);
+  // IMPROVED FIX: Simplified cart readiness without arbitrary delays
+  const [isCartReady, setIsCartReady] = useState(true);
   const [items, setItems] = useState<CartItem[]>(() => {
     // Use sessionStorage for better security (cleared when browser closes)
     const savedCart = sessionStorage.getItem('cart');
@@ -89,16 +89,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState<boolean>(false);
   const [isPromoCodeAutoApplied, setIsPromoCodeAutoApplied] = useState<boolean>(false);
 
-  // CRITICAL FIX: Mark cart as ready after initial setup
-  React.useEffect(() => {
-    // Set cart as ready after initial render to prevent first-click issues
-    const timer = setTimeout(() => {
-      setIsCartReady(true);
-      console.log('CartContext: Cart marked as ready');
-    }, 100); // Small delay to ensure all initial renders are complete
-    
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     const initializeOrderNumber = async () => {

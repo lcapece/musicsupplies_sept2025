@@ -152,18 +152,15 @@ const WebOrdersTab: React.FC = () => {
         ),
       },
       {
-        accessorKey: 'account_number',
-        header: 'Account Number',
-        cell: ({ getValue }) => (
-          <span className="font-mono text-sm">{getValue<number>()}</span>
-        ),
-      },
-      {
         accessorKey: 'account_name',
-        header: 'Account Name',
-        cell: ({ getValue }) => (
-          <span className="text-sm">{getValue<string>()}</span>
+        header: 'Customer Name',
+        cell: ({ getValue, row }) => (
+          <div className="text-sm">
+            <div className="font-medium text-gray-900">{getValue<string>()}</div>
+            <div className="text-xs text-gray-500 font-mono">Acct: {row.original.account_number}</div>
+          </div>
         ),
+        size: 200,
       },
       {
         accessorKey: 'subtotal',

@@ -444,17 +444,24 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
                 </tr>
                 <tr>
                     <td class="total-label">Shipping:</td>
-                    <td class="total-amount">${shippingCharges > 0 ? `$${shippingCharges.toFixed(2)}` : '$36.29'}</td>
+                    <td class="total-amount">$${shippingCharges.toFixed(2)}</td>
                 </tr>
+                ${paymentsReceived > 0 ? `
                 <tr>
                     <td class="total-label">Payments Received:</td>
-                    <td class="total-amount">${paymentsReceived > 0 ? `-$${paymentsReceived.toFixed(2)}` : '($832.19)'}</td>
-                </tr>
+                    <td class="total-amount">-$${paymentsReceived.toFixed(2)}</td>
+                </tr>` : ''}
                 <tr class="grand-total-row">
                     <td class="total-label">Total Due:</td>
                     <td class="total-amount">$${totalAmountDue.toFixed(2)}</td>
                 </tr>
             </table>
+        </section>
+
+        <!-- Payment Method Section -->
+        <section class="payment-method-section" style="margin-bottom: 20px; padding: 10px; border: 1px solid #000;">
+            <strong>Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}</strong>
+            ${paymentMethod === 'net10' ? '<br>Payment due within 10 days of invoice date.' : ''}
         </section>
 
         <!-- Footer -->
