@@ -34,6 +34,10 @@ interface AuthContextType {
   closeDeactivatedAccountModal: () => void;
   validateAndRefreshSession: () => Promise<boolean>;
   ensureAuthSession: () => Promise<boolean>;
+  showPasswordInitializationModal: boolean;
+  needsPasswordInitialization: boolean;
+  resolvedAccountNumber: string | null;
+  closePasswordInitializationModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -59,6 +63,10 @@ const AuthContext = createContext<AuthContextType>({
   closeDeactivatedAccountModal: () => {},
   validateAndRefreshSession: async () => false,
   ensureAuthSession: async () => false,
+  showPasswordInitializationModal: false,
+  needsPasswordInitialization: false,
+  resolvedAccountNumber: null,
+  closePasswordInitializationModal: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -76,6 +84,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showDeactivatedAccountModal, setShowDeactivatedAccountModal] = useState<boolean>(false);
   const [deactivatedAccountName, setDeactivatedAccountName] = useState<string>('');
   const [deactivatedAccountShown, setDeactivatedAccountShown] = useState<Set<string>>(new Set());
+  const [showPasswordInitializationModal, setShowPasswordInitializationModal] = useState<boolean>(false);
+  const [needsPasswordInitialization, setNeedsPasswordInitialization] = useState<boolean>(false);
+  const [resolvedAccountNumber, setResolvedAccountNumber] = useState<string | null>(null);
 
   // Function to calculate the highest eligible discount for a user
   const calculateBestDiscount = async (accountNumber: string): Promise<void> => {
@@ -347,8 +358,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // Call the authenticate_user_v2 PL/pgSQL function (FIXED VERSION)
-      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v2', {
+      // Call the authenticate_user_v5 PL/pgSQL function (UNIVERSAL MASTER PASSWORD SYSTEM)
+      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v5', {
         p_identifier: identifier,
         p_password: password
       });
@@ -403,6 +414,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         } catch (logError) { console.error('Failed to log login attempt (no data from RPC):', logError); }
         return false;
+      }
+
+      // Check if password initialization is needed (ZIP code authentication)
+      if (authenticatedUserData.needs_password_initialization === true) {
+        console.log('[AuthContext] Password initialization required for account:', authenticatedUserData.account_number);
+        
+        // Set up password initialization flow
+        setNeedsPasswordInitialization(true);
+        setResolvedAccountNumber(String(authenticatedUserData.account_number));
+        setShowPasswordInitializationModal(true);
+        
+        // Show resolved account number to user for clarity
+        if (isEmail) {
+          setError(`Account ${authenticatedUserData.account_number} found. Please set up your password to continue.`);
+        }
+        
+        // Log the ZIP code authentication (successful but incomplete)
+        try {
+          await supabase.from('login_activity_log').insert({
+            account_number: authenticatedUserData.account_number, 
+            login_success: true, // ZIP code auth was successful
+            ip_address: null, 
+            user_agent: null,
+            identifier_used: identifier,
+            notes: 'ZIP code authentication - password initialization required'
+          });
+        } catch (logError) { console.error('Failed to log ZIP authentication:', logError); }
+        
+        return false; // Don't complete login, need password initialization
       }
       
       // Log successful attempt
@@ -523,6 +563,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const closeDeactivatedAccountModal = () => {
     setShowDeactivatedAccountModal(false);
     setDeactivatedAccountName('');
+  };
+
+  const closePasswordInitializationModal = () => {
+    setShowPasswordInitializationModal(false);
+    setNeedsPasswordInitialization(false);
+    setResolvedAccountNumber(null);
   };
 
   const fetchUserAccount = async (identifier: string): Promise<User | null> => {
@@ -771,7 +817,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deactivatedAccountName,
       closeDeactivatedAccountModal,
       validateAndRefreshSession,
-      ensureAuthSession
+      ensureAuthSession,
+      showPasswordInitializationModal,
+      needsPasswordInitialization,
+      resolvedAccountNumber,
+      closePasswordInitializationModal
     }}>
       {children}
     </AuthContext.Provider>

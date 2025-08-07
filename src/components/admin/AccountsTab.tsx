@@ -100,21 +100,21 @@ const AccountsTab: React.FC = () => {
         setTotalAccountCount(count);
       }
 
-      // Get password entries only for the current page accounts
+      // Get password entries from USER_PASSWORDS table only for the current page accounts
       const accountNumbers = data?.map(a => a.account_number) || [];
       const { data: passwordData, error: passwordError } = await supabase
-        .from('logon_lcmd')
-        .select('account_number, password')
+        .from('user_passwords')
+        .select('account_number, password_hash')
         .in('account_number', accountNumbers);
 
       if (passwordError) {
         console.error('Error fetching password data:', passwordError);
       }
 
-      // Create a map of account passwords
-      const passwordMap: { [key: number]: string } = {};
-      passwordData?.forEach((entry: LogonEntry) => {
-        passwordMap[entry.account_number] = entry.password;
+      // Create a map of account passwords - if record exists, they have a custom password
+      const passwordMap: { [key: number]: boolean } = {};
+      passwordData?.forEach((entry: any) => {
+        passwordMap[entry.account_number] = true; // Just track existence, not the hash
       });
 
       // Check which accounts have custom passwords
@@ -131,28 +131,13 @@ const AccountsTab: React.FC = () => {
             acct_name: account.acct_name,
             zip: account.zip,
             hasEntry: hasEntry,
-            storedPassword: storedPassword,
-            defaultPattern: defaultPattern,
-            passwordsMatch: storedPassword?.toLowerCase() === defaultPattern?.toLowerCase()
+            hasPasswordRecord: storedPassword,
+            defaultPattern: defaultPattern
           });
         }
         
-        // BETTER LOGIC: Check if password exists AND is not the default pattern
-        let hasCustomPassword = false;
-        if (hasEntry && storedPassword) {
-          // If stored password is different from default pattern, it's custom
-          hasCustomPassword = storedPassword.toLowerCase() !== defaultPattern.toLowerCase();
-        }
-        
-        // DEBUG: Log the final decision for account 105
-        if (account.account_number === 105) {
-          console.log('🎯 Account 105 final decision:', {
-            hasCustomPassword: hasCustomPassword,
-            reason: hasEntry ? 
-              (hasCustomPassword ? 'Password differs from default pattern' : 'Password matches default pattern') :
-              'No password entry found'
-          });
-        }
+        // NEW LOGIC: If record exists in user_passwords, they have a custom password
+        const hasCustomPassword = passwordMap[account.account_number] === true;
         
         return {
           ...account,
@@ -179,63 +164,48 @@ const AccountsTab: React.FC = () => {
 
   const handleSetPassword = async (accountNumber: number, newPassword: string) => {
     try {
-      // Get the account details to check if password matches default pattern
-      const account = accounts.find(a => a.account_number === accountNumber);
-      const defaultPattern = account ? getDefaultPassword(account.acct_name, account.zip) : '';
-      const isDefaultPattern = newPassword.toLowerCase() === defaultPattern.toLowerCase();
+      // STEP 1: Delete any existing record from USER_PASSWORDS (as per requirement)
+      const { error: deleteError } = await supabase
+        .from('user_passwords')
+        .delete()
+        .eq('account_number', accountNumber);
 
-      // Check if account already has a password entry
-      const { data: existingPassword, error: checkError } = await supabase
-        .from('logon_lcmd')
-        .select('account_number')
-        .eq('account_number', accountNumber)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid error when no rows
-
-      if (checkError) {
-        console.error('Error checking existing password:', checkError);
-        alert('Error checking existing password');
+      if (deleteError) {
+        console.error('Error deleting existing password:', deleteError);
+        alert('Error removing existing password: ' + deleteError.message);
         return;
       }
 
-      if (existingPassword) {
-        // Update existing password
-        const { error: updateError } = await supabase
-          .from('logon_lcmd')
-          .update({
-            password: newPassword
-          })
-          .eq('account_number', accountNumber);
+      // STEP 2: Hash the new password and insert it
+      const { data: hashResult, error: hashError } = await supabase.rpc('hash_password', {
+        plain_password: newPassword
+      });
 
-        if (updateError) {
-          console.error('Error updating password:', updateError);
-          alert('Error updating password: ' + updateError.message);
-          return;
-        }
-      } else {
-        // Insert new password entry
-        const { error: insertError } = await supabase
-          .from('logon_lcmd')
-          .insert({
-            account_number: accountNumber,
-            password: newPassword
-          });
+      if (hashError || !hashResult) {
+        console.error('Error hashing password:', hashError);
+        alert('Error hashing password');
+        return;
+      }
 
-        if (insertError) {
-          console.error('Error inserting password:', insertError);
-          alert('Error setting password: ' + insertError.message);
-          return;
-        }
+      // STEP 3: Insert new hashed password record
+      const { error: insertError } = await supabase
+        .from('user_passwords')
+        .insert({
+          account_number: accountNumber,
+          password_hash: hashResult,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Error inserting password:', insertError);
+        alert('Error setting password: ' + insertError.message);
+        return;
       }
 
       setShowPasswordModal(false);
       fetchAccounts();
-      
-      // Show appropriate message based on whether password matches default pattern
-      if (isDefaultPattern) {
-        alert('Default password has been set');
-      } else {
-        alert('A new password has been set');
-      }
+      alert('Password has been set successfully. User can now log in with this password.');
     } catch (error) {
       console.error('Error:', error);
       alert('Error setting password');
@@ -243,36 +213,21 @@ const AccountsTab: React.FC = () => {
   };
 
   const handleResetPassword = async (accountNumber: number) => {
-    if (window.confirm('This will reset the account to use the default password pattern (ZIP code) as a one-time password. Continue?')) {
+    if (window.confirm('This will RESET ZIP DEFAULT - removing the custom password and allowing user to authenticate with ZIP code, which will trigger the mandatory password change modal. Continue?')) {
       try {
-        // Remove custom password entry
+        // STEP 1: Remove record from USER_PASSWORDS (as per requirement)
         const { error: deleteError } = await supabase
-          .from('logon_lcmd')
+          .from('user_passwords')
           .delete()
           .eq('account_number', accountNumber);
 
         if (deleteError) {
           console.error('Error deleting password:', deleteError);
-          alert('Error resetting password');
+          alert('Error resetting password: ' + deleteError.message);
           return;
         }
 
-        // Update account to require password change and reset initial_password_used flag
-        const { error: updateError } = await supabase
-          .from('accounts_lcmd')
-          .update({ 
-            requires_password_change: true,
-            initial_password_used: false  // Reset this so they can use zip code once
-          })
-          .eq('account_number', accountNumber);
-
-        if (updateError) {
-          console.error('Error updating account:', updateError);
-          alert('Error updating account settings');
-          return;
-        }
-
-        // Clear any auth.users connection
+        // STEP 2: Clear any auth.users connection
         const { error: clearUserError } = await supabase
           .from('accounts_lcmd')
           .update({ user_id: null })
@@ -280,10 +235,11 @@ const AccountsTab: React.FC = () => {
 
         if (clearUserError) {
           console.error('Error clearing user connection:', clearUserError);
+          // Don't fail the operation if this fails
         }
 
         fetchAccounts();
-        alert('Password reset successfully. Account can now use their ZIP code as a one-time password.');
+        alert('RESET ZIP DEFAULT completed successfully. User can now log in with their ZIP code (once), which will trigger the mandatory password setup modal.');
       } catch (error) {
         console.error('Error:', error);
         alert('Error resetting password');
