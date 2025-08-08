@@ -148,9 +148,23 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
     }
   };
 
-  // Auto-expand on focus for better UX
-  const handleFocus = () => {
+  // CRITICAL FIX: Handle initial button click to expand controls
+  const handleInitialClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('QuantitySelector: Initial click - expanding controls for', product.partnumber);
+    
+    // Use immediate state update with callback to ensure expansion happens
     setIsExpanded(true);
+    
+    // Focus the input after a brief delay to ensure the expanded view is rendered
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    }, 50);
   };
 
   // Collapse on outside click
@@ -196,7 +210,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
     return (
       <div ref={containerRef} className="flex items-center gap-1">
         <button
-          onClick={handleFocus}
+          onClick={handleInitialClick}
           disabled={disabled || isAdding}
           className={`
             inline-flex items-center gap-1.5 border border-gray-300 rounded-lg
