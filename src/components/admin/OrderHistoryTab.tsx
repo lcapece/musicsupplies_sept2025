@@ -44,30 +44,47 @@ const OrderHistoryTab: React.FC = () => {
   }, [dateFilter, searchTerm]);
 
   const getDateRange = (filter: string) => {
-    const now = new Date();
-    let startDate: Date | null = null;
-    
-    switch (filter) {
-      case 'Today':
-        startDate = new Date(now);
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case 'Past 7 Days':
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 7);
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case 'Past 30 Days':
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 30);
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case 'All History':
-        startDate = null;
-        break;
+    try {
+      const now = new Date();
+      
+      // Validate that 'now' is a valid date
+      if (isNaN(now.getTime())) {
+        console.error('Invalid current date');
+        return null;
+      }
+      
+      let startDate: Date | null = null;
+      
+      switch (filter) {
+        case 'Today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          break;
+        case 'Past 7 Days':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0);
+          break;
+        case 'Past 30 Days':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30, 0, 0, 0, 0);
+          break;
+        case 'All History':
+          startDate = null;
+          break;
+        default:
+          console.warn('Unknown date filter:', filter);
+          startDate = null;
+          break;
+      }
+      
+      // Validate the created date
+      if (startDate && isNaN(startDate.getTime())) {
+        console.error('Invalid date created for filter:', filter);
+        return null;
+      }
+      
+      return startDate;
+    } catch (error) {
+      console.error('Error in getDateRange:', error);
+      return null;
     }
-    
-    return startDate;
   };
 
   const handleRefresh = async () => {
@@ -350,8 +367,24 @@ const OrderHistoryTab: React.FC = () => {
 
     setPurgingOrder(order.id);
     try {
-      // First delete related promo code usage records
+      // First free up the promo code if it was used
       if (order.promo_code_used) {
+        // Free up the promo code by resetting its usage
+        const { error: promoError } = await supabase
+          .from('promo_codes')
+          .update({ 
+            used: false,
+            used_by_account: null,
+            used_at: null
+          })
+          .eq('code', order.promo_code_used);
+
+        if (promoError) {
+          console.error('Error freeing up promo code:', promoError);
+          // Continue with order deletion even if promo cleanup fails
+        }
+
+        // Delete the promo code usage record
         const { error: promoUsageError } = await supabase
           .from('promo_code_usage')
           .delete()
