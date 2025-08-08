@@ -1,7 +1,7 @@
 {
   "name": "vite-react-typescript-starter",
   "private": true,
-  "version": "RC808.1049",
+  "version": "RC808.1058",
   "type": "module",
   "scripts": {
     "dev": "npx vite",
