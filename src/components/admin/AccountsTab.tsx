@@ -10,6 +10,7 @@ interface Account {
   zip: string;
   phone: string;
   mobile_phone?: string;
+  email_address?: string;
   requires_password_change: boolean;
   has_custom_password: boolean;
 }
@@ -49,6 +50,27 @@ const AccountsTab: React.FC = () => {
     return zipFirst5;
   };
 
+  const formatPhoneNumber = (phone: string | null | undefined) => {
+    if (!phone) return 'N/A';
+    
+    // Remove all non-numeric characters
+    const numbers = phone.replace(/\D/g, '');
+    
+    // Handle US phone numbers (remove country code "1" if present)
+    let cleanNumbers = numbers;
+    if (numbers.length === 11 && numbers.startsWith('1')) {
+      cleanNumbers = numbers.substring(1);
+    }
+    
+    // Format as (000)000-0000
+    if (cleanNumbers.length === 10) {
+      return `(${cleanNumbers.substring(0, 3)})${cleanNumbers.substring(3, 6)}-${cleanNumbers.substring(6)}`;
+    }
+    
+    // Return original if not 10 digits
+    return phone;
+  };
+
   const fetchAccounts = async () => {
     try {
       setLoading(true);
@@ -64,6 +86,7 @@ const AccountsTab: React.FC = () => {
           zip,
           phone,
           mobile_phone,
+          email_address,
           requires_password_change
         `, { count: 'exact' });
 
@@ -74,6 +97,7 @@ const AccountsTab: React.FC = () => {
           `acct_name.ilike.%${searchLower}%`,
           `city.ilike.%${searchLower}%`,
           `state.ilike.%${searchLower}%`,
+          `email_address.ilike.%${searchLower}%`,
         ];
         if (!isNaN(numericSearchTerm)) {
           orConditions.push(`account_number.eq.${numericSearchTerm}`);
@@ -401,7 +425,7 @@ const AccountsTab: React.FC = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by account number, company name, city, or state..."
+              placeholder="Search by account number, company name, city, state, or email address..."
               className="w-full border border-gray-300 rounded-md px-4 py-3 text-base"
             />
           </div>
@@ -454,6 +478,9 @@ const AccountsTab: React.FC = () => {
                     Mobile Phone {sortColumn === 'mobile_phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
+                    Email Address
+                  </th>
+                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
                     Zip Code
                   </th>
                   <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
@@ -474,10 +501,13 @@ const AccountsTab: React.FC = () => {
                       {account.city || 'N/A'}, {account.state || 'N/A'} {account.zip || 'N/A'}
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
-                      {account.phone || 'N/A'}
+                      {formatPhoneNumber(account.phone)}
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
-                      {account.mobile_phone || 'N/A'}
+                      {formatPhoneNumber(account.mobile_phone)}
+                    </td>
+                    <td className="px-8 py-6 text-base text-gray-600 max-w-xs truncate">
+                      {account.email_address || 'N/A'}
                     </td>
                     <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600 font-mono font-bold">
                       {getDefaultPasswordDisplay(account)}
