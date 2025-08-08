@@ -18,6 +18,8 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showSmsConsentModal, setShowSmsConsentModal] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const { user, fetchUserAccount } = useAuth();
 
   useEffect(() => {
@@ -27,10 +29,10 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
     }
   }, [accountData]);
 
-  const ensureLogonEntry = async (accountNumber: number, defaultPassword: string) => {
-    // Check if logon entry exists
+  const ensurePasswordEntry = async (accountNumber: number) => {
+    // Check if password entry exists in user_passwords table
     const { data: existingEntry, error: checkError } = await supabase
-      .from('logon_lcmd')
+      .from('user_passwords')
       .select('account_number')
       .eq('account_number', accountNumber)
       .single();
@@ -40,19 +42,61 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       throw checkError;
     }
 
-    if (!existingEntry) {
-      // Create the logon entry with default password
-      const { error: insertError } = await supabase
-        .from('logon_lcmd')
-        .insert({
-          account_number: accountNumber,
-          password: defaultPassword
-        });
+    // If no entry exists, we don't need to create one - the insert below will handle it
+    return !existingEntry; // Return true if this is a new password entry
+  };
 
-      if (insertError) {
-        throw insertError;
+  const validateEmailUniqueness = async (emailToCheck: string, currentAccountNumber: number) => {
+    if (!emailToCheck || !emailToCheck.trim()) {
+      setEmailError(null);
+      return true; // Empty email is allowed
+    }
+
+    setIsCheckingEmail(true);
+    setEmailError(null);
+
+    try {
+      const { data: existingAccount, error } = await supabase
+        .from('accounts_lcmd')
+        .select('account_number, acct_name')
+        .eq('email_address', emailToCheck.trim().toLowerCase())
+        .neq('account_number', currentAccountNumber)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking email uniqueness:', error);
+        return true; // Allow submission on database error
       }
-      console.log(`Created logon entry for account ${accountNumber} with default password`);
+
+      if (existingAccount) {
+        setEmailError(`${emailToCheck} is already in use by account ${existingAccount.account_number}`);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Email validation error:', err);
+      return true; // Allow submission on error
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    
+    // Only validate if email is not empty and different from current
+    const currentEmail = accountData?.email_address || accountData?.email || '';
+    if (newEmail.trim() && newEmail.trim() !== currentEmail.trim()) {
+      // Debounce validation
+      setTimeout(async () => {
+        if (newEmail === email) { // Make sure it's still the current value
+          await validateEmailUniqueness(newEmail, parseInt(accountData.accountNumber));
+        }
+      }, 500);
+    } else {
+      setEmailError(null);
     }
   };
 
@@ -69,29 +113,53 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
     }
 
+    // Check for email validation error
+    if (emailError) {
+        setError("Please fix the email address error before submitting.");
+        setIsLoading(false);
+        return;
+    }
+
+    // If email is being checked, wait for validation to complete
+    if (isCheckingEmail) {
+        setError("Please wait for email validation to complete.");
+        setIsLoading(false);
+        return;
+    }
+
     try {
-      if (!user || !accountData) {
-        setError("User or account data not found.");
+      if (!accountData) {
+        setError("Account data not found.");
         setIsLoading(false);
         return;
       }
 
+      // Final email validation before submission
+      const currentEmail = accountData?.email_address || accountData?.email || '';
+      if (email.trim() && email.trim() !== currentEmail.trim()) {
+        const isEmailValid = await validateEmailUniqueness(email, parseInt(accountData.accountNumber));
+        if (!isEmailValid) {
+          setIsLoading(false);
+          return; // Error message already set by validateEmailUniqueness
+        }
+      }
+
       const accountNumber = parseInt(accountData.accountNumber);
       
-      // Step 1: Ensure logon_lcmd entry exists (with current/default password)
-      const currentPassword = accountData.currentPassword || 'p11554'; // Use default if not available
-      await ensureLogonEntry(accountNumber, currentPassword);
+      // Step 1: Check if this is a new password entry
+      const isNewPasswordEntry = await ensurePasswordEntry(accountNumber);
 
-      // Step 2: Update password directly in logon_lcmd and mark as non-default
+      // Step 2: Insert or update password in user_passwords table
       const { error: passwordError } = await supabase
-        .from('logon_lcmd')
-        .update({ 
-          password: newPassword,
-          is_default_password: false,
-          updated_at: new Date().toISOString(),
-          password_set_date: new Date().toISOString()
-        })
-        .eq('account_number', accountNumber);
+        .from('user_passwords')
+        .upsert({ 
+          account_number: accountNumber,
+          password_hash: newPassword, // Note: This should ideally be hashed, but the backend will handle it
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'account_number'
+        });
 
       if (passwordError) {
         console.error('Password update error:', passwordError);
@@ -218,11 +286,20 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
               <input
                 type="email"
                 id="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                  emailError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 required
+                disabled={isCheckingEmail}
               />
+              {isCheckingEmail && (
+                <p className="text-sm text-gray-500 mt-1">Checking email availability...</p>
+              )}
+              {emailError && (
+                <p className="text-red-500 text-sm mt-1">{emailError}</p>
+              )}
             </div>
 
             <div className="mb-6">

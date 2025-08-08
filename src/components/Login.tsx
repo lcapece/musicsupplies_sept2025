@@ -47,7 +47,10 @@ const Login: React.FC = () => {
     handlePasswordModalClose,
     showDeactivatedAccountModal,
     deactivatedAccountName,
-    closeDeactivatedAccountModal
+    closeDeactivatedAccountModal,
+    showPasswordInitializationModal,
+    resolvedAccountNumber,
+    closePasswordInitializationModal
   } = useAuth();
   const navigate = useNavigate();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -226,6 +229,32 @@ const Login: React.FC = () => {
           isOpen={showPasswordChangeModal}
           onClose={handleModalClose}
           accountData={user}
+        />
+      )}
+
+      {showPasswordInitializationModal && resolvedAccountNumber && (
+        <PasswordChangeModal
+          isOpen={showPasswordInitializationModal}
+          onClose={(wasSuccess) => {
+            closePasswordInitializationModal();
+            if (wasSuccess) {
+              navigate('/dashboard');
+            }
+          }}
+          accountData={{
+            accountNumber: resolvedAccountNumber,
+            acctName: `Account ${resolvedAccountNumber}`,
+            address: '',
+            city: '',
+            state: '',
+            zip: '',
+            id: parseInt(resolvedAccountNumber, 10),
+            email: '',
+            phone: '',
+            mobile_phone: '',
+            requires_password_change: false,
+            is_special_admin: false
+          }}
         />
       )}
 

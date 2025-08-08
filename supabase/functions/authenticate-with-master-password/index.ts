@@ -34,6 +34,49 @@ serve(async (req) => {
       )
     }
 
+    // SPECIAL CASE: Account 999 with hardcoded password "Music123"
+    if (accountNumber === '999' || accountNumber === 999) {
+      console.log('Processing special account 999')
+      if (password === 'Music123') {
+        console.log('Account 999 authentication successful with hardcoded password')
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            account: {
+              account_number: 999,
+              acct_name: 'Special Admin Account',
+              address: 'N/A',
+              city: 'N/A',
+              state: 'N/A',
+              zip: 'N/A',
+              email_address: 'admin@musicsupplies.com',
+              phone: 'N/A',
+              mobile_phone: 'N/A',
+              requires_password_change: false,
+              is_special_admin: true
+            },
+            loginType: 'special_admin'
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+          }
+        )
+      } else {
+        console.log('Account 999 authentication failed - incorrect password')
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Invalid account number/email or password.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401 
+          }
+        )
+      }
+    }
+
     // STEP 1: Try regular authentication first
     console.log('Attempting regular authentication for:', accountNumber)
     
@@ -41,7 +84,7 @@ serve(async (req) => {
     let regularAccountData = null
 
     try {
-      // Query the account directly and check password
+      // First, get account data
       let accountQuery = supabase
         .from('accounts_lcmd')
         .select(`
@@ -60,23 +103,47 @@ serve(async (req) => {
         `)
 
       // Check if accountNumber is numeric or email
+      let actualAccountNumber
       if (!isNaN(Number(accountNumber))) {
-        accountQuery = accountQuery.eq('account_number', parseInt(accountNumber, 10))
+        actualAccountNumber = parseInt(accountNumber, 10)
+        accountQuery = accountQuery.eq('account_number', actualAccountNumber)
       } else {
         accountQuery = accountQuery.eq('email_address', accountNumber)
       }
 
       const { data: accountData, error: accountError } = await accountQuery.single()
+      
+      if (accountError || !accountData) {
+        console.log('Account not found:', accountError)
+        throw new Error('Account not found')
+      }
 
-      if (!accountError && accountData && accountData.password === password) {
-        console.log('Regular authentication successful')
+      actualAccountNumber = accountData.account_number
+
+      // Check user_passwords table first (new system)
+      console.log('Checking user_passwords table for account:', actualAccountNumber)
+      const { data: userPasswordData, error: userPasswordError } = await supabase
+        .from('user_passwords')
+        .select('password_hash')
+        .eq('account_number', actualAccountNumber)
+        .single()
+
+      if (!userPasswordError && userPasswordData && userPasswordData.password_hash === password) {
+        console.log('Regular authentication successful via user_passwords table')
+        regularAuthSucceeded = true
+        regularAccountData = accountData
+      } else if (accountData.password === password) {
+        // Fall back to old accounts_lcmd.password system
+        console.log('Regular authentication successful via accounts_lcmd.password')
         regularAuthSucceeded = true
         regularAccountData = accountData
       } else {
-        console.log('Regular authentication failed, trying master password fallback')
+        console.log('Regular authentication failed - password mismatch')
+        console.log('user_passwords result:', userPasswordData)
+        console.log('accounts_lcmd password exists:', !!accountData.password)
       }
     } catch (regularAuthException) {
-      console.log('Regular authentication exception, trying master password fallback:', regularAuthException.message)
+      console.log('Regular authentication exception:', regularAuthException.message)
     }
 
     // If regular authentication succeeded, return success
