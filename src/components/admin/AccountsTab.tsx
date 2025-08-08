@@ -164,51 +164,81 @@ const AccountsTab: React.FC = () => {
 
   const handleSetPassword = async (accountNumber: number, newPassword: string) => {
     try {
+      console.log(`🔧 ADMIN: Starting password update for account ${accountNumber}`);
+      
       // STEP 1: Delete any existing record from USER_PASSWORDS (as per requirement)
+      console.log(`🗑️ ADMIN: Deleting existing password record for account ${accountNumber}`);
       const { error: deleteError } = await supabase
         .from('user_passwords')
         .delete()
         .eq('account_number', accountNumber);
 
       if (deleteError) {
-        console.error('Error deleting existing password:', deleteError);
+        console.error('❌ ADMIN: Error deleting existing password:', deleteError);
         alert('Error removing existing password: ' + deleteError.message);
         return;
       }
+      console.log(`✅ ADMIN: Successfully deleted existing password record for account ${accountNumber}`);
 
-      // STEP 2: Hash the new password and insert it
+      // STEP 2: Hash the new password
+      console.log(`🔐 ADMIN: Hashing new password for account ${accountNumber}`);
       const { data: hashResult, error: hashError } = await supabase.rpc('hash_password', {
         plain_password: newPassword
       });
 
       if (hashError || !hashResult) {
-        console.error('Error hashing password:', hashError);
-        alert('Error hashing password');
+        console.error('❌ ADMIN: Error hashing password:', hashError);
+        alert('Error hashing password: ' + (hashError?.message || 'Unknown error'));
         return;
       }
+      console.log(`✅ ADMIN: Successfully hashed password for account ${accountNumber}`);
 
       // STEP 3: Insert new hashed password record
-      const { error: insertError } = await supabase
+      console.log(`💾 ADMIN: Inserting new password record for account ${accountNumber}`);
+      const { data: insertData, error: insertError } = await supabase
         .from('user_passwords')
         .insert({
           account_number: accountNumber,
           password_hash: hashResult,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        });
+        })
+        .select();
 
       if (insertError) {
-        console.error('Error inserting password:', insertError);
+        console.error('❌ ADMIN: Error inserting password:', insertError);
         alert('Error setting password: ' + insertError.message);
         return;
       }
 
+      console.log(`✅ ADMIN: Successfully inserted password record:`, insertData);
+
+      // STEP 4: Verify the record was created
+      console.log(`🔍 ADMIN: Verifying password record was created for account ${accountNumber}`);
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('user_passwords')
+        .select('account_number, password_hash, created_at, updated_at')
+        .eq('account_number', accountNumber)
+        .single();
+
+      if (verifyError || !verifyData) {
+        console.error('❌ ADMIN: Error verifying password record:', verifyError);
+        alert('Password may not have been set correctly. Please check and try again.');
+        return;
+      }
+
+      console.log(`✅ ADMIN: Password record verification successful:`, verifyData);
+
+      // Close modal and refresh
       setShowPasswordModal(false);
-      fetchAccounts();
-      alert('Password has been set successfully. User can now log in with this password.');
+      console.log(`🔄 ADMIN: Refreshing accounts list to reflect changes`);
+      await fetchAccounts();
+      
+      alert(`✅ Password has been set successfully for Account ${accountNumber}!\n\nUser can now log in with this password.\n\nRecord ID: ${verifyData.account_number}\nCreated: ${new Date(verifyData.created_at).toLocaleString()}`);
+      
     } catch (error) {
-      console.error('Error:', error);
-      alert('Error setting password');
+      console.error('💥 ADMIN: Unexpected error in handleSetPassword:', error);
+      alert('Unexpected error setting password: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
