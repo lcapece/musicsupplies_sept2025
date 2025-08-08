@@ -247,3 +247,40 @@ img[alt*="logo"]::after {
 .fixed-header-size.text-2xl {
   font-size: 1.5rem !important; /* 24px - doubled from original 12px */
 }
+
+/* Professional Font Scaling - 30% smaller than standard Tailwind sizes */
+/* Current Tailwind: text-sm=14px, text-base=16px, text-lg=18px */
+/* New Professional: smaller=9.8px, standard=11.2px, larger=12.6px */
+.font-professional-smaller {
+  font-size: 0.6125rem !important; /* 9.8px - 30% smaller than text-sm (14px) */
+  line-height: 1.6 !important;
+}
+
+.font-professional-standard {
+  font-size: 0.7rem !important; /* 11.2px - 30% smaller than text-base (16px) */
+  line-height: 1.6 !important;
+}
+
+.font-professional-larger {
+  font-size: 0.7875rem !important; /* 12.6px - 30% smaller than text-lg (18px) */
+  line-height: 1.6 !important;
+}
+
+/* Product Table Specific Font Classes - 25% smaller than standard readable sizes */
+.font-product-table-smaller {
+  font-size: 10.5px !important; /* 25% smaller than 14px */
+  line-height: 1.4 !important;
+  font-weight: 400;
+}
+
+.font-product-table-standard {
+  font-size: 12px !important; /* 25% smaller than 16px */
+  line-height: 1.4 !important;
+  font-weight: 400;
+}
+
+.font-product-table-larger {
+  font-size: 13.5px !important; /* 25% smaller than 18px */
+  line-height: 1.4 !important;
+  font-weight: 400;
+}

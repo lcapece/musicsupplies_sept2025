@@ -606,7 +606,7 @@ const Dashboard: React.FC = () => {
                   <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md w-full overflow-visible">
                     <div className="flex items-center justify-between flex-wrap gap-4">
                       {/* Left side: Path display */}
-                      <div className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>
+                      <div className={`${fontSize === 'smaller' ? 'font-professional-smaller' : fontSize === 'larger' ? 'font-professional-larger' : 'font-professional-standard'} text-gray-700`}>
                         {(() => {
                           const path = [];
                           if (selectedMainCategoryName) path.push(selectedMainCategoryName);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
 import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from 'lucide-react'; // Added ArrowDown, ArrowUp
+import QuantitySelector from './QuantitySelector';
 
 interface ProductTableProps {
   products: Product[];
@@ -96,8 +97,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, totalPages]);
 
-  const handleAddToCart = (product: Product) => {
-    console.log('ProductTable: handleAddToCart called for:', product.partnumber);
+  const handleAddToCart = (product: Product, quantity: number = 1) => {
+    console.log('ProductTable: handleAddToCart called for:', product.partnumber, 'quantity:', quantity);
     
     // Basic validation
     if (!product.inventory || product.inventory <= 0) {
@@ -117,21 +118,21 @@ const ProductTable: React.FC<ProductTableProps> = ({
       return;
     }
     
-    console.log('ProductTable: Adding to cart immediately');
+    console.log('ProductTable: Adding to cart immediately with quantity:', quantity);
     
     // Set loading state IMMEDIATELY
     setAddingToCart(product.partnumber);
     
     try {
-      // Call addToCart directly - no delays or retry logic
+      // Call addToCart with quantity - no delays or retry logic
       addToCart({
         partnumber: product.partnumber,
         description: product.description,
         price: product.price,
         inventory: product.inventory
-      });
+      }, quantity);
       
-      console.log('ProductTable: addToCart called successfully');
+      console.log('ProductTable: addToCart called successfully with quantity:', quantity);
       
       // Clear loading state with visual feedback
       setTimeout(() => {
@@ -197,26 +198,26 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setCurrentPage(prev => Math.min(totalPages, prev + 1));
   };
 
-  // Font size mappings
+  // Font size mappings using product table specific classes (25% smaller than standard readable sizes)
   const getFontSizeClasses = (type: 'header' | 'cell' | 'button' | 'pagination') => {
     const sizeMap = {
       smaller: {
-        header: 'text-sm',
-        cell: 'text-lg',
-        button: 'text-sm',
-        pagination: 'text-sm'
+        header: 'font-product-table-smaller',
+        cell: 'font-product-table-smaller',
+        button: 'font-product-table-smaller',
+        pagination: 'font-product-table-smaller'
       },
       standard: {
-        header: 'text-base',
-        cell: 'text-xl',
-        button: 'text-base',
-        pagination: 'text-base'
+        header: 'font-product-table-standard',
+        cell: 'font-product-table-standard',
+        button: 'font-product-table-standard',
+        pagination: 'font-product-table-standard'
       },
       larger: {
-        header: 'text-lg',
-        cell: 'text-2xl',
-        button: 'text-lg',
-        pagination: 'text-lg'
+        header: 'font-product-table-larger',
+        cell: 'font-product-table-larger',
+        button: 'font-product-table-larger',
+        pagination: 'font-product-table-larger'
       }
     };
     return sizeMap[fontSize][type];
@@ -228,7 +229,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
       position === 'top' ? 'border-b' : 'border-t'
     }`}>
       <div className="flex items-center gap-4">
-        <div className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>
+        <div className={`${fontSize === 'smaller' ? 'font-professional-smaller' : fontSize === 'larger' ? 'font-professional-larger' : 'font-professional-standard'} text-gray-700`}>
           Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, products.length)} of {products.length} products
         </div>
         <div className="flex items-center gap-2">
@@ -476,22 +477,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       {getInventoryDisplay(product.inventory)}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCart(product);
-                        }}
-                        className={`inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md ${
-                          product.inventory && product.inventory > 0
-                            ? addingToCart === product.partnumber
-                              ? 'text-white bg-green-600'
-                              : 'text-white bg-blue-600 hover:bg-blue-700'
-                            : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        }`}
-                        disabled={!product.inventory || product.inventory <= 0 || addingToCart === product.partnumber}
-                      >
-                        {addingToCart === product.partnumber ? 'Added!' : 'Add to Cart'}
-                      </button>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <QuantitySelector
+                          product={product}
+                          onAddToCart={handleAddToCart}
+                          disabled={!isCartReady}
+                          isAdding={addingToCart === product.partnumber}
+                          fontSize={fontSize}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

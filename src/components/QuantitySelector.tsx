@@ -1,0 +1,314 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Minus, ShoppingCart, Check, AlertCircle } from 'lucide-react';
+
+interface QuantitySelectorProps {
+  product: {
+    partnumber: string;
+    description: string;
+    price: number | null;
+    inventory: number | null;
+  };
+  onAddToCart: (product: any, quantity: number) => void;
+  disabled?: boolean;
+  isAdding?: boolean;
+  fontSize?: 'smaller' | 'standard' | 'larger';
+}
+
+const QuantitySelector: React.FC<QuantitySelectorProps> = ({
+  product,
+  onAddToCart,
+  disabled = false,
+  isAdding = false,
+  fontSize = 'standard'
+}) => {
+  const [quantity, setQuantity] = useState(1);
+  const [inputValue, setInputValue] = useState('1');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Inventory validation
+  const maxQuantity = product.inventory || 0;
+  const isOutOfStock = !product.inventory || product.inventory <= 0;
+  const isLowStock = product.inventory && product.inventory <= 2;
+
+  // Font size classes
+  const getFontSizeClass = (element: 'button' | 'input' | 'text') => {
+    const sizeMap = {
+      smaller: {
+        button: 'text-xs px-1.5 py-1',
+        input: 'text-xs px-2 py-1',
+        text: 'text-xs'
+      },
+      standard: {
+        button: 'text-sm px-2 py-1.5',
+        input: 'text-sm px-3 py-1.5',
+        text: 'text-sm'
+      },
+      larger: {
+        button: 'text-base px-3 py-2',
+        input: 'text-base px-4 py-2',
+        text: 'text-base'
+      }
+    };
+    return sizeMap[fontSize][element];
+  };
+
+  // Validate quantity against inventory
+  const validateQuantity = (qty: number): string | null => {
+    if (qty < 1) return 'Quantity must be at least 1';
+    if (qty > maxQuantity) return `Maximum available: ${maxQuantity}`;
+    return null;
+  };
+
+  // Handle quantity change with validation
+  const handleQuantityChange = (newQuantity: number) => {
+    const error = validateQuantity(newQuantity);
+    setValidationError(error);
+    
+    if (!error) {
+      setQuantity(newQuantity);
+      setInputValue(newQuantity.toString());
+    }
+  };
+
+  // Handle input field changes
+  const handleInputChange = (value: string) => {
+    setInputValue(value);
+    
+    // Allow empty input for editing
+    if (value === '') {
+      setValidationError(null);
+      return;
+    }
+
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue)) {
+      setValidationError('Please enter a valid number');
+      return;
+    }
+
+    const error = validateQuantity(numValue);
+    setValidationError(error);
+    
+    if (!error) {
+      setQuantity(numValue);
+    }
+  };
+
+  // Handle input blur - ensure we have a valid quantity
+  const handleInputBlur = () => {
+    if (inputValue === '' || isNaN(parseInt(inputValue, 10))) {
+      setInputValue('1');
+      setQuantity(1);
+      setValidationError(null);
+    }
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!validationError && !isOutOfStock) {
+        handleAddToCart();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      handleQuantityChange(quantity + 1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      handleQuantityChange(Math.max(1, quantity - 1));
+    } else if (e.key === 'Escape') {
+      setIsExpanded(false);
+      inputRef.current?.blur();
+    }
+  };
+
+  // Handle add to cart with success feedback
+  const handleAddToCart = async () => {
+    if (isOutOfStock || validationError || isAdding) return;
+
+    try {
+      onAddToCart(product, quantity);
+      
+      // Show success animation
+      setShowSuccess(true);
+      
+      // Reset to default quantity after successful add
+      setTimeout(() => {
+        setQuantity(1);
+        setInputValue('1');
+        setShowSuccess(false);
+        setIsExpanded(false);
+      }, 1200);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
+  };
+
+  // Auto-expand on focus for better UX
+  const handleFocus = () => {
+    setIsExpanded(true);
+  };
+
+  // Collapse on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Success state
+  if (showSuccess) {
+    return (
+      <div className="flex items-center gap-2 animate-pulse">
+        <div className="flex items-center gap-1 text-green-600 font-medium">
+          <Check size={16} />
+          <span className={getFontSizeClass('text')}>Added!</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Out of stock state
+  if (isOutOfStock) {
+    return (
+      <div className="flex items-center gap-2 opacity-60">
+        <div className="flex items-center gap-1 text-red-600">
+          <AlertCircle size={14} />
+          <span className={`${getFontSizeClass('text')} font-medium`}>Out of Stock</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Compact view (default)
+  if (!isExpanded) {
+    return (
+      <div ref={containerRef} className="flex items-center gap-1">
+        <button
+          onClick={handleFocus}
+          disabled={disabled || isAdding}
+          className={`
+            inline-flex items-center gap-1.5 border border-gray-300 rounded-lg
+            bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+            transition-all duration-200 font-medium text-gray-700
+            ${getFontSizeClass('button')}
+            ${disabled || isAdding ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-sm'}
+            ${isLowStock ? 'border-yellow-400 bg-yellow-50' : ''}
+          `}
+        >
+          <ShoppingCart size={14} />
+          <span>Add to Cart</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Expanded view with quantity controls
+  return (
+    <div ref={containerRef} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+      {/* Quantity Controls */}
+      <div className="flex items-center border border-gray-300 rounded-md bg-white">
+        {/* Minus Button */}
+        <button
+          onClick={() => handleQuantityChange(Math.max(1, quantity - 1))}
+          disabled={quantity <= 1 || disabled}
+          className={`
+            flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700
+            hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed
+            transition-colors duration-150 rounded-l-md
+          `}
+          aria-label="Decrease quantity"
+        >
+          <Minus size={12} />
+        </button>
+
+        {/* Quantity Input */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onBlur={handleInputBlur}
+          onKeyDown={handleKeyDown}
+          className={`
+            w-12 text-center border-0 focus:ring-0 focus:outline-none
+            ${getFontSizeClass('input')} font-medium text-gray-900
+            ${validationError ? 'text-red-600' : ''}
+          `}
+          disabled={disabled}
+          aria-label="Quantity"
+          autoComplete="off"
+        />
+
+        {/* Plus Button */}
+        <button
+          onClick={() => handleQuantityChange(quantity + 1)}
+          disabled={quantity >= maxQuantity || disabled}
+          className={`
+            flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700
+            hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed
+            transition-colors duration-150 rounded-r-md
+          `}
+          aria-label="Increase quantity"
+        >
+          <Plus size={12} />
+        </button>
+      </div>
+
+      {/* Add to Cart Button */}
+      <button
+        onClick={handleAddToCart}
+        disabled={disabled || isAdding || !!validationError}
+        className={`
+          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium
+          transition-all duration-200 focus:ring-2 focus:ring-offset-1
+          ${getFontSizeClass('button')}
+          ${
+            disabled || isAdding || validationError
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 hover:shadow-sm'
+          }
+        `}
+      >
+        <ShoppingCart size={14} />
+        <span>{isAdding ? 'Adding...' : 'Add'}</span>
+      </button>
+
+      {/* Stock Warning */}
+      {isLowStock && !validationError && (
+        <div className="flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-md">
+          <AlertCircle size={12} />
+          <span className={`${getFontSizeClass('text')} font-medium`}>Low Stock</span>
+        </div>
+      )}
+
+      {/* Validation Error */}
+      {validationError && (
+        <div className="flex items-center gap-1 text-red-700 bg-red-100 px-2 py-1 rounded-md">
+          <AlertCircle size={12} />
+          <span className={`${getFontSizeClass('text')} font-medium`}>{validationError}</span>
+        </div>
+      )}
+
+      {/* Available Stock Info */}
+      {!validationError && !isLowStock && (
+        <span className={`${getFontSizeClass('text')} text-gray-500`}>
+          {maxQuantity} available
+        </span>
+      )}
+    </div>
+  );
+};
+
+export default QuantitySelector;

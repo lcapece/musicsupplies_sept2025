@@ -41,9 +41,9 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, fontSize = 'standard' }
   // Helper function to get font size classes
   const getFontSizeClass = () => {
     switch (fontSize) {
-      case 'smaller': return 'text-sm';
-      case 'larger': return 'text-lg';
-      default: return 'text-base';
+      case 'smaller': return 'font-professional-smaller';
+      case 'larger': return 'font-professional-larger';
+      default: return 'font-professional-standard';
     }
   };
   

