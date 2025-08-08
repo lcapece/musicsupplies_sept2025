@@ -462,28 +462,28 @@ const AccountsTab: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('account_number')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-20" onClick={() => handleSort('account_number')}>
                     Account # {sortColumn === 'account_number' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('acct_name')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-48" onClick={() => handleSort('acct_name')}>
                     Company Name {sortColumn === 'acct_name' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('city')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-40" onClick={() => handleSort('city')}>
                     Location {sortColumn === 'city' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('phone')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-32" onClick={() => handleSort('phone')}>
                     Busn Phone {sortColumn === 'phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('mobile_phone')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-32" onClick={() => handleSort('mobile_phone')}>
                     Mobile Phone {sortColumn === 'mobile_phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-48">
                     Email Address
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-20">
                     Zip Code
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-36">
                     Actions
                   </th>
                 </tr>
@@ -491,34 +491,34 @@ const AccountsTab: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAccounts.map((account) => (
                   <tr key={account.account_number} className={`${isInactiveAccount(account) ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-gray-50'}`}>
-                    <td className="px-8 py-6 whitespace-nowrap text-lg font-bold text-gray-900">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
                       {account.account_number}
                     </td>
-                    <td className="px-8 py-6 text-lg text-gray-700 max-w-xs truncate font-semibold">
+                    <td className="px-4 py-3 text-sm text-gray-700 truncate">
                       {account.acct_name || 'N/A'}
                     </td>
-                    <td className="px-8 py-6 text-base text-gray-600">
+                    <td className="px-4 py-3 text-sm text-gray-600">
                       {account.city || 'N/A'}, {account.state || 'N/A'} {account.zip || 'N/A'}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                       {formatPhoneNumber(account.phone)}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                       {formatPhoneNumber(account.mobile_phone)}
                     </td>
-                    <td className="px-8 py-6 text-base text-gray-600 max-w-xs truncate">
+                    <td className="px-4 py-3 text-sm text-gray-600 truncate">
                       {account.email_address || 'N/A'}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600 font-mono font-bold">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
                       {getDefaultPasswordDisplay(account)}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-500">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                       <button
                         onClick={() => {
                           setSelectedAccount(account);
                           setShowPasswordModal(true);
                         }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold text-base"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium"
                       >
                         Change Password
                       </button>
