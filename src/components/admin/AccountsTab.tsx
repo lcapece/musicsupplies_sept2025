@@ -20,7 +20,7 @@ interface LogonEntry {
   password: string;
 }
 
-type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone' | 'mobile_phone';
+type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone' | 'mobile_phone' | 'email_address' | 'zip';
 
 const AccountsTab: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -71,6 +71,18 @@ const AccountsTab: React.FC = () => {
     return phone;
   };
 
+  const formatZipCode = (zip: string | null | undefined) => {
+    if (!zip) return 'N/A';
+    
+    // Extract only the first 5 characters and pad with leading zeros if needed
+    let zipFirst5 = zip.toString().substring(0, 5);
+    
+    // Pad with leading zeros to ensure 5 digits
+    zipFirst5 = zipFirst5.padStart(5, '0');
+    
+    return zipFirst5;
+  };
+
   const fetchAccounts = async () => {
     try {
       setLoading(true);
@@ -99,6 +111,17 @@ const AccountsTab: React.FC = () => {
           `state.ilike.%${searchLower}%`,
           `email_address.ilike.%${searchLower}%`,
         ];
+        
+        // Check for phone number pattern: exactly 7 or 10 digits, not starting with "1"
+        const digitsOnly = searchTerm.replace(/\D/g, '');
+        const isPhonePattern = (digitsOnly.length === 7 || digitsOnly.length === 10) && !digitsOnly.startsWith('1');
+        
+        if (isPhonePattern) {
+          // Add phone number searches - search for the digits within formatted phone numbers
+          orConditions.push(`phone.ilike.%${digitsOnly}%`);
+          orConditions.push(`mobile_phone.ilike.%${digitsOnly}%`);
+        }
+        
         if (!isNaN(numericSearchTerm)) {
           orConditions.push(`account_number.eq.${numericSearchTerm}`);
         }
@@ -425,7 +448,7 @@ const AccountsTab: React.FC = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by account number, company name, city, state, or email address..."
+              placeholder="Search by account number, company name, city, state, email address, or phone number (7 or 10 digits)..."
               className="w-full border border-gray-300 rounded-md px-4 py-3 text-base"
             />
           </div>
@@ -477,11 +500,11 @@ const AccountsTab: React.FC = () => {
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-32" onClick={() => handleSort('mobile_phone')}>
                     Mobile Phone {sortColumn === 'mobile_phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-48">
-                    Email Address
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-48" onClick={() => handleSort('email_address')}>
+                    Email Address {sortColumn === 'email_address' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-20">
-                    Zip Code
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-20" onClick={() => handleSort('zip')}>
+                    Zip Code {sortColumn === 'zip' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-36">
                     Actions
@@ -498,7 +521,7 @@ const AccountsTab: React.FC = () => {
                       {account.acct_name || 'N/A'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {account.city || 'N/A'}, {account.state || 'N/A'} {account.zip || 'N/A'}
+                      {account.city || 'N/A'}, {account.state || 'N/A'} {formatZipCode(account.zip)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                       {formatPhoneNumber(account.phone)}
@@ -510,7 +533,7 @@ const AccountsTab: React.FC = () => {
                       {account.email_address || 'N/A'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
-                      {getDefaultPasswordDisplay(account)}
+                      {formatZipCode(account.zip)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                       <button

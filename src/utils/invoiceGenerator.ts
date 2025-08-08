@@ -370,7 +370,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
         <!-- Header -->
         <header class="invoice-header">
             <div class="company-section">
-                <div class="company-website">MusicSupplies.com</div>
+                <div class="company-website">MusicSupplies<span style="color: #dc3545;">Supplies</span>.com</div>
                 <h1 class="company-name">${companyInfo.name}</h1>
                 <div class="company-details">
                     <div>${companyInfo.address}</div>
@@ -388,6 +388,15 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
                 <div class="meta-item"><strong>Sales Rep:</strong> ${salesRep}</div>     
             </div>
         </header>
+
+        <!-- PROFORMA INVOICE Warning (if shipping is null or zero) -->
+        ${(!shippingCharges || shippingCharges === 0) ? `
+        <div style="text-align: center; margin: 20px 0; padding: 15px; background-color: #fff3cd; border: 2px solid #dc3545;">
+            <h2 style="color: #dc3545; font-weight: bold; margin: 0; font-size: 18px;">
+                PROFORMA INVOICE - SHIPPING NOT YET CALCULATED
+            </h2>
+        </div>
+        ` : ''}
 
         <!-- Customer Information - Side by Side -->
         <section class="customer-sections">

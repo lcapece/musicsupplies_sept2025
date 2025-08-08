@@ -166,10 +166,11 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         throw passwordError;
       }
 
-      // Step 3: Update other account details and clear password change requirement
+      // Step 3: Update password in accounts_lcmd AND other account details and clear password change requirement
       const { data, error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
+          password: newPassword, // CRITICAL FIX: Update the password in accounts_lcmd table!
           email_address: email || null,
           mobile_phone: mobilePhone || null,
           requires_password_change: false
