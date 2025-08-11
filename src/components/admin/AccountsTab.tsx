@@ -11,14 +11,9 @@ interface Account {
   phone: string;
   mobile_phone?: string;
   email_address?: string;
-  requires_password_change: boolean;
   has_custom_password: boolean;
 }
 
-interface LogonEntry {
-  account_number: number;
-  password: string;
-}
 
 type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone' | 'mobile_phone' | 'email_address' | 'zip';
 
@@ -100,7 +95,7 @@ const AccountsTab: React.FC = () => {
       
       let query = supabase
         .from('accounts_lcmd')
-        .select('account_number,acct_name,address,city,state,zip,phone,mobile_phone,email_address,requires_password_change', { count: 'exact' });
+        .select('account_number,acct_name,address,city,state,zip,phone,mobile_phone,email_address', { count: 'exact' });
 
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();

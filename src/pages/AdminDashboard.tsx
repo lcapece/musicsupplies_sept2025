@@ -7,9 +7,10 @@ import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
 import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
+import SiteStatusTab from '../components/admin/SiteStatusTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 
-type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes';
+type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -62,6 +63,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'sms', label: 'SMS Notifications', icon: '📱' },
     { id: 'clicksend', label: 'ClickSend', icon: '📨' },
     { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
+    { id: 'sitestatus', label: 'Site Status', icon: '⚠️' },
   ];
 
   const renderTabContent = () => {
@@ -78,6 +80,8 @@ const AdminDashboard: React.FC = () => {
         return <ClickSendTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
+      case 'sitestatus':
+        return <SiteStatusTab />;
       default:
         return <AccountsTab />;
     }

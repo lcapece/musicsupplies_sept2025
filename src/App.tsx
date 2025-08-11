@@ -7,6 +7,7 @@ import ActiveDiscountDisplayModal from './components/ActiveDiscountDisplayModal'
 import LoginFixBanner from './components/LoginFixBanner';
 import Login from './components/Login';
 import Dashboard from './pages/Dashboard';
+import SiteStatusOffline from './components/SiteStatusOffline';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import NewAccountApplicationPage from './pages/NewAccountApplicationPage';
 import AdminAccountApplicationsPage from './pages/AdminAccountApplicationsPage';
@@ -266,19 +267,186 @@ function AppContent() {
 }
 
 function App() {
+  const [siteStatus, setSiteStatus] = useState<{ status: string; message: string } | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [bypassCheck, setBypassCheck] = useState(false);
+
+  // Check for bypass conditions on app load
+  useEffect(() => {
+    const checkSiteStatus = async () => {
+      try {
+        // Check if URL contains the bypass code /5150
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('/5150')) {
+          console.log('🔓 Site status check bypassed via URL /5150');
+          setBypassCheck(true);
+          setStatusLoading(false);
+          // Redirect to login page without the bypass code
+          window.history.replaceState({}, '', '/login');
+          return;
+        }
+
+        // Check site status from database
+        const { data, error } = await supabase
+          .from('site_status')
+          .select('status, status_message')
+          .eq('status', 'offline')
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Error checking site status:', error);
+          // If we can't check status, allow access (fail open)
+          setStatusLoading(false);
+          return;
+        }
+
+        if (data) {
+          // Site is offline
+          setSiteStatus({
+            status: data.status,
+            message: data.status_message || 'Site is temporarily unavailable for maintenance.'
+          });
+        }
+
+        setStatusLoading(false);
+      } catch (error) {
+        console.error('Site status check failed:', error);
+        // If check fails, allow access (fail open)
+        setStatusLoading(false);
+      }
+    };
+
+    checkSiteStatus();
+  }, []);
+
+  // Show loading while checking status
+  if (statusLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show offline page if site is offline and no bypass
+  if (siteStatus && !bypassCheck) {
+    return (
+      <BrowserRouter>
+        <SiteStatusOfflineWrapper message={siteStatus.message} />
+      </BrowserRouter>
+    );
+  }
+
+  // Normal app flow
   return (
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
           <CartProvider>
             <NotificationProvider>
-              <AppContent />
+              <AppContentWithStatusCheck bypassCheck={bypassCheck} />
             </NotificationProvider>
           </CartProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );
+}
+
+// Wrapper component for offline status that can access auth context
+function SiteStatusOfflineWrapper({ message }: { message: string }) {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <SiteStatusChecker message={message} />
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+}
+
+// Component that checks if user is account 999 (admin bypass)
+function SiteStatusChecker({ message }: { message: string }) {
+  const { user, isAuthenticated } = useAuth();
+  
+  // If user is already logged in as account 999, bypass offline check
+  if (isAuthenticated && user?.accountNumber === '999') {
+    return (
+      <CartProvider>
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
+      </CartProvider>
+    );
+  }
+  
+  // Show offline page
+  return <SiteStatusOffline message={message} />;
+}
+
+// Modified AppContent to handle bypass
+function AppContentWithStatusCheck({ bypassCheck }: { bypassCheck: boolean }) {
+  const { user } = useAuth();
+  
+  // If bypass was used or user is admin, show normal app
+  if (bypassCheck || (user?.accountNumber === '999')) {
+    return <AppContent />;
+  }
+  
+  // For regular users, do a final status check
+  return <AppContentWithFinalStatusCheck />;
+}
+
+// Final status check for regular users
+function AppContentWithFinalStatusCheck() {
+  const [siteStatus, setSiteStatus] = useState<{ status: string; message: string } | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_status')
+          .select('status, status_message')
+          .eq('status', 'offline')
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking site status:', error);
+        } else if (data) {
+          setSiteStatus({
+            status: data.status,
+            message: data.status_message || 'Site is temporarily unavailable for maintenance.'
+          });
+        }
+      } catch (error) {
+        console.error('Final site status check failed:', error);
+      } finally {
+        setStatusLoading(false);
+      }
+    };
+    
+    checkStatus();
+  }, []);
+  
+  if (statusLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (siteStatus) {
+    return <SiteStatusOffline message={siteStatus.message} />;
+  }
+  
+  return <AppContent />;
 }
 
 export default App;
