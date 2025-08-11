@@ -149,12 +149,22 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       // Step 1: Check if this is a new password entry
       const isNewPasswordEntry = await ensurePasswordEntry(accountNumber);
 
-      // Step 2: Insert or update password in user_passwords table
+      // Step 2: Hash the password properly using the database function
+      const { data: hashedPassword, error: hashError } = await supabase.rpc('hash_password', {
+        plain_password: newPassword
+      });
+
+      if (hashError || !hashedPassword) {
+        console.error('Password hashing error:', hashError);
+        throw new Error('Failed to secure password. Please try again.');
+      }
+
+      // Step 3: Insert or update password in user_passwords table with HASHED password
       const { error: passwordError } = await supabase
         .from('user_passwords')
         .upsert({ 
           account_number: accountNumber,
-          password_hash: newPassword, // Note: This should ideally be hashed, but the backend will handle it
+          password_hash: hashedPassword, // Now properly hashed with bcrypt
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, {
@@ -166,13 +176,12 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         throw passwordError;
       }
 
-      // Step 3: Update account details and clear password change requirement
+      // Step 4: Update account details ONLY (NO requires_password_change column)
       const { data, error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
           email_address: email || null,
-          mobile_phone: mobilePhone || null,
-          requires_password_change: false
+          mobile_phone: mobilePhone || null
         })
         .eq('account_number', accountNumber)
         .select();
