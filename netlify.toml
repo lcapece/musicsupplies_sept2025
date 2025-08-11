@@ -22,6 +22,14 @@
 [context.branch-deploy]
   command = "npm run build"
 
+# Subdomain configuration for chat.musicsupplies.com
+[[redirects]]
+  from = "https://chat.musicsupplies.com/*"
+  to = "https://musicsupplies.com/:splat"
+  status = 200
+  force = true
+  headers = {X-From-Chat = "true"}
+
 [[redirects]]
   # Handle client-side routing
   from = "/*"

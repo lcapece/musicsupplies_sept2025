@@ -23,6 +23,9 @@ import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import update pa
 import SmsConsentPreviewPage from './pages/SmsConsentPreviewPage'; // Import SMS consent preview page
 import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
+import ChatWidget from './components/ChatWidget';
+import ChatPage from './pages/ChatPage';
+import { useLocation } from 'react-router-dom';
 
 
 interface ProtectedRouteProps {
@@ -96,6 +99,7 @@ const SpecialAdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children })
 
 
 function AppContent() {
+  const location = useLocation();
   const { 
     user, // Get user for accountData
     // activeDiscount,  // Removed as part of new discount logic
@@ -232,6 +236,8 @@ function AppContent() {
             </ProtectedRoute>
           } 
         />
+        {/* Chat route - accessible to everyone */}
+        <Route path="/chat" element={<ChatPage />} />
          {/* Redirect any unmatched routes to the home page */}
          <Route path="*" element={<Navigate to="/" />} />
       </Routes>
@@ -252,6 +258,9 @@ function AppContent() {
           onClose={closeDiscountFormModal}
         />
       )}
+
+      {/* Chat Widget - only show on non-chat pages */}
+      {location.pathname !== '/chat' && <ChatWidget />}
     </>
   );
 }

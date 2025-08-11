@@ -87,20 +87,20 @@ const AccountsTab: React.FC = () => {
     try {
       setLoading(true);
       
+      // Set admin session context for account 999 access
+      try {
+        await supabase.rpc('set_config', {
+          setting_name: 'app.current_account_number',
+          new_value: '999',
+          is_local: true
+        });
+      } catch (error: any) {
+        console.log('Session context set failed (non-critical):', error);
+      }
+      
       let query = supabase
         .from('accounts_lcmd')
-        .select(`
-          account_number,
-          acct_name,
-          address,
-          city,
-          state,
-          zip,
-          phone,
-          mobile_phone,
-          email_address,
-          requires_password_change
-        `, { count: 'exact' });
+        .select('account_number,acct_name,address,city,state,zip,phone,mobile_phone,email_address,requires_password_change', { count: 'exact' });
 
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -138,8 +138,14 @@ const AccountsTab: React.FC = () => {
       const { data, error, count } = await query;
 
       if (error) {
-        console.error('Error fetching accounts:', error);
+        console.error('Error fetching accounts:', {
+          message: (error as any)?.message,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+          code: (error as any)?.code
+        });
         setAccounts([]);
+        setTotalAccountCount(0);
         return;
       }
 
@@ -149,13 +155,22 @@ const AccountsTab: React.FC = () => {
 
       // Get password entries from USER_PASSWORDS table only for the current page accounts
       const accountNumbers = data?.map(a => a.account_number) || [];
-      const { data: passwordData, error: passwordError } = await supabase
-        .from('user_passwords')
-        .select('account_number, password_hash')
-        .in('account_number', accountNumbers);
+      let passwordData: any[] = [];
+      if (accountNumbers.length > 0) {
+        const { data: pwdData, error: passwordError } = await supabase
+          .from('user_passwords')
+          .select('account_number, password_hash')
+          .in('account_number', accountNumbers);
 
-      if (passwordError) {
-        console.error('Error fetching password data:', passwordError);
+        if (passwordError) {
+          console.error('Error fetching password data:', {
+            message: (passwordError as any)?.message,
+            details: (passwordError as any)?.details,
+            hint: (passwordError as any)?.hint,
+            code: (passwordError as any)?.code
+          });
+        }
+        passwordData = pwdData || [];
       }
 
       // Create a map of account passwords - if record exists, they have a custom password
