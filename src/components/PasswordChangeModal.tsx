@@ -92,7 +92,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       // Debounce validation
       setTimeout(async () => {
         if (newEmail === email) { // Make sure it's still the current value
-          await validateEmailUniqueness(newEmail, parseInt(accountData.accountNumber));
+        await validateEmailUniqueness(newEmail, accountData?.account_number || accountData?.accountNumber);
         }
       }, 500);
     } else {
@@ -137,14 +137,14 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       // Final email validation before submission
       const currentEmail = accountData?.email_address || accountData?.email || '';
       if (email.trim() && email.trim() !== currentEmail.trim()) {
-        const isEmailValid = await validateEmailUniqueness(email, parseInt(accountData.accountNumber));
+      const isEmailValid = await validateEmailUniqueness(email, accountData?.account_number || accountData?.accountNumber);
         if (!isEmailValid) {
           setIsLoading(false);
           return; // Error message already set by validateEmailUniqueness
         }
       }
 
-      const accountNumber = parseInt(accountData.accountNumber);
+      const accountNumber = accountData?.account_number || accountData?.accountNumber;
       
       // Step 1: Check if this is a new password entry
       const isNewPasswordEntry = await ensurePasswordEntry(accountNumber);
@@ -166,11 +166,10 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         throw passwordError;
       }
 
-      // Step 3: Update password in accounts_lcmd AND other account details and clear password change requirement
+      // Step 3: Update account details and clear password change requirement
       const { data, error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
-          password: newPassword, // CRITICAL FIX: Update the password in accounts_lcmd table!
           email_address: email || null,
           mobile_phone: mobilePhone || null,
           requires_password_change: false
@@ -222,10 +221,10 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       await supabase
         .from('accounts_lcmd')
         .update(updateData)
-        .eq('account_number', parseInt(accountData.accountNumber));
+        .eq('account_number', accountData?.account_number || accountData?.accountNumber);
       
       // Refresh user account data to reflect changes
-      await fetchUserAccount(accountData.accountNumber);
+      await fetchUserAccount(accountData.account_number);
       onClose(true); // Close the password change modal after SMS consent is handled
     } catch (error) {
       console.error('Error updating SMS consent:', error);

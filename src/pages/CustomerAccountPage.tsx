@@ -194,19 +194,36 @@ const CustomerAccountPage: React.FC = () => {
         return;
       }
 
-      // Update password in accounts_lcmd table (NOT logon_lcmd)
+      // Update password in user_passwords table
+      const { error: passwordError } = await supabase
+        .from('user_passwords')
+        .upsert({ 
+          account_number: user.accountNumber,
+          password_hash: newPassword, // Note: Backend will handle hashing
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'account_number'
+        });
+
+      if (passwordError) {
+        console.error('Error updating password:', passwordError);
+        setMessage({type: 'error', text: 'Error updating password'});
+        return;
+      }
+
+      // Clear any password change requirement in accounts_lcmd
       const { error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
-          password: newPassword,
+          requires_password_change: false,
           updated_at: new Date().toISOString()
         })
         .eq('account_number', user.accountNumber);
 
       if (updateError) {
-        console.error('Error updating password:', updateError);
-        setMessage({type: 'error', text: 'Error updating password'});
-        return;
+        console.error('Error clearing password change requirement:', updateError);
+        // Don't fail the whole operation for this
       }
 
       // Set account as dirty since password was changed

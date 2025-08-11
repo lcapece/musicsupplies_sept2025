@@ -104,16 +104,46 @@ const UpdatePasswordPage: React.FC = () => {
     const token = searchParams.get('token');
 
     try {
-      // Update the user's password in the database
+      // First, get the account number for this email
+      const { data: accountData, error: accountError } = await supabase
+        .from('accounts_lcmd')
+        .select('account_number')
+        .eq('email_address', userEmail)
+        .single();
+
+      if (accountError || !accountData) {
+        setError('Failed to find account. Please try again.');
+        console.error('Account lookup error:', accountError);
+        return;
+      }
+
+      // Update the password in the user_passwords table
+      const { error: passwordError } = await supabase
+        .from('user_passwords')
+        .upsert({ 
+          account_number: accountData.account_number,
+          password_hash: password, // Note: Backend will handle hashing
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'account_number'
+        });
+
+      if (passwordError) {
+        setError('Failed to update password. Please try again.');
+        console.error('Password update error:', passwordError);
+        return;
+      }
+
+      // Clear any password change requirement
       const { error: updateError } = await supabase
         .from('accounts_lcmd')
-        .update({ password: password }) // Note: In production, this should be hashed
-        .eq('email_address', userEmail);
+        .update({ requires_password_change: false })
+        .eq('account_number', accountData.account_number);
 
       if (updateError) {
-        setError('Failed to update password. Please try again.');
-        console.error('Password update error:', updateError);
-        return;
+        console.error('Error clearing password change requirement:', updateError);
+        // Don't fail the whole operation for this
       }
 
       // Mark the token as used
