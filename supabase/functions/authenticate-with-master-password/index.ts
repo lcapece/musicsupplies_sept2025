@@ -173,8 +173,61 @@ serve(async (req) => {
       )
     }
 
-    // STEP 2: If regular authentication fails, try master password authentication
+    // STEP 2: CRITICAL SECURITY CHECK - If regular authentication fails, check if master password authentication is allowed
     console.log('Attempting master password authentication for:', accountNumber)
+
+    // SECURITY ENFORCEMENT: Check if the account has a custom password in user_passwords table
+    // If they do, zip code (master password) login should be COMPLETELY DISABLED
+    let actualAccountNumberForCheck
+    if (!isNaN(Number(accountNumber))) {
+      actualAccountNumberForCheck = parseInt(accountNumber, 10)
+    } else {
+      // Need to get account number from email first
+      const { data: emailAccountData, error: emailAccountError } = await supabase
+        .from('accounts_lcmd')
+        .select('account_number')
+        .eq('email_address', accountNumber)
+        .single()
+      
+      if (emailAccountError || !emailAccountData) {
+        console.log('Account not found by email for security check:', emailAccountError)
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Invalid account number/email or password.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401 
+          }
+        )
+      }
+      actualAccountNumberForCheck = emailAccountData.account_number
+    }
+
+    console.log('Checking if account has custom password:', actualAccountNumberForCheck)
+    const { data: customPasswordCheck, error: customPasswordError } = await supabase
+      .from('user_passwords')
+      .select('account_number')
+      .eq('account_number', actualAccountNumberForCheck)
+      .single()
+
+    // CRITICAL: If account has a custom password, DENY zip code authentication
+    if (!customPasswordError && customPasswordCheck) {
+      console.log('SECURITY BLOCK: Account', actualAccountNumberForCheck, 'has custom password - zip code login DISABLED')
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid account number/email or password.' 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401 
+        }
+      )
+    }
+
+    console.log('Account', actualAccountNumberForCheck, 'does not have custom password - allowing zip code authentication')
 
     // Get the master password from the PWD table
     const { data: masterPasswordData, error: pwdError } = await supabase

@@ -8,7 +8,7 @@ const corsHeaders = {
 interface EmailRequest {
   to: string;
   subject: string;
-  text: string;
+  text?: string;
   html?: string;
   attachments?: Array<{
     filename: string;
@@ -26,11 +26,11 @@ serve(async (req) => {
   try {
     const { to, subject, text, html, attachments }: EmailRequest = await req.json()
 
-    // Validate required fields
-    if (!to || !subject || !text) {
+    // Validate required fields (require at least one of text or html)
+    if (!to || !subject || (!text && !html)) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required fields: to, subject, and text are required' 
+          error: 'Missing required fields: "to", "subject", and at least one of "text" or "html" are required' 
         }),
         { 
           status: 400, 
@@ -80,7 +80,17 @@ serve(async (req) => {
     formData.append('from', `Music Supplies <noreply@${MAILGUN_DOMAIN}>`)
     formData.append('to', to)
     formData.append('subject', subject)
-    formData.append('text', text)
+
+    // If no plain text provided, derive a simple fallback from HTML
+    const textFallback = (!text && html)
+      ? html.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+      : (text || '')
+
+    formData.append('text', textFallback)
     
     if (html) {
       formData.append('html', html)

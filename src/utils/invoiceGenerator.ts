@@ -153,11 +153,11 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
                                 ${displayLabel}
                             </h2>
                             <div style="font-size: 11px; margin: 3px 0; color: #333;">
-                                <strong>Wd/ Ordstrong> ${displayNumber}
+                                <strong>Invoice Number:</strong> ${displayNumber}
                             </div>
                             ${accountNumber ? `<div style="font-size: 11px; margin: 3px 0; color: #333;"><strong>Acct No.:</strong> ${accountNumber}</div>` : ''}
                             <div style="font-size: 11px; margin: 3px 0; color: #333;">
-                                <strong>OrdDrate:</strong> ${invoiceDate}
+                                <strong>Invoice Date:</strong> ${invoiceDate}
                             </div>
                             <div style="font-size: 11px; margin: 3px 0; color: #333;">
                                 <strong>Terms:</strong> ${terms}
@@ -217,11 +217,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
                                         <div>${shippingAddress.line1}</div>
                                         <div>${shippingAddress.cityStateZip || ''}</div>
                                     ` : `
-                                        <div>&nbsp;<ndiv>
-                                        sdiv>&nbsp;<p;</div>
-                                        <div>&nbsp;</div>
-                                        <div>&nbsp;</div>
-                                        <div>&nbsp;</div>
+                                        <div>N/A</div>
                                     `}
                                 </div>
                             </div>
@@ -262,85 +258,179 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
                     <tr>
                         <td style="width: 30%; vertical-align: top;">
                             <!-- DISCOUNT BOX -->
-te,    terms,
+                            <div style="border: 2px dashed #000; padding: 15px; text-align: center; height: 80px;">
+                                ${promoCodeDiscount > 0 && promoCodeDescription ? `
+                                    <div style="font-size: 10px; font-weight: bold; margin-bottom: 5px;">${promoCodeDescription}</div>
+                                    <div style="font-size: 10px; font-weight: bold;">Discount: $${promoCodeDiscount.toFixed(2)}</div>
+                                ` : `
+                                    <div style="font-size: 10px; font-weight: bold;">&nbsp;</div>
+                                    <div style="font-size: 10px; font-weight: bold;">&nbsp;</div>
+                                `}
+                            </div>
+                        </td>
+                        <td style="width: 20%;"></td> <!-- SPACER -->
+                        <td style="width: 50%; vertical-align: top;">
+                            <!-- TOTALS TABLE -->
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px;" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; width: 60%;">Subtotal:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; width: 40%;">$${subtotal.toFixed(2)}</td>
+                                </tr>
+                                ${shippingCharges > 0 ? `
+                                <tr>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">Shipping:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">$${shippingCharges.toFixed(2)}</td>
+                                </tr>` : ''}
+                                ${paymentsReceived > 0 ? `
+                                <tr>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">Payments Received:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">($${paymentsReceived.toFixed(2)})</td>
+                                </tr>` : ''}
+                                <tr style="background: white;">
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; font-size: 14px;">Total Due:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; font-size: 14px;">$${totalAmountDue.toFixed(2)}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
 
-.a`ep
-  invoice += `${pad('', 55)}Sales Rep: ${salesRep}\n\n`;
+        <!-- PAYMENT METHOD SECTION -->
+        <tr>
+            <td style="padding: 0 20px;">
+                <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #000;">
+                    <strong>Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}</strong>
+                    ${paymentMethod === 'net10' ? '<br>Payment due within 10 days of invoice date.' : ''}
+                </div>
+            </td>
+        </tr>
 
-  // Bill To and Ship To sections side by side
-  invoice += 'Bill To:' + pad('', 32) + 'Ship To:\n';
-  invoice += thinSeparator + '\n';
+        <!-- FOOTER -->
+        <tr>
+            <td style="padding: 0 20px;">
+                <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #333;">
+                    <div>Thank you for your business!</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+  `;
+}
+
+export function generateInvoiceText(invoiceData: InvoiceData, companyInfo: CompanyInfo = defaultCompanyInfo): string {
+  const {
+    orderNumber,
+    accountNumber,
+    invoiceDate,
+    terms,
+    salesRep,
+    customerName,
+    customerEmail,
+    customerPhone,
+    customerAddress,
+    shippingAddress,
+    items,
+    subtotal,
+    shippingCharges = 0,
+    promoCodeDiscount = 0,
+    promoCodeDescription,
+    totalAmountDue,
+    paymentMethod
+  } = invoiceData;
+
+  // Determine if this is a web order (750000-770000 range)  
+  const orderNum = parseInt(orderNumber.replace(/[^\d]/g, ''));
+  const isWebOrder = orderNum >= 750000 && orderNum <= 770000;
+  const displayNumber = isWebOrder ? `WB${orderNumber}` : orderNumber;
+
+  // Helper function to format currency consistently
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
+  };
+
+  let invoice = '';
+
+  // Header - Order Details
+  invoice += '=========================================\n';
+  invoice += `Order Details - ${orderNumber}\n`;
+  invoice += '=========================================\n\n';
+
+  // Order Information Section
+  invoice += `Order Date                    Payment Method\n`;
+  invoice += `${invoiceDate}${' '.repeat(20)}${paymentMethod === 'credit' ? 'Credit Card' : 'Net-10'}\n\n`;
   
-  // Customer name
-  invoice += pad(customerName, 40) + (shippingAddress?.name || 'Optional ship-to') + '\n';
+  invoice += `Customer Email                Customer Phone\n`;
+  invoice += `${customerEmail}${' '.repeat(20)}${customerPhone}\n\n`;
   
-  // Address lines
-  if (customerAddress?.line1) {
-    invoice += pad(customerAddress.line1, 40) + (shippingAddress?.line1 || 'info here') + '\n';
-  } else {
-    invoice += pad('N/A', 40) + (shippingAddress?.line1 || 'info here') + '\n';
+  if (accountNumber) {
+    invoice += `Account Number                Promo Code Used\n`;
+    invoice += `${accountNumber}${' '.repeat(20)}${promoCodeDescription || 'None'}\n\n`;
+  } else if (promoCodeDescription) {
+    invoice += `Promo Code Used\n`;
+    invoice += `${promoCodeDescription}\n\n`;
   }
-  
-  // City/State/Zip
-  if (customerAddress?.cityStateZip) {
-    invoice += pad(customerAddress.cityStateZip, 40) + (shippingAddress?.cityStateZip || '') + '\n';
-  }
-  
-  // Contact info
-  invoice += `Email: ${customerEmail}\n`;
-  invoice += `Phone: ${customerPhone}\n`;
-  invoice += '\n' + separator + '\n\n';
 
-  // Items header
-  invoice += 'Qty  Ord  Shp  Part Number      Description                               Unit Net   Extended Net\n';
-  invoice += thinSeparator + '\n';
+  // Order Items Section
+  invoice += 'Order Items\n';
+  invoice += '-'.repeat(75) + '\n';
+  invoice += 'PART NUMBER       DESCRIPTION                           QTY    PRICE     TOTAL\n';
+  invoice += '-'.repeat(75) + '\n';
 
-  // Items
+  // Regular items
   items.forEach(item => {
-    const qty = pad(String(item.quantity), 3, 'right');
-    const ord = pad(String(item.quantity), 3, 'right');
-    const shp = pad(String(item.quantity), 3, 'right');
-    const partNum = pad(item.partnumber, 15);
-    const desc = pad(item.description || '', 40);
-    const unitPrice = pad(formatCurrency(item.price || 0), 10, 'right');
-    const extPrice = pad(formatCurrency((item.price || 0) * item.quantity), 12, 'right');
+    const partNum = item.partnumber.padEnd(16, ' ');
+    const desc = (item.description || '').padEnd(36, ' ');
+    const qty = String(item.quantity).padStart(3, ' ');
+    const price = formatCurrency(item.price || 0).padStart(8, ' ');
+    const total = formatCurrency((item.price || 0) * item.quantity).padStart(9, ' ');
     
-    invoice += `${qty}  ${ord}  ${shp}  ${partNum}  ${desc}  ${unitPrice}  ${extPrice}\n`;
+    invoice += `${partNum} ${desc} ${qty} ${price} ${total}\n`;
   });
 
-  // Add some empty lines for consistent layout
-  const emptyLinesNeeded = Math.max(0, 10 - items.length);
-  for (let i = 0; i < emptyLinesNeeded; i++) {
-    invoice += '\n';
+  // Add promo code discount line if applicable
+  if (promoCodeDiscount > 0 && promoCodeDescription) {
+    const partNum = promoCodeDescription.padEnd(16, ' ');
+    const desc = `Discount: ${promoCodeDescription}`.padEnd(36, ' ');
+    const qty = '1'.padStart(3, ' ');
+    const price = formatCurrency(-promoCodeDiscount).padStart(8, ' ');
+    const total = formatCurrency(-promoCodeDiscount).padStart(9, ' ');
+    
+    invoice += `${partNum} ${desc} ${qty} ${price} ${total}\n`;
   }
 
-  invoice += '\n' + thinSeparator + '\n\n';
+  invoice += '\n';
 
-  // Totals section
-  const labelWidth = 65;
-  invoice += pad('', labelWidth) + 'Subtotal:  ' + pad(formatCurrency(subtotal), 12, 'right') + '\n';
-  invoice += pad('', labelWidth) + 'Shipping:  ' + pad(formatCurrency(shippingCharges), 12, 'right') + '\n';
+  // Totals Section
+  invoice += `Subtotal:${formatCurrency(subtotal).padStart(65, ' ')}\n`;
+  
+  if (shippingCharges > 0) {
+    invoice += `Shipping:${formatCurrency(shippingCharges).padStart(65, ' ')}\n`;
+  }
   
   if (promoCodeDiscount > 0) {
-    const discountLabel = promoCodeDescription ? `Discount (${promoCodeDescription}):` : 'Discount:';
-    invoice += pad('', labelWidth - discountLabel.length) + discountLabel + '  ' + pad(`(${formatCurrency(promoCodeDiscount)})`, 12, 'right') + '\n';
+    invoice += `Discount:${formatCurrency(-promoCodeDiscount).padStart(65, ' ')}\n`;
   }
   
-  invoice += pad('', labelWidth - 10) + '==========\n';
-  invoice += pad('', labelWidth - 5) + 'Total Due:  ' + pad(formatCurrency(totalAmountDue), 12, 'right') + '\n';
-  
-  invoice += '\n' + separator + '\n\n';
+  invoice += '-'.repeat(75) + '\n';
+  invoice += `Total:${formatCurrency(totalAmountDue).padStart(68, ' ')}\n`;
 
-  // Payment method
-  invoice += `Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}\n`;
-  if (paymentMethod === 'net10') {
-    invoice += 'Payment due within 10 days of invoice date.\n';
-  }
+  invoice += '\n';
+  invoice += '=========================================\n';
   
-  invoice += '\n' + thinSeparator + '\n';
-  invoice += 'Thank you for your business!\n';
-  invoice += `Questions? Contact us at ${companyInfo.email} or ${companyInfo.phone}\n`;
-  invoice += separator;
+  // Company Info Footer
+  invoice += `${companyInfo.name}\n`;
+  invoice += 'MusicSupplies.com\n';
+  invoice += `${companyInfo.address}\n`;
+  invoice += `${companyInfo.cityStateZip}\n`;
+  invoice += `${companyInfo.phone}\n`;
+  invoice += `Reply to: ${companyInfo.email}\n`;
+  
+  invoice += '\nThank you for your business!\n';
+  invoice += '=========================================';
 
   return invoice;
 }
@@ -360,39 +450,6 @@ export function createInvoiceDataFromOrder(
   }
 ): InvoiceData {
   const subtotal = items.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
-  const promoDiscount = appliedPromoCode?.discount_amount || 0;
-  const totalAmountDue = subtotal - promoDiscount;
-
-  return {
-    orderNumber,
-    accountNumber: customerInfo?.accountNumber,
-    invoiceDate: new Date().toLocaleDateString(),
-    terms: paymentMethod === 'net10' ? 'Net 10' : 'Credit Card',
-    salesRep: 'Online Order',
-    customerName: customerInfo?.name || email.split('@')[0], // Use email prefix if no name provided
-    customerEmail: email,
-    customerPhone: phone,
-    customerAddress: customerInfo?.address,
-    shippingAddress: customerInfo?.shippingAddress,
-    items,
-    subtotal,
-    promoCodeDiscount: promoDiscount,
-    promoCodeDescription: appliedPromoCode?.code,
-    totalAmountDue,
-    paymentMethod
-  };
-}
-: string,
-  phoneaymentMetod: 'credit' | 'net10',
-  appliedPromoCode?: { discount_amount: number; message?: string; code?: string },
-  customerInfo?: { 
-    name?: string; 
-    accutNumbr?;
-    address?: { line1?: string; cityStateZip?: string };
-    shippingAddress?: { name?: string; line1?: string; cityStateZip?: string };
-  }
-): InvoiceData {
-  const subtotal = items.reduce((sum, item) => sum + (item.price || 0) * item.quantity 0);
   const promoDiscount = appliedPromoCode?.discount_amount || 0;
   const totalAmountDue = subtotal - promoDiscount;
 
