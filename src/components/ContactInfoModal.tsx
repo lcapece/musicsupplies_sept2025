@@ -15,19 +15,27 @@ interface ContactInfoModalProps {
   onClose: () => void;
   accountNumber: number;
   accountName?: string;
+  initialEmail?: string;
+  initialPhone?: string;
+  initialMobilePhone?: string;
+  onSuccess?: () => void;
 }
 
 export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
   isOpen,
   onClose,
   accountNumber,
-  accountName
+  accountName,
+  initialEmail,
+  initialPhone,
+  initialMobilePhone,
+  onSuccess
 }) => {
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
     account_number: accountNumber,
-    email_address: '',
-    business_phone: '',
-    mobile_phone: ''
+    email_address: initialEmail || '',
+    business_phone: initialPhone || '',
+    mobile_phone: initialMobilePhone || ''
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -37,9 +45,17 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
   // Load existing contact info when modal opens
   useEffect(() => {
     if (isOpen && accountNumber) {
+      // Initialize with values from accounts table (passed as props)
+      setContactInfo({
+        account_number: accountNumber,
+        email_address: initialEmail || '',
+        business_phone: initialPhone || '',
+        mobile_phone: initialMobilePhone || ''
+      });
+      // Then check if there's additional info in the contact_info table
       loadContactInfo();
     }
-  }, [isOpen, accountNumber]);
+  }, [isOpen, accountNumber, initialEmail, initialPhone, initialMobilePhone]);
 
   const loadContactInfo = async () => {
     setLoading(true);
@@ -55,23 +71,16 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
         const info = data[0];
         setContactInfo({
           account_number: info.account_number,
-          email_address: info.email_address || '',
-          business_phone: info.business_phone || '',
-          mobile_phone: info.mobile_phone || '',
+          email_address: info.email_address || initialEmail || '',
+          business_phone: info.business_phone || initialPhone || '',
+          mobile_phone: info.mobile_phone || initialMobilePhone || '',
           updated_at: info.updated_at
         });
-      } else {
-        // No existing record - initialize with empty values
-        setContactInfo({
-          account_number: accountNumber,
-          email_address: '',
-          business_phone: '',
-          mobile_phone: ''
-        });
       }
+      // If no record in contact_info table, keep the initial values from accounts table
     } catch (err) {
       console.error('Error loading contact info:', err);
-      setError('Failed to load contact information');
+      // Don't show error since we have initial values from accounts table
     } finally {
       setLoading(false);
     }
@@ -121,6 +130,11 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
         }));
         setSuccess('Contact information saved successfully!');
         
+        // Call onSuccess callback to refresh the accounts grid
+        if (onSuccess) {
+          onSuccess();
+        }
+        
         // Auto-close modal after 1.5 seconds
         setTimeout(() => {
           onClose();
@@ -150,10 +164,36 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
     }
   };
 
+  // Format phone number as user types
+  const formatPhoneNumber = (value: string): string => {
+    // Remove all non-numeric characters
+    const numbers = value.replace(/\D/g, '');
+    
+    // Limit to 10 digits (US phone numbers)
+    const truncated = numbers.slice(0, 10);
+    
+    // Format as (999)999-9999
+    if (truncated.length >= 6) {
+      return `(${truncated.slice(0, 3)})${truncated.slice(3, 6)}-${truncated.slice(6)}`;
+    } else if (truncated.length >= 3) {
+      return `(${truncated.slice(0, 3)})${truncated.slice(3)}`;
+    } else if (truncated.length > 0) {
+      return `(${truncated}`;
+    }
+    return '';
+  };
+
   const handleInputChange = (field: keyof ContactInfo, value: string) => {
+    let processedValue = value;
+    
+    // Apply phone formatting for phone fields
+    if (field === 'business_phone' || field === 'mobile_phone') {
+      processedValue = formatPhoneNumber(value);
+    }
+    
     setContactInfo(prev => ({
       ...prev,
-      [field]: value
+      [field]: processedValue
     }));
     // Clear messages when user starts typing
     setError('');
@@ -162,16 +202,26 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
 
   const validateEmail = (email: string) => {
     if (!email) return true; // Email is optional
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    // More comprehensive email validation
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    
+    // Additional checks
+    if (email.length > 254) return false; // Max email length per RFC
+    if (email.startsWith('.') || email.endsWith('.')) return false;
+    if (email.includes('..')) return false;
+    
     return emailRegex.test(email);
   };
 
   const validatePhone = (phone: string) => {
     if (!phone) return true; // Phone is optional
-    // Allow various phone formats
-    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-    const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, '');
-    return phoneRegex.test(cleanPhone) || /^[\d\s\-\(\)\.]{7,20}$/.test(phone);
+    
+    // Remove formatting to check the actual number
+    const numbers = phone.replace(/\D/g, '');
+    
+    // Must be exactly 10 digits for US phone numbers
+    return numbers.length === 10;
   };
 
   const isFormValid = () => {
@@ -244,7 +294,9 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   disabled={saving}
                 />
                 {contactInfo.email_address && !validateEmail(contactInfo.email_address) && (
-                  <p className="text-xs text-red-600 mt-1">Please enter a valid email address</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Please enter a valid email address (e.g., name@example.com)
+                  </p>
                 )}
               </div>
 
@@ -258,7 +310,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   type="tel"
                   value={contactInfo.business_phone || ''}
                   onChange={(e) => handleInputChange('business_phone', e.target.value)}
-                  placeholder="Enter business phone number"
+                  placeholder="(999)999-9999"
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     contactInfo.business_phone && !validatePhone(contactInfo.business_phone)
                       ? 'border-red-300 focus:ring-red-500'
@@ -267,7 +319,9 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   disabled={saving}
                 />
                 {contactInfo.business_phone && !validatePhone(contactInfo.business_phone) && (
-                  <p className="text-xs text-red-600 mt-1">Please enter a valid phone number</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Please enter a 10-digit phone number
+                  </p>
                 )}
               </div>
 
@@ -281,7 +335,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   type="tel"
                   value={contactInfo.mobile_phone || ''}
                   onChange={(e) => handleInputChange('mobile_phone', e.target.value)}
-                  placeholder="Enter mobile phone number"
+                  placeholder="(999)999-9999"
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     contactInfo.mobile_phone && !validatePhone(contactInfo.mobile_phone)
                       ? 'border-red-300 focus:ring-red-500'
@@ -290,7 +344,9 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   disabled={saving}
                 />
                 {contactInfo.mobile_phone && !validatePhone(contactInfo.mobile_phone) && (
-                  <p className="text-xs text-red-600 mt-1">Please enter a valid phone number</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Please enter a 10-digit phone number
+                  </p>
                 )}
               </div>
             </div>

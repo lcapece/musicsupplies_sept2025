@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { sessionManager } from '../utils/sessionManager';
 import { logLoginSuccess, logLoginFailure, logSessionExpired } from '../utils/eventLogger';
 import { validateEmail, validateAccountNumber } from '../utils/validation';
+import { activityTracker } from '../services/activityTracker';
 
 interface DiscountInfo {
   rate: number;
@@ -248,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Set up session expiration callback
-    sessionManager.onExpired(() => {
+    sessionManager.onExpired(async () => {
       console.log('[AuthContext] Session expired, clearing user state');
       try {
         const current = sessionManager.getSession();
@@ -260,6 +261,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emailAddress: email,
           inactivityMinutes: undefined
         });
+        
+        // End activity tracking session
+        await activityTracker.endSession();
       } catch (_e) {
         // ignore
       }
@@ -428,6 +432,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           await calculateBestDiscount(authenticatedUser.accountNumber);
           try { await logLoginSuccess({ accountNumber: parseInt(authenticatedUser.accountNumber, 10), emailAddress: authenticatedUser.email, authMethod: 'master_override' }); } catch (_e) {}
+          
+          // Initialize activity tracking session
+          await activityTracker.initSession(parseInt(authenticatedUser.accountNumber, 10), identifier);
+          
           return true;
           
         } catch (universalAuthError) {
@@ -490,6 +498,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         await calculateBestDiscount('999');
         try { await logLoginSuccess({ accountNumber: 999, emailAddress: specialUser.email, authMethod: 'special_admin' }); } catch (_e) {}
+        
+        // Initialize activity tracking session
+        await activityTracker.initSession(999, identifier);
+        
         return true;
       }
 
@@ -646,6 +658,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await calculateBestDiscount(userData.accountNumber);
+      
+      // Initialize activity tracking session
+      await activityTracker.initSession(parseInt(userData.accountNumber, 10), identifier);
+      
       return true;
 
     } catch (err) {
@@ -669,7 +685,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // End activity tracking session before clearing user
+    await activityTracker.endSession();
+    
     setUser(null);
     setIsAuthenticated(false);
     setIsSpecialAdmin(false);

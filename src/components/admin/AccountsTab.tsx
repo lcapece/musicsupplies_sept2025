@@ -624,9 +624,19 @@ const AccountsTab: React.FC = () => {
       {showContactModal && selectedAccount && (
         <ContactInfoModal
           isOpen={showContactModal}
-          onClose={() => setShowContactModal(false)}
+          onClose={() => {
+            setShowContactModal(false);
+            setSelectedAccount(null);
+          }}
           accountNumber={selectedAccount.account_number}
           accountName={selectedAccount.acct_name}
+          initialEmail={selectedAccount.email_address}
+          initialPhone={selectedAccount.phone}
+          initialMobilePhone={selectedAccount.mobile_phone}
+          onSuccess={() => {
+            // Refresh the accounts list to show updated contact info
+            fetchAccounts();
+          }}
         />
       )}
 

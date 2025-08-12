@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
 import ShoppingCartComponent from './ShoppingCart';
 import AccountSettingsModal from './AccountSettingsModal';
+import packageJson from '../../package.json';
 
 interface HeaderProps {
   onViewChange: (view: 'products' | 'orders' | 'weborders') => void;
@@ -52,6 +53,9 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
             </Link>
             <div className="text-2xl font-bold text-gray-700 fixed-header-size">
               (800) 321-5584
+            </div>
+            <div className="text-sm text-gray-500 ml-4">
+              v{packageJson.version}
             </div>
           </div>
           

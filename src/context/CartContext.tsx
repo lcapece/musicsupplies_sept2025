@@ -3,6 +3,7 @@ import { CartItem, User, Product, PromoCodeValidity, AvailablePromoCode } from '
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { logItemAddedToCart, logItemRemovedFromCart, logCheckoutStarted, logCheckoutCompleted, logCheckoutFailed } from '../utils/eventLogger';
+import { activityTracker } from '../services/activityTracker';
 
 interface ShippingAddress {
   shippingDifferent: boolean;
@@ -241,6 +242,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
+    // Calculate new cart totals for tracking
+    const existingItem = items.find(item => item.partnumber === product.partnumber);
+    const newQuantity = existingItem ? existingItem.quantity + quantity : quantity;
+    const newCartTotal = existingItem 
+      ? totalPrice + (product.price ?? 0) * quantity
+      : totalPrice + (product.price ?? 0) * quantity;
+    const newItemsCount = existingItem ? totalItems + quantity : totalItems + quantity;
+    
     // Update items
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
@@ -278,6 +287,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unitPrice: product.price ?? 0,
         currency: 'USD'
       });
+      
+      // Track cart activity with new tracking system
+      activityTracker.trackCartAction({
+        actionType: 'add',
+        sku: product.partnumber,
+        productName: product.description,
+        quantity: quantity,
+        unitPrice: product.price ?? 0,
+        totalPrice: (product.price ?? 0) * quantity,
+        cartTotalAfter: newCartTotal,
+        cartItemsCountAfter: newItemsCount,
+        sourcePage: window.location.pathname
+      });
     } catch (_e) {
       // ignore logging errors
     }
@@ -285,6 +307,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const removeFromCart = (partnumber: string) => {
     const existing = items.find(i => i.partnumber === partnumber);
+    
+    // Calculate new cart totals for tracking
+    const newCartTotal = existing ? totalPrice - ((existing.price ?? 0) * existing.quantity) : totalPrice;
+    const newItemsCount = existing ? totalItems - existing.quantity : totalItems;
+    
     setItems(prevItems => prevItems.filter(item => item.partnumber !== partnumber));
     // Log event (fire-and-forget)
     if (existing) {
@@ -298,6 +325,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sku: partnumber,
           qty: existing.quantity
         });
+        
+        // Track cart activity with new tracking system
+        activityTracker.trackCartAction({
+          actionType: 'remove',
+          sku: partnumber,
+          productName: existing.description,
+          quantity: existing.quantity,
+          unitPrice: existing.price ?? 0,
+          totalPrice: (existing.price ?? 0) * existing.quantity,
+          cartTotalAfter: newCartTotal,
+          cartItemsCountAfter: newItemsCount,
+          sourcePage: window.location.pathname
+        });
       } catch (_e) {
         // ignore logging errors
       }
@@ -306,6 +346,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateQuantity = (partnumber: string, quantity: number) => {
     if (quantity <= 0) { removeFromCart(partnumber); return; }
     const prev = items.find(i => i.partnumber === partnumber);
+    
+    // Calculate new cart totals for tracking
+    const quantityDelta = prev ? quantity - prev.quantity : 0;
+    const newCartTotal = prev ? totalPrice + ((prev.price ?? 0) * quantityDelta) : totalPrice;
+    const newItemsCount = prev ? totalItems + quantityDelta : totalItems;
+    
     setItems(prevItems => prevItems.map(item => item.partnumber === partnumber ? { ...item, quantity } : item));
     if (prev && prev.quantity !== quantity) {
       const delta = quantity - prev.quantity;
@@ -331,12 +377,44 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             qty: Math.abs(delta)
           });
         }
+        
+        // Track cart activity with new tracking system
+        activityTracker.trackCartAction({
+          actionType: 'update_quantity',
+          sku: partnumber,
+          productName: prev.description,
+          quantity: quantity,
+          quantityChange: delta,
+          unitPrice: prev.price ?? 0,
+          totalPrice: (prev.price ?? 0) * quantity,
+          cartTotalAfter: newCartTotal,
+          cartItemsCountAfter: newItemsCount,
+          sourcePage: window.location.pathname
+        });
       } catch (_e) {
         // ignore
       }
     }
   };
   const clearCart = () => { 
+    // Track clear action before clearing
+    if (items.length > 0) {
+      try {
+        activityTracker.trackCartAction({
+          actionType: 'clear',
+          sku: 'ALL',
+          productName: 'All Items',
+          quantity: totalItems,
+          totalPrice: totalPrice,
+          cartTotalAfter: 0,
+          cartItemsCountAfter: 0,
+          sourcePage: window.location.pathname
+        });
+      } catch (_e) {
+        // ignore tracking errors
+      }
+    }
+    
     setItems([]); 
     // Clear from both storages for safety
     sessionStorage.removeItem('cart');

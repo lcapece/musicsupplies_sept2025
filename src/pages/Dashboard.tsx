@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext'; // Import useAuth
 import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/PromotionalPopupModal';
 import PromoCodePopup from '../components/PromoCodePopup'; // Import the PromoCodePopup component
 import { logKeywordSearch, logNavTreeSearch } from '../utils/eventLogger';
+import { activityTracker } from '../services/activityTracker';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth(); // Get user from AuthContext
@@ -534,6 +535,20 @@ const Dashboard: React.FC = () => {
             },
             resultsCount,
           });
+          
+          // Track search activity with new tracking system
+          const searchStartTime = Date.now();
+          activityTracker.trackSearch({
+            searchTerm: [searchTerms.primary, searchTerms.additional].filter(Boolean).join(' '),
+            searchType: 'keyword',
+            resultsCount,
+            searchDurationMs: Date.now() - searchStartTime,
+            filtersApplied: {
+              additional: searchTerms.additional || undefined,
+              exclude: searchTerms.exclude || undefined,
+              inStockOnly: inStockOnly || undefined
+            }
+          });
         }
         // Log nav tree search when browsing by categories (no search terms)
         else if ((selectedMainCategoryName || selectedSubCategoryName) && !(searchTerms.primary || searchTerms.additional || searchTerms.exclude)) {
@@ -543,6 +558,18 @@ const Dashboard: React.FC = () => {
             emailAddress: email,
             categoryPath: path,
             resultsCount,
+          });
+          
+          // Track category navigation as search activity
+          activityTracker.trackSearch({
+            searchTerm: path.join(' > '),
+            searchType: 'category',
+            resultsCount,
+            filtersApplied: {
+              mainCategory: selectedMainCategoryName,
+              subCategory: selectedSubCategoryName,
+              inStockOnly: inStockOnly || undefined
+            }
           });
         }
       } catch (_e) {}

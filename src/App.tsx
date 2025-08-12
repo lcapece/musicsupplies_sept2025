@@ -189,6 +189,15 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/update-password" element={<UpdatePasswordPage />} />
+        {/* Admin Dashboard via /5150 bypass */}
+        <Route 
+          path="/5150" 
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboard />
+            </AdminProtectedRoute>
+          } 
+        />
         {/* Home route with special handling for different account types */}
         <Route 
           path="/" 
