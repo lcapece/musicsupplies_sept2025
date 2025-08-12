@@ -13,6 +13,7 @@ import ImageComingSoon from '../images/coming-soon.png';
 import { useAuth } from '../context/AuthContext'; // Import useAuth
 import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/PromotionalPopupModal';
 import PromoCodePopup from '../components/PromoCodePopup'; // Import the PromoCodePopup component
+import { logKeywordSearch, logNavTreeSearch } from '../utils/eventLogger';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth(); // Get user from AuthContext
@@ -517,6 +518,34 @@ const Dashboard: React.FC = () => {
       console.log('Fetched raw product data:', data);
 
       setProducts(data || []);
+      try {
+        const resultsCount = Array.isArray(data) ? data.length : 0;
+        const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
+        const email = user?.email || null;
+        // Log keyword search when search terms are used (and categories were cleared in handleSearch)
+        if ((searchTerms.primary || searchTerms.additional || searchTerms.exclude) && user) {
+          logKeywordSearch({
+            accountNumber: isNaN(acctNum) ? null : acctNum,
+            emailAddress: email,
+            query: searchTerms.primary || '',
+            filters: {
+              additional: searchTerms.additional || undefined,
+              exclude: searchTerms.exclude || undefined,
+            },
+            resultsCount,
+          });
+        }
+        // Log nav tree search when browsing by categories (no search terms)
+        else if ((selectedMainCategoryName || selectedSubCategoryName) && !(searchTerms.primary || searchTerms.additional || searchTerms.exclude)) {
+          const path = [selectedMainCategoryName, selectedSubCategoryName].filter(Boolean) as string[];
+          logNavTreeSearch({
+            accountNumber: isNaN(acctNum) ? null : acctNum,
+            emailAddress: email,
+            categoryPath: path,
+            resultsCount,
+          });
+        }
+      } catch (_e) {}
       console.log('Products state after setProducts:', data); // Added for debugging
       console.log('Products state after setProducts:', data); // Added for debugging
     } catch (error) {

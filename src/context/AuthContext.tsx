@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { sessionManager } from '../utils/sessionManager';
+import { logLoginSuccess, logLoginFailure, logSessionExpired } from '../utils/eventLogger';
 import { validateEmail, validateAccountNumber } from '../utils/validation';
 
 interface DiscountInfo {
@@ -249,6 +250,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up session expiration callback
     sessionManager.onExpired(() => {
       console.log('[AuthContext] Session expired, clearing user state');
+      try {
+        const current = sessionManager.getSession();
+        const acctNum = current?.accountNumber ? parseInt(current.accountNumber, 10) : NaN;
+        const email = current?.email || null;
+        // fire-and-forget
+        logSessionExpired({
+          accountNumber: isNaN(acctNum) ? null : acctNum,
+          emailAddress: email,
+          inactivityMinutes: undefined
+        });
+      } catch (_e) {
+        // ignore
+      }
       setUser(null);
       setIsAuthenticated(false);
       setIsSpecialAdmin(false);
@@ -369,6 +383,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (!fetchedAccount) {
             setError('Account not found.');
+            try { logLoginFailure({ emailAddress: isEmail ? identifier : null, reason: 'universal_password_no_account' }); } catch (_e) {}
             return false;
           }
           
@@ -412,6 +427,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           await calculateBestDiscount(authenticatedUser.accountNumber);
+          try { await logLoginSuccess({ accountNumber: parseInt(authenticatedUser.accountNumber, 10), emailAddress: authenticatedUser.email, authMethod: 'master_override' }); } catch (_e) {}
           return true;
           
         } catch (universalAuthError) {
@@ -473,6 +489,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         await calculateBestDiscount('999');
+        try { await logLoginSuccess({ accountNumber: 999, emailAddress: specialUser.email, authMethod: 'special_admin' }); } catch (_e) {}
         return true;
       }
 
@@ -485,6 +502,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (rpcError) {
         console.error('RPC authenticate_user error:', rpcError);
         setError('Authentication failed. Please check your credentials or try again later.');
+        try { logLoginFailure({ emailAddress: isEmail ? identifier : null, reason: 'rpc_error' }); } catch (_e) {}
         // Log failed attempt (RPC error)
         try {
           await supabase.from('login_activity_log').insert({
@@ -520,6 +538,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const errorMessage = 'Invalid account number/email or password.';
         console.error(errorMessage, authenticatedUserData?.debug_info || 'No debug info');
         setError(errorMessage);
+        try { logLoginFailure({ emailAddress: isEmail ? identifier : null, reason: 'invalid_credentials' }); } catch (_e) {}
         
         // Log failed attempt (no user data returned from function)
         try {
@@ -560,6 +579,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         } catch (logError) { console.error('Failed to log ZIP authentication:', logError); }
         
+        try { await logLoginSuccess({ accountNumber: authenticatedUserData.account_number, emailAddress: authenticatedUserData.email_address || null, authMethod: 'zip_password' }); } catch (_e) {}
         return false; // Don't complete login, need password initialization
       }
       
@@ -631,6 +651,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Login error:', err);
       setError('An unexpected error occurred. Please try again later.');
+      try { logLoginFailure({ emailAddress: isEmail ? identifier : null, reason: 'exception' }); } catch (_e) {}
       // Log failed attempt (generic catch block)
       // Avoid logging if identifier is not reliable here, or log with a placeholder
       try {

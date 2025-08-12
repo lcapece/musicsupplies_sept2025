@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, User, Product, PromoCodeValidity, AvailablePromoCode } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { logItemAddedToCart, logItemRemovedFromCart, logCheckoutStarted, logCheckoutCompleted, logCheckoutFailed } from '../utils/eventLogger';
 
 interface ShippingAddress {
   shippingDifferent: boolean;
@@ -82,6 +83,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const { user } = useAuth();
+  // Ensure a stable cart identifier for event correlation
+  const getCartId = (): string => {
+    let id = sessionStorage.getItem('cartId');
+    if (!id) {
+      id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      sessionStorage.setItem('cartId', id);
+    }
+    return id;
+  };
   const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCodeValidity | null>(null);
   const [availablePromoCodes, setAvailablePromoCodes] = useState<AvailablePromoCode[]>([]);
   const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState<boolean>(false);
@@ -231,10 +241,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Use functional update with immediate logging
+    // Update items
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
-      
       let newItems;
       if (existingItem) {
         console.log('CartContext: Updating existing item quantity');
@@ -252,16 +261,80 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity 
         }];
       }
-      
       console.log('CartContext: Cart updated, new item count:', newItems.length);
       return newItems;
     });
+
+    // Log event (fire-and-forget)
+    try {
+      const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
+      const email = (user as any)?.email || null;
+      logItemAddedToCart({
+        accountNumber: isNaN(acctNum) ? null : acctNum,
+        emailAddress: email,
+        cartId: getCartId(),
+        sku: product.partnumber,
+        qty: quantity,
+        unitPrice: product.price ?? 0,
+        currency: 'USD'
+      });
+    } catch (_e) {
+      // ignore logging errors
+    }
   };
 
-  const removeFromCart = (partnumber: string) => setItems(prevItems => prevItems.filter(item => item.partnumber !== partnumber));
+  const removeFromCart = (partnumber: string) => {
+    const existing = items.find(i => i.partnumber === partnumber);
+    setItems(prevItems => prevItems.filter(item => item.partnumber !== partnumber));
+    // Log event (fire-and-forget)
+    if (existing) {
+      try {
+        const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
+        const email = (user as any)?.email || null;
+        logItemRemovedFromCart({
+          accountNumber: isNaN(acctNum) ? null : acctNum,
+          emailAddress: email,
+          cartId: getCartId(),
+          sku: partnumber,
+          qty: existing.quantity
+        });
+      } catch (_e) {
+        // ignore logging errors
+      }
+    }
+  };
   const updateQuantity = (partnumber: string, quantity: number) => {
     if (quantity <= 0) { removeFromCart(partnumber); return; }
+    const prev = items.find(i => i.partnumber === partnumber);
     setItems(prevItems => prevItems.map(item => item.partnumber === partnumber ? { ...item, quantity } : item));
+    if (prev && prev.quantity !== quantity) {
+      const delta = quantity - prev.quantity;
+      const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
+      const email = (user as any)?.email || null;
+      try {
+        if (delta > 0) {
+          logItemAddedToCart({
+            accountNumber: isNaN(acctNum) ? null : acctNum,
+            emailAddress: email,
+            cartId: getCartId(),
+            sku: partnumber,
+            qty: delta,
+            unitPrice: prev.price ?? 0,
+            currency: 'USD'
+          });
+        } else {
+          logItemRemovedFromCart({
+            accountNumber: isNaN(acctNum) ? null : acctNum,
+            emailAddress: email,
+            cartId: getCartId(),
+            sku: partnumber,
+            qty: Math.abs(delta)
+          });
+        }
+      } catch (_e) {
+        // ignore
+      }
+    }
   };
   const clearCart = () => { 
     setItems([]); 
@@ -382,6 +455,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const accountNumberInt = parseInt(user.accountNumber, 10);
     if (isNaN(accountNumberInt)) { throw new Error('Invalid user account number format.'); }
 
+    // Log checkout started (fire-and-forget)
+    try {
+      await logCheckoutStarted({
+        accountNumber: accountNumberInt,
+        emailAddress: (user as any)?.email || null,
+        cartId: getCartId(),
+        paymentMethod,
+        step: 'submit'
+      });
+    } catch (_e) {
+      // ignore
+    }
+
     let discountPartNumber: string | null = null;
     let discountDescription: string | null = null;
     let finalDiscountAmount = 0;
@@ -462,6 +548,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (insertError || !insertedOrder) throw insertError || new Error('Failed to save order.');
       
       console.log('Order saved successfully:', insertedOrder);
+      // Log checkout completed (fire-and-forget)
+      try {
+        await logCheckoutCompleted({
+          accountNumber: accountNumberInt,
+          emailAddress: (user as any)?.email || null,
+          cartId: getCartId(),
+          orderId: insertedOrder.id,
+          total: grandTotal,
+          currency: 'USD'
+        });
+      } catch (_e) {
+        // ignore
+      }
 
       // Record promo code usage if applicable
       if (promoCodeUsedInThisOrder && appliedPromoCode && appliedPromoCode.promo_id) {
@@ -486,6 +585,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return orderNumberGenerated;
     } catch (error: any) {
       console.error('Order placement error:', error);
+      // Log checkout failed (fire-and-forget)
+      try {
+        await logCheckoutFailed({
+          accountNumber: accountNumberInt,
+          emailAddress: (user as any)?.email || null,
+          cartId: getCartId(),
+          reason: error?.message || 'unknown'
+        });
+      } catch (_e) {
+        // ignore
+      }
       throw new Error(error.message || 'An unexpected error occurred while placing the order.');
     }
   };
