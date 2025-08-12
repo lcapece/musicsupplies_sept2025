@@ -1,7 +1,10 @@
 import React from 'react';
 import ChatWidget from '../components/ChatWidget';
+import { useAuth } from '../context/AuthContext';
 
 const ChatPage: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
@@ -29,34 +32,34 @@ const ChatPage: React.FC = () => {
             <div className="flex items-start gap-3">
               <div className="bg-purple-100 text-purple-600 rounded-full w-8 h-8 flex items-center justify-center font-semibold">1</div>
               <div>
-                <p className="font-medium">Click the chat icon in the bottom-right corner</p>
-                <p className="text-sm text-gray-500">The purple message icon opens the chat interface</p>
+                <p className="font-medium">{isAuthenticated ? 'Click the chat icon to open chat' : 'Log in to your account'}</p>
+                <p className="text-sm text-gray-500">{isAuthenticated ? 'The purple message icon in the bottom-right opens the chat' : 'You must be logged in to use the chat system'}</p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
               <div className="bg-purple-100 text-purple-600 rounded-full w-8 h-8 flex items-center justify-center font-semibold">2</div>
               <div>
-                <p className="font-medium">Enter your participation code</p>
-                <p className="text-sm text-gray-500">Use the code provided by your sales representative or support team</p>
+                <p className="font-medium">{isAuthenticated ? 'Start chatting instantly' : 'Click the chat icon after logging in'}</p>
+                <p className="text-sm text-gray-500">{isAuthenticated ? 'No participation code needed - you\'re automatically connected!' : 'The chat system will open automatically'}</p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
               <div className="bg-purple-100 text-purple-600 rounded-full w-8 h-8 flex items-center justify-center font-semibold">3</div>
               <div>
-                <p className="font-medium">Start chatting</p>
-                <p className="text-sm text-gray-500">Send public messages or direct message specific team members</p>
+                <p className="font-medium">Use different channels</p>
+                <p className="text-sm text-gray-500">Message everyone, send direct messages, or use staff-only channels (if you're staff)</p>
               </div>
             </div>
           </div>
 
           <div className="mt-6 p-4 bg-purple-50 rounded-lg">
-            <h3 className="font-semibold text-purple-900 mb-2">Common Participation Codes:</h3>
+            <h3 className="font-semibold text-purple-900 mb-2">Chat Features:</h3>
             <ul className="space-y-1 text-sm text-purple-700">
-              <li><span className="font-mono bg-white px-2 py-1 rounded">SALES</span> - Connect with sales team</li>
-              <li><span className="font-mono bg-white px-2 py-1 rounded">SUPPORT</span> - Technical support</li>
-              <li><span className="font-mono bg-white px-2 py-1 rounded">ORDERS</span> - Order inquiries</li>
+              <li><span className="font-mono bg-white px-2 py-1 rounded">#everyone</span> - Message all users in the chat</li>
+              <li><span className="font-mono bg-white px-2 py-1 rounded">Direct Messages</span> - Private conversations with specific users</li>
+              <li><span className="font-mono bg-white px-2 py-1 rounded">#staff-only</span> - Staff and admin exclusive channel</li>
             </ul>
           </div>
         </div>

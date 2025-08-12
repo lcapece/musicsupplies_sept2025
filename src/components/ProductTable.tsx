@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from 'lucide-react'; // Added ArrowDown, ArrowUp
 import QuantitySelector from './QuantitySelector';
 
@@ -32,6 +33,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   onFontSizeChange
 }) => {
   const { addToCart, isCartReady } = useCart();
+  const { isDemoMode } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -465,7 +467,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         {formatListPrice(product.webmsrp)}
                       </td>
                     )}
-                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%]`}>
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%] ${isDemoMode ? 'demo-mode-blur' : ''}`}>
                       {formatPrice(product.price)}
                     </td>
                     {showMapPrice && (
@@ -473,18 +475,27 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         {formatMapPrice(product.map)}
                       </td>
                     )}
-                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center`}>
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center ${isDemoMode ? 'demo-mode-blur' : ''}`}>
                       {getInventoryDisplay(product.inventory)}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center relative">
                       <div onClick={(e) => e.stopPropagation()}>
-                        <QuantitySelector
-                          product={product}
-                          onAddToCart={handleAddToCart}
-                          disabled={!isCartReady}
-                          isAdding={addingToCart === product.partnumber}
-                          fontSize={fontSize}
-                        />
+                        {isDemoMode ? (
+                          <button
+                            disabled
+                            className="px-3 py-1 text-sm font-medium text-gray-400 bg-gray-100 rounded cursor-not-allowed"
+                          >
+                            Disabled
+                          </button>
+                        ) : (
+                          <QuantitySelector
+                            product={product}
+                            onAddToCart={handleAddToCart}
+                            disabled={!isCartReady}
+                            isAdding={addingToCart === product.partnumber}
+                            fontSize={fontSize}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>

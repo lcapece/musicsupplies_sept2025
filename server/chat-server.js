@@ -22,18 +22,20 @@ const users = new Map();
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
-  // Join room with participation code
-  socket.on('join-room', ({ participationCode, userName, isAuthenticated }) => {
+  // Join room with participation code (always LCMD for logged-in users)
+  socket.on('join-room', ({ participationCode, userName, isAuthenticated, accountNumber, userRole }) => {
     const roomId = `room-${participationCode}`;
     socket.join(roomId);
 
-    // Store user info
+    // Store user info with role
     const userInfo = {
       id: socket.id,
       name: userName,
       room: roomId,
       participationCode,
       isAuthenticated,
+      accountNumber,
+      role: userRole || 'customer',
       joinedAt: new Date()
     };
     users.set(socket.id, userInfo);
@@ -44,15 +46,25 @@ io.on('connection', (socket) => {
     }
     rooms.get(roomId).add(socket.id);
 
-    // Get all users in room
+    // Get all users in room with their roles
     const roomUsers = Array.from(rooms.get(roomId)).map(id => {
       const user = users.get(id);
-      return { id: user.id, name: user.name };
+      return { 
+        id: user.id, 
+        name: user.name,
+        accountNumber: user.accountNumber,
+        role: user.role
+      };
     });
 
     // Notify room of new user
     socket.to(roomId).emit('user-joined', {
-      user: { id: socket.id, name: userName },
+      user: { 
+        id: socket.id, 
+        name: userName,
+        accountNumber: accountNumber,
+        role: userRole
+      },
       users: roomUsers
     });
 
@@ -63,11 +75,11 @@ io.on('connection', (socket) => {
       participationCode
     });
 
-    console.log(`${userName} joined room ${participationCode}`);
+    console.log(`${userName} (${userRole}) joined room ${participationCode}`);
   });
 
-  // Handle public messages
-  socket.on('send-message', ({ message, participationCode }) => {
+  // Handle public messages (including "everyone" type)
+  socket.on('send-message', ({ message, participationCode, type }) => {
     const user = users.get(socket.id);
     if (!user) return;
 
@@ -77,7 +89,7 @@ io.on('connection', (socket) => {
       userName: user.name,
       message,
       timestamp: new Date(),
-      type: 'public'
+      type: type || 'public' // Support both 'public' and 'everyone' types
     };
 
     // Send to all in room including sender
@@ -143,7 +155,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle explicit sign out
+  // Handle explicit sign out (not used in new system)
   socket.on('sign-out', () => {
     socket.disconnect();
   });
@@ -151,7 +163,18 @@ io.on('connection', (socket) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', rooms: rooms.size, users: users.size });
+  const userList = Array.from(users.values()).map(u => ({
+    name: u.name,
+    role: u.role,
+    room: u.participationCode
+  }));
+  
+  res.json({ 
+    status: 'ok', 
+    rooms: rooms.size, 
+    users: users.size,
+    activeUsers: userList
+  });
 });
 
 const PORT = process.env.PORT || 3001;

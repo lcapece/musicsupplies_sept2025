@@ -15,9 +15,12 @@ import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/Pr
 import PromoCodePopup from '../components/PromoCodePopup'; // Import the PromoCodePopup component
 import { logKeywordSearch, logNavTreeSearch } from '../utils/eventLogger';
 import { activityTracker } from '../services/activityTracker';
+import DemoModeBanner from '../components/DemoModeBanner';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user, isDemoMode, logout } = useAuth(); // Get user and demo mode from AuthContext
+  const navigate = useNavigate();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Product | null; direction: 'ascending' | 'descending' }>({ key: 'partnumber', direction: 'ascending' });
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | undefined>();
@@ -50,6 +53,50 @@ const Dashboard: React.FC = () => {
   const [showPromoCodePopup, setShowPromoCodePopup] = useState(false); // State for PromoCodePopup
   const [inventoryRefreshTimestamp, setInventoryRefreshTimestamp] = useState<string | null>(null); // State for inventory refresh timestamp
   const [fontSize, setFontSize] = useState<'smaller' | 'standard' | 'larger'>('standard'); // State for font size
+
+  // Handle demo timeout
+  const handleDemoTimeout = () => {
+    logout();
+    navigate('/');
+  };
+
+  // Disable copy/paste in demo mode
+  useEffect(() => {
+    if (isDemoMode) {
+      const handleCopy = (e: ClipboardEvent) => {
+        e.preventDefault();
+        return false;
+      };
+      
+      const handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+        return false;
+      };
+      
+      const handleSelectStart = (e: Event) => {
+        e.preventDefault();
+        return false;
+      };
+
+      document.addEventListener('copy', handleCopy);
+      document.addEventListener('cut', handleCopy);
+      document.addEventListener('paste', handleCopy);
+      document.addEventListener('contextmenu', handleContextMenu);
+      document.addEventListener('selectstart', handleSelectStart);
+      
+      // Add CSS class to body
+      document.body.classList.add('demo-mode-no-select');
+
+      return () => {
+        document.removeEventListener('copy', handleCopy);
+        document.removeEventListener('cut', handleCopy);
+        document.removeEventListener('paste', handleCopy);
+        document.removeEventListener('contextmenu', handleContextMenu);
+        document.removeEventListener('selectstart', handleSelectStart);
+        document.body.classList.remove('demo-mode-no-select');
+      };
+    }
+  }, [isDemoMode]);
 
   // Load saved font preference on mount
   useEffect(() => {
@@ -637,6 +684,7 @@ const Dashboard: React.FC = () => {
   
   return (
     <div className="h-screen bg-gray-100 flex flex-col relative">
+      {isDemoMode && <DemoModeBanner onTimeout={handleDemoTimeout} />}
       <Header onViewChange={handleViewChange} activeView={activeView} />
       
       
@@ -808,11 +856,19 @@ const Dashboard: React.FC = () => {
                             <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
                               <li>Brand: {selectedProductForImage.brand ?? 'N/A'}</li>
                               <li>UPC: {selectedProductForImage.upc ?? 'N/A'}</li>
-                              <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
+                              <li>Net Price: {isDemoMode ? (
+                                <span className="font-bold text-red-600">DEMO</span>
+                              ) : (
+                                `$${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}`
+                              )}</li>
                               <li>MSRP: ${selectedProductForImage.webmsrp !== undefined && selectedProductForImage.webmsrp !== null ? selectedProductForImage.webmsrp.toFixed(2) : 'N/A'}</li>
                               <li>MAP: {selectedProductForImage.map !== undefined && selectedProductForImage.map !== null ? 
                                 `$${selectedProductForImage.map.toFixed(2)}` : 'N/A'}</li>
-                              <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>
+                              <li>Inventory: {isDemoMode ? (
+                                <span className="font-bold text-red-600">DEMO</span>
+                              ) : (
+                                selectedProductForImage.inventory ?? 'N/A'
+                              )}</li>
                             </ul>
                             
                             <div className="mt-3">

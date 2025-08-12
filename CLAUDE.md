@@ -12,3 +12,14 @@ File paths:
 - PDFs: `./CCimages/pdfs/`
 
 Browser error fix: `npx playwright install`
+
+## Version Update & PWA Cache Busting
+
+When updating the version before deployment:
+1. Run `npm run update-version` to update package.json version
+2. This automatically writes version to .env file as VITE_APP_VERSION
+3. The PWA plugin uses this version for cache busting
+4. Users will automatically get the latest version without cache issues
+
+The version format is: RC[month][day].[hour][minute]
+Example: RC812.1357 (August 12, 13:57)

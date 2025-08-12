@@ -248,21 +248,21 @@ img[alt*="logo"]::after {
   font-size: 1.5rem !important; /* 24px - doubled from original 12px */
 }
 
-/* Professional Font Scaling - 30% smaller than standard Tailwind sizes */
-/* Current Tailwind: text-sm=14px, text-base=16px, text-lg=18px */
-/* New Professional: smaller=9.8px, standard=11.2px, larger=12.6px */
+/* Professional Font Scaling - Increased by 40px for search boxes */
+/* Previous: smaller=9.8px, standard=11.2px, larger=12.6px */
+/* New: smaller=49.8px, standard=51.2px, larger=52.6px */
 .font-professional-smaller {
-  font-size: 0.6125rem !important; /* 9.8px - 30% smaller than text-sm (14px) */
+  font-size: 3.1125rem !important; /* 49.8px - increased by 40px from 9.8px */
   line-height: 1.6 !important;
 }
 
 .font-professional-standard {
-  font-size: 0.7rem !important; /* 11.2px - 30% smaller than text-base (16px) */
+  font-size: 3.2rem !important; /* 51.2px - increased by 40px from 11.2px */
   line-height: 1.6 !important;
 }
 
 .font-professional-larger {
-  font-size: 0.7875rem !important; /* 12.6px - 30% smaller than text-lg (18px) */
+  font-size: 3.2875rem !important; /* 52.6px - increased by 40px from 12.6px */
   line-height: 1.6 !important;
 }
 
@@ -283,4 +283,35 @@ img[alt*="logo"]::after {
   font-size: 13.5px !important; /* 25% smaller than 18px */
   line-height: 1.4 !important;
   font-weight: 400;
+}
+
+/* Demo Mode Styles */
+.demo-mode-blur {
+  filter: blur(4px);
+  -webkit-filter: blur(4px);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Disable text selection in demo mode */
+.demo-mode-no-select {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Disable right-click context menu in demo mode */
+.demo-mode-no-context {
+  pointer-events: none;
+}
+
+/* Demo mode disabled button */
+.demo-mode-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
 }

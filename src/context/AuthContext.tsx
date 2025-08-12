@@ -40,6 +40,7 @@ interface AuthContextType {
   needsPasswordInitialization: boolean;
   resolvedAccountNumber: string | null;
   closePasswordInitializationModal: () => void;
+  isDemoMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -69,6 +70,7 @@ const AuthContext = createContext<AuthContextType>({
   needsPasswordInitialization: false,
   resolvedAccountNumber: null,
   closePasswordInitializationModal: () => {},
+  isDemoMode: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -89,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showPasswordInitializationModal, setShowPasswordInitializationModal] = useState<boolean>(false);
   const [needsPasswordInitialization, setNeedsPasswordInitialization] = useState<boolean>(false);
   const [resolvedAccountNumber, setResolvedAccountNumber] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
   // Function to calculate the highest eligible discount for a user
   const calculateBestDiscount = async (accountNumber: string): Promise<void> => {
@@ -329,6 +332,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
+    // Check for demo login (case insensitive)
+    if (identifier.toLowerCase() === 'demo' && password.toLowerCase() === 'lcmd') {
+      // Set up demo user
+      const demoUser: User = {
+        accountNumber: 'DEMO',
+        acctName: 'Demo Account',
+        address: '123 Demo Street',
+        city: 'Demo City',
+        state: 'NY',
+        zip: '10001',
+        id: 999999,
+        email: 'demo@example.com',
+        phone: '(800) 321-5584',
+        mobile_phone: '(800) 321-5584',
+        requires_password_change: false,
+        is_special_admin: false
+      };
+      
+      setUser(demoUser);
+      setIsAuthenticated(true);
+      setIsDemoMode(true);
+      sessionManager.setSession({ ...demoUser, is_demo: true });
+      
+      return true;
+    }
+
     // Validate identifier format
     const isEmail = identifier.includes('@');
     if (isEmail) {
@@ -560,11 +589,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     // End activity tracking session before clearing user
-    await activityTracker.endSession();
+    if (!isDemoMode) {
+      await activityTracker.endSession();
+    }
     
     setUser(null);
     setIsAuthenticated(false);
     setIsSpecialAdmin(false);
+    setIsDemoMode(false);
     setMaxDiscountRate(null);
     setCurrentDiscountInfo(null);
     
@@ -852,7 +884,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showPasswordInitializationModal,
       needsPasswordInitialization,
       resolvedAccountNumber,
-      closePasswordInitializationModal
+      closePasswordInitializationModal,
+      isDemoMode
     }}>
       {children}
     </AuthContext.Provider>

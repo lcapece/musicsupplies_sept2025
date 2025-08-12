@@ -45,4 +45,27 @@ if (fs.existsSync(mobilePackage)) {
   updatePackageJson(mobilePackage);
 }
 
+// Write version to a .env file for Vite to use
+if (version) {
+  const envContent = `VITE_APP_VERSION=${version}\n`;
+  const envPath = path.join(process.cwd(), '.env');
+  
+  // Read existing .env if it exists
+  let existingEnv = '';
+  if (fs.existsSync(envPath)) {
+    existingEnv = fs.readFileSync(envPath, 'utf8');
+    // Remove existing VITE_APP_VERSION line if present
+    existingEnv = existingEnv.split('\n')
+      .filter(line => !line.startsWith('VITE_APP_VERSION='))
+      .join('\n');
+    if (existingEnv && !existingEnv.endsWith('\n')) {
+      existingEnv += '\n';
+    }
+  }
+  
+  // Write updated .env
+  fs.writeFileSync(envPath, existingEnv + envContent);
+  console.log(`Updated .env with version: ${version}`);
+}
+
 console.log(`Version update complete: ${version}`);
