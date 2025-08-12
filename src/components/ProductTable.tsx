@@ -453,11 +453,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       {product.description}
                     </td>
                     <td className={`px-3 py-2 ${getFontSizeClasses('cell')} text-gray-500`}>
-                      {product && product.brand ? product.brand : '---'}
+                      {product.brand || '---'}
                     </td>
                     {showUpcColumn && (
                       <td className={`px-3 py-2 ${getFontSizeClasses('cell')} text-gray-500`}>
-                        {product && product.upc ? product.upc : '---'}
+                        {product.upc || '---'}
                       </td>
                     )}
                     {showMsrp && (
@@ -470,7 +470,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </td>
                     {showMapPrice && (
                       <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium`}>
-                        {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
+                        {formatMapPrice(product.map)}
                       </td>
                     )}
                     <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center`}>

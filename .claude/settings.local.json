@@ -5,7 +5,10 @@
       "Bash(npx tsc:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(npx supabase:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }
