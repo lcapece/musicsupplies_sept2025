@@ -248,21 +248,21 @@ img[alt*="logo"]::after {
   font-size: 1.5rem !important; /* 24px - doubled from original 12px */
 }
 
-/* Professional Font Scaling - Increased by 40px for search boxes */
+/* Professional Font Scaling - Increased by 40% for search boxes */
 /* Previous: smaller=9.8px, standard=11.2px, larger=12.6px */
-/* New: smaller=49.8px, standard=51.2px, larger=52.6px */
+/* New: smaller=13.72px, standard=15.68px, larger=17.64px (40% increase) */
 .font-professional-smaller {
-  font-size: 3.1125rem !important; /* 49.8px - increased by 40px from 9.8px */
+  font-size: 0.8575rem !important; /* 13.72px - 40% increase from 9.8px */
   line-height: 1.6 !important;
 }
 
 .font-professional-standard {
-  font-size: 3.2rem !important; /* 51.2px - increased by 40px from 11.2px */
+  font-size: 0.98rem !important; /* 15.68px - 40% increase from 11.2px */
   line-height: 1.6 !important;
 }
 
 .font-professional-larger {
-  font-size: 3.2875rem !important; /* 52.6px - increased by 40px from 12.6px */
+  font-size: 1.1025rem !important; /* 17.64px - 40% increase from 12.6px */
   line-height: 1.6 !important;
 }
 
