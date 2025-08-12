@@ -83,6 +83,15 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
     setSuccess('');
 
     try {
+      // Log the data being sent
+      console.log('Saving contact info for account:', accountNumber);
+      console.log('Data being sent:', {
+        p_account_number: accountNumber,
+        p_email_address: contactInfo.email_address || null,
+        p_business_phone: contactInfo.business_phone || null,
+        p_mobile_phone: contactInfo.mobile_phone || null
+      });
+
       const { data, error } = await supabase
         .rpc('upsert_contact_info', {
           p_account_number: accountNumber,
@@ -91,7 +100,18 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
           p_mobile_phone: contactInfo.mobile_phone || null
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase RPC error:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+
+      console.log('Response from upsert_contact_info:', data);
 
       if (data && data.length > 0) {
         const updated = data[0];
@@ -106,10 +126,25 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
           onClose();
           setSuccess('');
         }, 1500);
+      } else {
+        console.warn('No data returned from upsert_contact_info');
+        setError('Contact information saved but no confirmation received');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving contact info:', err);
-      setError('Failed to save contact information');
+      
+      // Provide more detailed error message
+      let errorMessage = 'Failed to save contact information';
+      if (err.message) {
+        errorMessage += ': ' + err.message;
+      }
+      if (err.code === 'PGRST202') {
+        errorMessage = 'Function upsert_contact_info not found. Please run the database migration.';
+      } else if (err.code === '42501') {
+        errorMessage = 'Permission denied. Please check database permissions.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
