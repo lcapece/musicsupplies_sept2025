@@ -54,9 +54,6 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
             <div className="text-2xl font-bold text-gray-700 fixed-header-size">
               (800) 321-5584
             </div>
-            <div className="text-sm text-gray-500 ml-4">
-              v{packageJson.version}
-            </div>
           </div>
           
           {/* Center Section - Navigation */}
