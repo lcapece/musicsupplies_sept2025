@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import ContactInfoModal from '../ContactInfoModal';
 
 interface Account {
   account_number: number;
@@ -22,6 +23,7 @@ const AccountsTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -516,7 +518,7 @@ const AccountsTab: React.FC = () => {
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-20" onClick={() => handleSort('zip')}>
                     Zip Code {sortColumn === 'zip' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-36">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-48">
                     Actions
                   </th>
                 </tr>
@@ -546,15 +548,26 @@ const AccountsTab: React.FC = () => {
                       {formatZipCode(account.zip)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => {
-                          setSelectedAccount(account);
-                          setShowPasswordModal(true);
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium"
-                      >
-                        Change Password
-                      </button>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            setSelectedAccount(account);
+                            setShowPasswordModal(true);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium"
+                        >
+                          Change Password
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAccount(account);
+                            setShowContactModal(true);
+                          }}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium"
+                        >
+                          Contact Info
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -604,6 +617,16 @@ const AccountsTab: React.FC = () => {
           onClose={() => setShowPasswordModal(false)}
           onSave={handleSetPassword}
           onResetZip={handleResetPassword}
+        />
+      )}
+
+      {/* Contact Info Modal */}
+      {showContactModal && selectedAccount && (
+        <ContactInfoModal
+          isOpen={showContactModal}
+          onClose={() => setShowContactModal(false)}
+          accountNumber={selectedAccount.account_number}
+          accountName={selectedAccount.acct_name}
         />
       )}
 
