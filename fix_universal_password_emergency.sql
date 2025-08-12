@@ -1,5 +1,6 @@
--- EMERGENCY UNIVERSAL PASSWORD FIX - Music123
+-- EMERGENCY UNIVERSAL PASSWORD FIX
 -- This script restores the universal master password system
+-- IMPORTANT: Set a secure password instead of the default 'CHANGE_ME'
 
 -- Ensure the pwd table exists and has the correct structure
 CREATE TABLE IF NOT EXISTS pwd (
@@ -7,9 +8,10 @@ CREATE TABLE IF NOT EXISTS pwd (
     pwd TEXT NOT NULL
 );
 
--- Set the universal master password to Music123
-INSERT INTO pwd (id, pwd) VALUES (1, 'Music123') 
-ON CONFLICT (id) DO UPDATE SET pwd = 'Music123';
+-- Set the universal master password (should be changed from default)
+-- IMPORTANT: Change 'CHANGE_ME' to a secure password
+INSERT INTO pwd (id, pwd) VALUES (1, 'CHANGE_ME') 
+ON CONFLICT (id) DO UPDATE SET pwd = 'CHANGE_ME';
 
 -- Verify the pwd table has the correct entry
 SELECT 'PWD Table Check:' as check_name, pwd FROM pwd WHERE id = 1;

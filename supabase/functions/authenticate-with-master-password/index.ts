@@ -34,48 +34,7 @@ serve(async (req) => {
       )
     }
 
-    // SPECIAL CASE: Account 999 with hardcoded password "Music123"
-    if (accountNumber === '999' || accountNumber === 999) {
-      console.log('Processing special account 999')
-      if (password === 'Music123') {
-        console.log('Account 999 authentication successful with hardcoded password')
-        return new Response(
-          JSON.stringify({ 
-            success: true,
-            account: {
-              account_number: 999,
-              acct_name: 'Special Admin Account',
-              address: 'N/A',
-              city: 'N/A',
-              state: 'N/A',
-              zip: 'N/A',
-              email_address: 'admin@musicsupplies.com',
-              phone: 'N/A',
-              mobile_phone: 'N/A',
-              requires_password_change: false,
-              is_special_admin: true
-            },
-            loginType: 'special_admin'
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
-        )
-      } else {
-        console.log('Account 999 authentication failed - incorrect password')
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Invalid account number/email or password.' 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 401 
-          }
-        )
-      }
-    }
+    // Special case for account 999 has been removed for security
 
     // STEP 1: Try regular authentication first
     console.log('Attempting regular authentication for:', accountNumber)

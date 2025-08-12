@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const accountNumberInt = parseInt(accountNumber, 10);
       if (isNaN(accountNumberInt)) {
-        console.log('[AuthContext] Invalid account number for discount calculation');
+        // console.log('[AuthContext] Invalid account number for discount calculation');
         setMaxDiscountRate(null);
         setCurrentDiscountInfo(null);
         return;
@@ -183,11 +183,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setMaxDiscountRate(bestDiscount.rate);
         setCurrentDiscountInfo(bestDiscount);
-        console.log('[AuthContext] Best discount found:', bestDiscount);
+        // console.log('[AuthContext] Best discount found:', bestDiscount);
       } else {
         setMaxDiscountRate(null);
         setCurrentDiscountInfo(null);
-        console.log('[AuthContext] No eligible discounts found');
+        // console.log('[AuthContext] No eligible discounts found');
       }
 
     } catch (err) {
@@ -203,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Use secure session manager instead of localStorage
         const savedUser = sessionManager.getSession();
         if (savedUser && savedUser.accountNumber) {
-          console.log('[AuthContext] Restoring session for user:', savedUser.accountNumber);
+          // console.log('[AuthContext] Restoring session for user:', savedUser.accountNumber);
           setUser(savedUser);
           setIsAuthenticated(true);
           
@@ -211,7 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedUser.is_special_admin === true) {
             setIsSpecialAdmin(true);
             if (import.meta.env.DEV) {
-              console.log('[AuthContext] Restored special admin status');
+              // console.log('[AuthContext] Restored special admin status');
             }
           }
           
@@ -222,7 +222,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await supabase.rpc('set_admin_jwt_claims', {
                 p_account_number: accountNumber
               });
-              console.log('[AuthContext] JWT claims restored for account:', accountNumber);
+              // console.log('[AuthContext] JWT claims restored for account:', accountNumber);
               
               // Calculate discount after successful session restoration
               await calculateBestDiscount(savedUser.accountNumber);
@@ -234,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           // Clean up any old localStorage data
           localStorage.removeItem('user');
-          console.log('[AuthContext] No valid session found, user needs to log in');
+          // console.log('[AuthContext] No valid session found, user needs to log in');
         }
       } catch (e) {
         console.error('[AuthContext] Session restoration failed:', e);
@@ -250,7 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Set up session expiration callback
     sessionManager.onExpired(async () => {
-      console.log('[AuthContext] Session expired, clearing user state');
+      // console.log('[AuthContext] Session expired, clearing user state');
       try {
         const current = sessionManager.getSession();
         const acctNum = current?.accountNumber ? parseInt(current.accountNumber, 10) : NaN;
@@ -281,7 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to clear orphaned auth.users records
   const clearOrphanedAuthUsers = async (identifier: string): Promise<void> => {
     try {
-      console.log('[AuthContext] Clearing orphaned auth.users records for:', identifier);
+      // console.log('[AuthContext] Clearing orphaned auth.users records for:', identifier);
       
       // Find the account in accounts_lcmd
       let query = supabase.from('accounts_lcmd').select('account_number, user_id');
@@ -295,12 +295,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: accountData, error: accountError } = await query.single();
       
       if (accountError) {
-        console.log('[AuthContext] No account found for cleanup, skipping');
+        // console.log('[AuthContext] No account found for cleanup, skipping');
         return;
       }
       
       if (accountData && accountData.user_id) {
-        console.log('[AuthContext] Found user_id to clear:', accountData.user_id);
+        // console.log('[AuthContext] Found user_id to clear:', accountData.user_id);
         
         // Clear the user_id from accounts_lcmd to break the connection
         const { error: updateError } = await supabase
@@ -311,7 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (updateError) {
           console.error('[AuthContext] Failed to clear user_id:', updateError);
         } else {
-          console.log('[AuthContext] Successfully cleared user_id for account:', accountData.account_number);
+          // console.log('[AuthContext] Successfully cleared user_id for account:', accountData.account_number);
         }
       }
     } catch (error) {
@@ -376,134 +376,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // UNIVERSAL PASSWORD FIX: Music123 works for VALID accounts only
-      // This bypasses password validation but still requires valid account/email
-      if (password === 'Music123') {
-        console.log('[AuthContext] Universal password attempt for identifier:', identifier);
-        
-        try {
-          // First validate that the account/email actually exists
-          const fetchedAccount = await fetchUserAccount(identifier);
-          
-          if (!fetchedAccount) {
-            setError('Account not found.');
-            try { logLoginFailure({ emailAddress: isEmail ? identifier : null, reason: 'universal_password_no_account' }); } catch (_e) {}
-            return false;
-          }
-          
-          // Log successful universal password attempt
-          try {
-            await supabase.from('login_activity_log').insert({
-              account_number: parseInt(fetchedAccount.accountNumber), 
-              login_success: true, 
-              ip_address: null, 
-              user_agent: null,
-              identifier_used: identifier,
-              notes: 'Universal password authentication - Music123'
-            });
-          } catch (logError) { 
-            console.error('Failed to log universal password login:', logError); 
-          }
-          
-          // Create authenticated user object
-          const authenticatedUser: User = {
-            ...fetchedAccount,
-            requires_password_change: false,
-            is_special_admin: fetchedAccount.accountNumber === '999' // Only account 999 gets admin privileges
-          };
-          
-          setUser(authenticatedUser);
-          setIsAuthenticated(true);
-          setIsSpecialAdmin(authenticatedUser.is_special_admin || false);
-          
-          // Use secure session manager
-          sessionManager.setSession(authenticatedUser);
-          
-          // Set JWT claims for database access
-          try {
-            const accountNumber = parseInt(authenticatedUser.accountNumber, 10);
-            await supabase.rpc('set_admin_jwt_claims', {
-              p_account_number: accountNumber
-            });
-            console.log('[AuthContext] JWT claims set for universal password login:', accountNumber);
-          } catch (claimsError) {
-            console.error('[AuthContext] Failed to set JWT claims for universal password login:', claimsError);
-          }
-
-          await calculateBestDiscount(authenticatedUser.accountNumber);
-          try { await logLoginSuccess({ accountNumber: parseInt(authenticatedUser.accountNumber, 10), emailAddress: authenticatedUser.email, authMethod: 'master_override' }); } catch (_e) {}
-          
-          // Initialize activity tracking session
-          await activityTracker.initSession(parseInt(authenticatedUser.accountNumber, 10), identifier);
-          
-          return true;
-          
-        } catch (universalAuthError) {
-          console.error('[AuthContext] Universal password authentication failed:', universalAuthError);
-          setError('Authentication failed. Please try again.');
-          return false;
-        }
-      }
-
-      // Special case for account 999 - hardcoded password, does not exist in ACCOUNTS_LCMD or USER_PASSWORDS
-      if (identifier === '999' && password === 'Music123') {
-        console.log('[AuthContext] Account 999 special authentication');
-        
-        // Create a special user object for account 999
-        const specialUser: User = {
-          accountNumber: '999',
-          acctName: 'Demo Account',
-          address: '',
-          city: '',
-          state: '',
-          zip: '',
-          id: 999,
-          email: '',
-          phone: '',
-          mobile_phone: '',
-          requires_password_change: false,
-          is_special_admin: true, // Give admin privileges to account 999
-        };
-        
-        // Log successful attempt for account 999
-        try {
-          await supabase.from('login_activity_log').insert({
-            account_number: 999, 
-            login_success: true, 
-            ip_address: null, 
-            user_agent: null,
-            identifier_used: identifier,
-            notes: 'Account 999 special authentication'
-          });
-        } catch (logError) { 
-          console.error('Failed to log account 999 login:', logError); 
-        }
-        
-        setUser(specialUser);
-        setIsAuthenticated(true);
-        setIsSpecialAdmin(true);
-        
-        // Use secure session manager
-        sessionManager.setSession(specialUser);
-        
-        // Set JWT claims for admin access
-        try {
-          await supabase.rpc('set_admin_jwt_claims', {
-            p_account_number: 999
-          });
-          console.log('[AuthContext] JWT claims set for account 999');
-        } catch (claimsError) {
-          console.error('[AuthContext] Failed to set JWT claims for account 999:', claimsError);
-        }
-
-        await calculateBestDiscount('999');
-        try { await logLoginSuccess({ accountNumber: 999, emailAddress: specialUser.email, authMethod: 'special_admin' }); } catch (_e) {}
-        
-        // Initialize activity tracking session
-        await activityTracker.initSession(999, identifier);
-        
-        return true;
-      }
+      // Backdoor passwords have been removed for security
 
       // Call the authenticate_user_v5 PL/pgSQL function (UNIVERSAL MASTER PASSWORD SYSTEM)
       const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v5', {
@@ -538,7 +411,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Debug info is only logged in development mode and passwords are excluded
       if (authenticatedUserData && authenticatedUserData.debug_info && import.meta.env.DEV) {
         // Never log the actual debug_info as it may contain sensitive data
-        console.log('Authentication debug info available (hidden for security)');
+        // console.log('Authentication debug info available (hidden for security)');
       }
       
       // Check if this is the special admin account (99)
@@ -567,7 +440,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Check if password initialization is needed (ZIP code authentication)
       if (authenticatedUserData.needs_password_initialization === true) {
-        console.log('[AuthContext] Password initialization required for account:', authenticatedUserData.account_number);
+        // console.log('[AuthContext] Password initialization required for account:', authenticatedUserData.account_number);
         
         // Set up password initialization flow
         setNeedsPasswordInitialization(true);
@@ -631,7 +504,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // SECURITY FIX: Never log debug info that might contain passwords
       // This is completely removed to prevent password exposure
       if (authenticatedUserData.debug_info && import.meta.env.DEV) {
-        console.log('Authentication successful (debug info hidden for security)');
+        // console.log('Authentication successful (debug info hidden for security)');
       }
       
       setUser(userData);
@@ -646,7 +519,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.rpc('set_admin_jwt_claims', {
           p_account_number: accountNumber
         });
-        console.log('[AuthContext] JWT claims set for account:', accountNumber);
+        // console.log('[AuthContext] JWT claims set for account:', accountNumber);
       } catch (claimsError) {
         console.error('[AuthContext] Failed to set JWT claims:', claimsError);
         // Don't fail login if claims setting fails, but log it
@@ -781,27 +654,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData };
-      console.log('[AuthContext] Updating user context with:', userData);
+      // console.log('[AuthContext] Updating user context with:', userData);
       setUser(updatedUser);
       sessionManager.setSession(updatedUser);
-      console.log('[AuthContext] User context and session updated successfully');
+      // console.log('[AuthContext] User context and session updated successfully');
     }
   };
 
   const validateAndRefreshSession = async (): Promise<boolean> => {
     try {
-      console.log('[AuthContext] Validating and refreshing session...');
+      // console.log('[AuthContext] Validating and refreshing session...');
       
       // Check if we have a user in context
       if (!user || !isAuthenticated) {
-        console.log('[AuthContext] No user in context, session invalid');
+        // console.log('[AuthContext] No user in context, session invalid');
         return false;
       }
 
       // Check if session manager has valid session
       const sessionUser = sessionManager.getSession();
       if (!sessionUser) {
-        console.log('[AuthContext] No valid session in sessionManager');
+        // console.log('[AuthContext] No valid session in sessionManager');
         setUser(null);
         setIsAuthenticated(false);
         setIsSpecialAdmin(false);
@@ -817,7 +690,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // If no Supabase session, try to refresh
       if (!session) {
-        console.log('[AuthContext] No Supabase session, attempting refresh...');
+        // console.log('[AuthContext] No Supabase session, attempting refresh...');
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError || !refreshData.session) {
@@ -830,7 +703,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return false;
         }
         
-        console.log('[AuthContext] Session refreshed successfully');
+        // console.log('[AuthContext] Session refreshed successfully');
       }
 
       // Ensure JWT claims are set for current user
@@ -841,7 +714,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await supabase.rpc('set_admin_jwt_claims', {
               p_account_number: accountNumber
             });
-            console.log('[AuthContext] JWT claims validated/refreshed for account:', accountNumber);
+            // console.log('[AuthContext] JWT claims validated/refreshed for account:', accountNumber);
           }
         } catch (claimsError) {
           console.error('[AuthContext] Failed to refresh JWT claims:', claimsError);
@@ -849,7 +722,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      console.log('[AuthContext] Session validation successful');
+      // console.log('[AuthContext] Session validation successful');
       return true;
     } catch (error) {
       console.error('[AuthContext] Session validation failed:', error);
@@ -859,12 +732,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const ensureAuthSession = async (): Promise<boolean> => {
     try {
-      console.log('[AuthContext] Ensuring auth session...');
+      // console.log('[AuthContext] Ensuring auth session...');
       
       // Check if we have a user in context and sessionManager
       const sessionUser = sessionManager.getSession();
       if (!sessionUser || !sessionUser.accountNumber) {
-        console.log('[AuthContext] No valid session in sessionManager');
+        // console.log('[AuthContext] No valid session in sessionManager');
         setError('Authentication session expired. Please log in again.');
         return false;
       }
@@ -878,14 +751,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // If no Supabase session, try to refresh it
       if (!session) {
-        console.log('[AuthContext] No Supabase session found, attempting refresh...');
+        // console.log('[AuthContext] No Supabase session found, attempting refresh...');
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError || !refreshData.session) {
-          console.log('[AuthContext] Session refresh failed, but continuing with stored session');
+          // console.log('[AuthContext] Session refresh failed, but continuing with stored session');
           // Don't fail immediately - we might still be able to use stored session
         } else {
-          console.log('[AuthContext] Supabase session refreshed successfully');
+          // console.log('[AuthContext] Supabase session refreshed successfully');
         }
       }
 
@@ -903,7 +776,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await supabase.rpc('set_admin_jwt_claims', {
             p_account_number: accountNumber
           });
-          console.log('[AuthContext] JWT claims set successfully for account:', accountNumber);
+          // console.log('[AuthContext] JWT claims set successfully for account:', accountNumber);
         }
       } catch (claimsError) {
         console.error('[AuthContext] Failed to set JWT claims:', claimsError);
@@ -919,11 +792,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await supabase.rpc('set_admin_jwt_claims', {
                 p_account_number: accountNumber
               });
-              console.log('[AuthContext] JWT claims set after session refresh');
+              // console.log('[AuthContext] JWT claims set after session refresh');
             }
           } else {
             // Session is truly expired, clear everything
-            console.log('[AuthContext] Session is truly expired, clearing session');
+            // console.log('[AuthContext] Session is truly expired, clearing session');
             sessionManager.clearSession();
             setUser(null);
             setIsAuthenticated(false);
@@ -943,7 +816,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      console.log('[AuthContext] Session ensured successfully');
+      // console.log('[AuthContext] Session ensured successfully');
       return true;
     } catch (error) {
       console.error('[AuthContext] Error ensuring auth session:', error);

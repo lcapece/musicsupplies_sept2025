@@ -62,6 +62,20 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
     setError('');
     
     try {
+      // Set admin context when editing from admin page
+      const isAdminPage = window.location.pathname.includes('/admin');
+      if (isAdminPage) {
+        try {
+          await supabase.rpc('set_config', {
+            setting_name: 'app.current_account_number',
+            new_value: '999',
+            is_local: true
+          });
+        } catch (configError) {
+          console.log('Session context set failed (non-critical):', configError);
+        }
+      }
+
       const { data, error } = await supabase
         .rpc('get_contact_info', { p_account_number: accountNumber });
 
@@ -92,6 +106,20 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
     setSuccess('');
 
     try {
+      // Set admin context when editing from admin page
+      const isAdminPage = window.location.pathname.includes('/admin');
+      if (isAdminPage) {
+        try {
+          await supabase.rpc('set_config', {
+            setting_name: 'app.current_account_number',
+            new_value: '999',
+            is_local: true
+          });
+        } catch (configError) {
+          console.log('Session context set failed (non-critical):', configError);
+        }
+      }
+
       // Log the data being sent
       console.log('Saving contact info for account:', accountNumber);
       console.log('Data being sent:', {
