@@ -304,46 +304,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     return u.role === 'admin' || u.role === 'staff';
   });
 
-  // Check if user needs to log in
-  if (!isAuthenticated) {
-    if (!isOpen) {
-      return (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors z-50"
-          aria-label="Open chat"
-        >
-          <MessageSquare size={24} />
-        </button>
-      );
-    }
-
-    return (
-      <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-2xl flex flex-col z-50"
-           style={{ width: '360px', height: '200px' }}>
-        <div className="bg-purple-900 text-white p-3 rounded-t-lg flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageSquare size={20} />
-            <span className="font-semibold">Music Supplies Chat</span>
-          </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="hover:bg-purple-800 p-1 rounded"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center">
-            <AlertCircle className="mx-auto mb-3 text-purple-600" size={32} />
-            <p className="text-gray-700 font-medium mb-2">Login Required</p>
-            <p className="text-sm text-gray-500">Please log in to use the chat system</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Modified to allow non-authenticated users to use AI chat
+  // Only authenticated users can access the live chat with other users
+  // Non-authenticated users get AI assistant powered by knowledge base
 
   if (!isOpen) {
     return (

@@ -177,10 +177,17 @@ const EnhancedChatWidget: React.FC = () => {
     }
   };
 
-  // Toggle voice input
-  const toggleVoiceInput = () => {
+  // Toggle voice input with better permission handling
+  const toggleVoiceInput = async () => {
     if (!recognitionRef.current) {
-      alert('Voice input is not supported in your browser. Please use Chrome or Edge.');
+      const helpMessage: Message = {
+        id: `msg-${Date.now()}`,
+        role: 'system',
+        content: '🎤 Voice input requires Chrome or Edge browser. You can still type your questions!',
+        timestamp: new Date(),
+        mode: 'ai'
+      };
+      setMessages(prev => [...prev, helpMessage]);
       return;
     }
 
@@ -188,8 +195,61 @@ const EnhancedChatWidget: React.FC = () => {
       recognitionRef.current.stop();
       setIsListening(false);
     } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      try {
+        // First check if we're on HTTPS (required for microphone)
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+          const securityMessage: Message = {
+            id: `msg-${Date.now()}`,
+            role: 'system',
+            content: '🔒 Voice input requires a secure connection (HTTPS). Please type your question instead!',
+            timestamp: new Date(),
+            mode: 'ai'
+          };
+          setMessages(prev => [...prev, securityMessage]);
+          return;
+        }
+
+        // Request microphone permission explicitly
+        await navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            // Stop the stream immediately - we just needed permission
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Now start speech recognition
+            recognitionRef.current.start();
+            setIsListening(true);
+            
+            const startMessage: Message = {
+              id: `msg-${Date.now()}`,
+              role: 'system',
+              content: '🎤 Listening... Speak your question!',
+              timestamp: new Date(),
+              mode: 'ai'
+            };
+            setMessages(prev => [...prev, startMessage]);
+          })
+          .catch(err => {
+            console.error('Microphone permission denied:', err);
+            const deniedMessage: Message = {
+              id: `msg-${Date.now()}`,
+              role: 'system',
+              content: '🎤 Microphone access was denied. No worries - just type your question below!',
+              timestamp: new Date(),
+              mode: 'ai'
+            };
+            setMessages(prev => [...prev, deniedMessage]);
+          });
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        const errorMessage: Message = {
+          id: `msg-${Date.now()}`,
+          role: 'system',
+          content: '🎤 Unable to access microphone. Please type your question instead!',
+          timestamp: new Date(),
+          mode: 'ai'
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     }
   };
 

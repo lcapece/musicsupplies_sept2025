@@ -24,7 +24,7 @@ import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import update pa
 import SmsConsentPreviewPage from './pages/SmsConsentPreviewPage'; // Import SMS consent preview page
 import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
-import ChatWidget from './components/ChatWidget';
+import EnhancedChatWidget from './components/EnhancedChatWidget';
 import ChatPage from './pages/ChatPage';
 import { useLocation } from 'react-router-dom';
 import { VersionCheck } from './components/VersionCheck';
@@ -273,8 +273,8 @@ function AppContent() {
         />
       )}
 
-      {/* Chat Widget - only show on non-chat pages */}
-      {location.pathname !== '/chat' && <ChatWidget />}
+      {/* Enhanced Chat Widget - AI-powered, works for both authenticated and non-authenticated users */}
+      {location.pathname !== '/chat' && <EnhancedChatWidget />}
     </>
   );
 }

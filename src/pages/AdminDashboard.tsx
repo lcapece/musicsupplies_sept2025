@@ -9,8 +9,10 @@ import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 import SiteStatusTab from '../components/admin/SiteStatusTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
+import AdminChatManagementPage from './AdminChatManagementPage';
+import SimplePasswordChanger from '../components/admin/SimplePasswordChanger';
 
-type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus';
+type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus' | 'chat' | 'security';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -60,10 +62,12 @@ const AdminDashboard: React.FC = () => {
     { id: 'accounts', label: 'Accounts', icon: '👥' },
     { id: 'applications', label: 'Applications', icon: '📝' },
     { id: 'history', label: 'Order History', icon: '📊' },
+    { id: 'chat', label: 'Chat System', icon: '🤖' },
     { id: 'sms', label: 'SMS Notifications', icon: '📱' },
     { id: 'clicksend', label: 'ClickSend', icon: '📨' },
     { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
     { id: 'sitestatus', label: 'Site Status', icon: '⚠️' },
+    { id: 'security', label: 'Security', icon: '🔐' },
   ];
 
   const renderTabContent = () => {
@@ -74,6 +78,8 @@ const AdminDashboard: React.FC = () => {
         return <AccountApplicationsTab />;
       case 'history':
         return <OrderHistoryTab />;
+      case 'chat':
+        return <AdminChatManagementPage />;
       case 'sms':
         return <div className="text-center py-16 text-2xl text-gray-500">SMS Notifications coming soon...</div>;
       case 'clicksend':
@@ -82,6 +88,13 @@ const AdminDashboard: React.FC = () => {
         return <PromoCodeManagementTab />;
       case 'sitestatus':
         return <SiteStatusTab />;
+      case 'security':
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Security Settings</h2>
+            <SimplePasswordChanger />
+          </div>
+        );
       default:
         return <AccountsTab />;
     }
