@@ -5,10 +5,40 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const appVersion = env.VITE_APP_VERSION || 'dev';
+  const appVersion = env.VITE_APP_VERSION || Date.now().toString();
   
   return {
   root: '.', // Explicitly set the root directory
+  json: {
+    // Allow importing package.json for version
+    stringify: false
+  },
+  build: {
+    // Generate unique filenames with content hash for cache busting
+    rollupOptions: {
+      output: {
+        entryFileNames: `assets/[name].[hash].js`,
+        chunkFileNames: `assets/[name].[hash].js`,
+        assetFileNames: `assets/[name].[hash].[ext]`
+      }
+    },
+    // Clear the output directory before building
+    emptyOutDir: true,
+    // Generate source maps for debugging
+    sourcemap: true,
+    // Set a unique build ID
+    manifest: true,
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000
+  },
+  server: {
+    // Add cache headers for development
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  },
   plugins: [
     react(),
     VitePWA({
@@ -20,7 +50,7 @@ export default defineConfig(({ mode }) => {
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
-        version: appVersion, // Include version in manifest
+        // Version is handled through cache ID and file hashing
       },
       workbox: {
         cleanupOutdatedCaches: true, // Clean old caches

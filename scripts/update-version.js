@@ -66,6 +66,23 @@ if (version) {
   // Write updated .env
   fs.writeFileSync(envPath, existingEnv + envContent);
   console.log(`Updated .env with version: ${version}`);
+  
+  // Also write version.json to public directory for runtime checks
+  const versionJson = {
+    version: version,
+    timestamp: new Date().toISOString(),
+    build: Date.now()
+  };
+  
+  // Create public directory if it doesn't exist
+  const publicDir = path.join(process.cwd(), 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+  
+  const versionJsonPath = path.join(publicDir, 'version.json');
+  fs.writeFileSync(versionJsonPath, JSON.stringify(versionJson, null, 2));
+  console.log(`Created public/version.json with version: ${version}`);
 }
 
 console.log(`Version update complete: ${version}`);

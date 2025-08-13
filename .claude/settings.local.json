@@ -9,7 +9,23 @@
       "Bash(ls:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm run update-version:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(npx netlify deploy:*)",
+      "Bash(netlify deploy:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(netlify:*)",
+      "WebFetch(domain:musicsupplies.com)",
+      "Bash(npx netlify-cli deploy:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(node:*)",
+      "Bash(npx netlify-cli@latest deploy:*)",
+      "Bash(powershell:*)"
     ],
     "deny": []
   }

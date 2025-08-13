@@ -30,7 +30,7 @@ const Dashboard: React.FC = () => {
   const [selectedMainCategoryName, setSelectedMainCategoryName] = useState<string | undefined>();
   const [selectedSubCategoryName, setSelectedSubCategoryName] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [inStockOnly, setInStockOnly] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(true); // Changed to true for default checked
   const [showImageAndSpecs, setShowImageAndSpecs] = useState(true); // Changed to true for default checked
   const [showMsrp, setShowMsrp] = useState(true); // New state for showing MSRP column
   const [showMapPrice, setShowMapPrice] = useState(true); // New state for showing MAP Price column

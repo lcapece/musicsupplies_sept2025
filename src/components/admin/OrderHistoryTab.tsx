@@ -13,12 +13,15 @@ interface WebOrder {
   grand_total: number;
   payment_method?: string;
   order_status: string;
+  original_status?: string;
   status?: string;
   email?: string;
   phone?: string;
   promo_code_used?: string;
   customer_name?: string;
   invoice_sent?: boolean;
+  backend_ivd?: string | null;
+  has_backend_match?: boolean;
 }
 
 const OrderHistoryTab: React.FC = () => {
@@ -160,12 +163,50 @@ const OrderHistoryTab: React.FC = () => {
         }
       }
 
+      // Get backend IVD and status values from v_legacy_order_info view
+      const orderNumbers = ordersData.map(order => order.order_number);
+      let backendLookup = new Map();
+      
+      if (orderNumbers.length > 0) {
+        const { data: backendData, error: backendError } = await supabase
+          .from('v_legacy_order_info')
+          .select('invoice_number, status, web_order_number')
+          .in('web_order_number', orderNumbers);
+
+        if (backendError) {
+          console.warn('Error fetching backend data from v_legacy_order_info:', backendError);
+        } else {
+          // Map the data by web_order_number
+          backendData?.forEach((item: any) => {
+            backendLookup.set(item.web_order_number, {
+              backend: item.invoice_number,
+              status: item.status
+            });
+          });
+        }
+      }
+
       // Process the orders and apply search filter
-      let processedOrders = ordersData.map(order => ({
-        ...order,
-        customer_name: accountLookup.get(order.account_number) || 'Unknown',
-        promo_code_used: promoLookup.get(order.id) || null
-      }));
+      let processedOrders = ordersData.map(order => {
+        const backendInfo = backendLookup.get(order.order_number);
+        const originalStatus = order.order_status;
+        
+        // Use backend status unless the current status is "Canceled"
+        let finalStatus = originalStatus;
+        if (originalStatus !== 'Canceled' && backendInfo?.status) {
+          finalStatus = backendInfo.status;
+        }
+        
+        return {
+          ...order,
+          customer_name: accountLookup.get(order.account_number) || 'Unknown',
+          promo_code_used: promoLookup.get(order.id) || null,
+          backend_ivd: backendInfo?.backend || null,
+          original_status: originalStatus,
+          order_status: finalStatus,
+          has_backend_match: !!backendInfo
+        };
+      });
 
       // Apply search filter
       if (searchTerm) {
@@ -259,12 +300,50 @@ const OrderHistoryTab: React.FC = () => {
         }
       }
 
+      // Get backend IVD and status values from v_legacy_order_info view
+      const orderNumbers = ordersData.map(order => order.order_number);
+      let backendLookup = new Map();
+      
+      if (orderNumbers.length > 0) {
+        const { data: backendData, error: backendError } = await supabase
+          .from('v_legacy_order_info')
+          .select('invoice_number, status, web_order_number')
+          .in('web_order_number', orderNumbers);
+
+        if (backendError) {
+          console.warn('Error fetching backend data from v_legacy_order_info:', backendError);
+        } else {
+          // Map the data by web_order_number
+          backendData?.forEach((item: any) => {
+            backendLookup.set(item.web_order_number, {
+              backend: item.invoice_number,
+              status: item.status
+            });
+          });
+        }
+      }
+
       // Process the orders and apply search filter
-      let processedOrders = ordersData.map(order => ({
-        ...order,
-        customer_name: accountLookup.get(order.account_number) || 'Unknown',
-        promo_code_used: promoLookup.get(order.id) || null
-      }));
+      let processedOrders = ordersData.map(order => {
+        const backendInfo = backendLookup.get(order.order_number);
+        const originalStatus = order.order_status;
+        
+        // Use backend status unless the current status is "Canceled"
+        let finalStatus = originalStatus;
+        if (originalStatus !== 'Canceled' && backendInfo?.status) {
+          finalStatus = backendInfo.status;
+        }
+        
+        return {
+          ...order,
+          customer_name: accountLookup.get(order.account_number) || 'Unknown',
+          promo_code_used: promoLookup.get(order.id) || null,
+          backend_ivd: backendInfo?.backend || null,
+          original_status: originalStatus,
+          order_status: finalStatus,
+          has_backend_match: !!backendInfo
+        };
+      });
 
       // Apply search filter
       if (searchTerm) {
@@ -662,8 +741,11 @@ const OrderHistoryTab: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
                     Order Number
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                    Backend
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date/Time
@@ -693,9 +775,18 @@ const OrderHistoryTab: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
+                  <tr key={order.id} className={`hover:bg-gray-50 ${!order.has_backend_match ? 'bg-red-50' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {order.order_number}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap ${!order.has_backend_match ? 'bg-red-100' : ''}`}>
+                      {order.backend_ivd ? (
+                        <span className="text-sm font-bold text-red-600">
+                          {order.backend_ivd}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatDate(order.created_at)}

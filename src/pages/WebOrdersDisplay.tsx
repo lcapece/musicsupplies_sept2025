@@ -9,16 +9,23 @@ interface WebOrder {
   created_at: string;
   subtotal: string;
   status: string;
+  original_status: string; // Keep original status from web_orders
   customer_name: string;
   promo_code: string | null;
   discount_amount: string;
+  backend_ivd: string | null;
 }
+
+type SortField = 'order_number' | 'customer_name' | 'created_at' | 'status' | 'subtotal' | 'backend_ivd';
+type SortDirection = 'asc' | 'desc';
 
 const WebOrdersDisplay: React.FC = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<WebOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     fetchWebOrders();
@@ -79,13 +86,52 @@ const WebOrdersDisplay: React.FC = () => {
         }
       }
 
+      // Get backend IVD and status values from pre_order_history_lcmd
+      const orderNumbers = data?.map(order => order.order_number) || [];
+      let backendLookup = new Map();
+      
+      if (orderNumbers.length > 0) {
+        const { data: backendData, error: backendError } = await supabase
+          .from('pre_order_history_lcmd')
+          .select('web_order_number, ivd, status')
+          .in('web_order_number', orderNumbers);
+
+        if (backendError) {
+          console.warn('Error fetching backend IVD data:', backendError);
+        } else {
+          // Group by web_order_number and take the first IVD and status value (using distinct logic)
+          backendData?.forEach((item: any) => {
+            if (!backendLookup.has(item.web_order_number)) {
+              backendLookup.set(item.web_order_number, {
+                ivd: item.ivd,
+                status: item.status
+              });
+            }
+          });
+        }
+      }
+
       // Process the data to extract customer name from the joined table
-      const processedOrders: WebOrder[] = data?.map(order => ({
-        ...order,
-        customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown',
-        promo_code: promoLookup.get(order.id) || null,
-        discount_amount: order.discount_amount || '0'
-      })) || [];
+      const processedOrders: WebOrder[] = data?.map(order => {
+        const backendInfo = backendLookup.get(order.order_number);
+        const originalStatus = order.status;
+        
+        // Use backend status unless the current status is "Canceled"
+        let finalStatus = originalStatus;
+        if (originalStatus?.toLowerCase() !== 'canceled' && backendInfo?.status) {
+          finalStatus = backendInfo.status;
+        }
+        
+        return {
+          ...order,
+          customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown',
+          promo_code: promoLookup.get(order.id) || null,
+          discount_amount: order.discount_amount || '0',
+          backend_ivd: backendInfo?.ivd || null,
+          original_status: originalStatus,
+          status: finalStatus
+        };
+      }) || [];
 
       setOrders(processedOrders);
     } catch (err) {
@@ -94,6 +140,59 @@ const WebOrdersDisplay: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedOrders = [...orders].sort((a, b) => {
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+
+    // Handle null values
+    if (aValue === null) return sortDirection === 'asc' ? 1 : -1;
+    if (bValue === null) return sortDirection === 'asc' ? -1 : 1;
+
+    // Handle different data types
+    if (sortField === 'subtotal') {
+      aValue = parseFloat(aValue);
+      bValue = parseFloat(bValue);
+    } else if (sortField === 'created_at') {
+      aValue = new Date(aValue).getTime();
+      bValue = new Date(bValue).getTime();
+    } else if (typeof aValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return (
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    return sortDirection === 'asc' ? (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+      </svg>
+    ) : (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    );
   };
 
   if (loading) {
@@ -155,23 +254,62 @@ const WebOrdersDisplay: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order Number
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('order_number')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Order Number</span>
+                      <SortIcon field="order_number" />
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('backend_ivd')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Backend</span>
+                      <SortIcon field="backend_ivd" />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('customer_name')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Customer</span>
+                      <SortIcon field="customer_name" />
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Promo Code
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date/Time
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Date/Time</span>
+                      <SortIcon field="created_at" />
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Status</span>
+                      <SortIcon field="status" />
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
+                  <th 
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('subtotal')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Total</span>
+                      <SortIcon field="subtotal" />
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Discount
@@ -179,10 +317,19 @@ const WebOrdersDisplay: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {orders.map((order) => (
+                {sortedOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {order.order_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {order.backend_ivd ? (
+                        <span className="text-sm font-bold text-red-600">
+                          {order.backend_ivd}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {order.customer_name} ({order.account_number})

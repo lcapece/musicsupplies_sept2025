@@ -27,6 +27,7 @@ import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for
 import ChatWidget from './components/ChatWidget';
 import ChatPage from './pages/ChatPage';
 import { useLocation } from 'react-router-dom';
+import { VersionCheck } from './components/VersionCheck';
 
 
 interface ProtectedRouteProps {
@@ -182,6 +183,9 @@ function AppContent() {
   
   return (
     <>
+      {/* Version Check Component - shows version and auto-refreshes */}
+      <VersionCheck />
+      
       {/* Authentication Fix Banner - only shows for admin users */}
       <LoginFixBanner />
       
