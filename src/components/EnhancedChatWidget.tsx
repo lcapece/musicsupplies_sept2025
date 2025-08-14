@@ -43,25 +43,59 @@ const EnhancedChatWidget: React.FC = () => {
 
   // Initialize speech recognition
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition;
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
+      recognitionRef.current.interimResults = true; // Show interim results while speaking
       recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.maxAlternatives = 1;
 
       recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInputMessage(transcript);
-        setIsListening(false);
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        
+        // Update input with interim or final results
+        if (finalTranscript) {
+          setInputMessage(prev => prev + finalTranscript);
+        } else if (interimTranscript) {
+          // Show interim results (you could show this differently)
+          setInputMessage(prev => {
+            const baseText = prev.replace(/ \[listening...\]$/, '');
+            return baseText + (baseText ? ' ' : '') + interimTranscript;
+          });
+        }
       };
 
-      recognitionRef.current.onerror = () => {
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
         setIsListening(false);
+        
+        // Handle specific errors
+        if (event.error === 'not-allowed') {
+          alert('Microphone access was denied. Please allow microphone access to use voice input.');
+        } else if (event.error === 'no-speech') {
+          // Silently handle no speech detected
+        } else {
+          alert(`Voice recognition error: ${event.error}`);
+        }
       };
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
+      };
+
+      recognitionRef.current.onstart = () => {
+        console.log('Speech recognition started');
       };
     }
   }, []);
@@ -430,22 +464,34 @@ const EnhancedChatWidget: React.FC = () => {
           <button
             type="button"
             onClick={toggleVoiceInput}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-lg transition-all relative ${
               isListening 
-                ? 'bg-red-600 text-white animate-pulse' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? 'bg-red-600 text-white animate-pulse shadow-lg scale-110' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:scale-105'
             }`}
-            aria-label="Voice input"
+            aria-label={isListening ? "Stop recording" : "Start voice input"}
+            title={isListening ? "Click to stop recording" : "Click to start voice input"}
           >
-            {isListening ? <Mic size={20} /> : <MicOff size={20} />}
+            {isListening ? (
+              <>
+                <Mic size={20} className="animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-400 rounded-full animate-ping"></span>
+              </>
+            ) : (
+              <MicOff size={20} />
+            )}
           </button>
           
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type your message or click the mic..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+            placeholder={isListening ? "🎤 Listening... Speak now!" : "Type your message or click the mic..."}
+            className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all ${
+              isListening 
+                ? 'border-red-400 bg-red-50 animate-pulse' 
+                : 'border-gray-300 bg-white'
+            }`}
             disabled={isListening}
           />
           

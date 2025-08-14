@@ -43,6 +43,25 @@ class AIChatService {
       preferredLLM: config.preferredLLM || 'openai'
     };
     this.sessionId = this.generateSessionId();
+    // Load voice settings from database
+    this.loadVoiceSettings();
+  }
+
+  // Load voice settings from database
+  private async loadVoiceSettings() {
+    try {
+      const { data, error } = await supabase
+        .from('chat_config')
+        .select('config_value')
+        .eq('config_key', 'elevenlabs_voice_id')
+        .single();
+      
+      if (!error && data) {
+        this.config.elevenLabsVoiceId = data.config_value;
+      }
+    } catch (error) {
+      console.log('Using default voice settings');
+    }
   }
 
   private generateSessionId(): string {
@@ -387,6 +406,11 @@ class AIChatService {
     } catch (error) {
       console.error('Error playing audio:', error);
     }
+  }
+
+  // Enable/disable voice
+  setVoiceEnabled(enabled: boolean): void {
+    this.voiceEnabled = enabled;
   }
 
   // Main chat method

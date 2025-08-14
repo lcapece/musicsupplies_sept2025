@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, Trash2, Save, X, Search, HelpCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Search, HelpCircle, Mic, Settings } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,6 +23,9 @@ const AdminKnowledgeBase: React.FC = () => {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState('');
+  const [voiceName, setVoiceName] = useState('');
 
   // Check if user is admin
   useEffect(() => {
@@ -31,9 +34,10 @@ const AdminKnowledgeBase: React.FC = () => {
     }
   }, [user, navigate]);
 
-  // Load knowledge base items
+  // Load knowledge base items and voice settings
   useEffect(() => {
     loadKnowledgeBase();
+    loadVoiceSettings();
   }, []);
 
   const loadKnowledgeBase = async () => {
@@ -50,6 +54,54 @@ const AdminKnowledgeBase: React.FC = () => {
       console.error('Error loading knowledge base:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadVoiceSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_config')
+        .select('*')
+        .in('config_key', ['elevenlabs_voice_id', 'elevenlabs_voice_name']);
+
+      if (!error && data) {
+        const voiceId = data.find(d => d.config_key === 'elevenlabs_voice_id');
+        const voiceNameData = data.find(d => d.config_key === 'elevenlabs_voice_name');
+        if (voiceId) setSelectedVoice(voiceId.config_value);
+        if (voiceNameData) setVoiceName(voiceNameData.config_value);
+      }
+    } catch (error) {
+      console.error('Error loading voice settings:', error);
+    }
+  };
+
+  const saveVoiceSettings = async () => {
+    try {
+      // Update voice ID
+      await supabase
+        .from('chat_config')
+        .update({ 
+          config_value: selectedVoice,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.accountNumber
+        })
+        .eq('config_key', 'elevenlabs_voice_id');
+
+      // Update voice name
+      await supabase
+        .from('chat_config')
+        .update({ 
+          config_value: voiceName,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.accountNumber
+        })
+        .eq('config_key', 'elevenlabs_voice_name');
+
+      alert('Voice settings saved successfully!');
+      setShowVoiceSettings(false);
+    } catch (error) {
+      console.error('Error saving voice settings:', error);
+      alert('Error saving voice settings. Please try again.');
     }
   };
 
@@ -161,6 +213,15 @@ const AdminKnowledgeBase: React.FC = () => {
               Add New Item
             </button>
 
+            <button
+              onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+              className="px-8 py-4 bg-purple-600 text-white text-xl font-semibold rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-4 focus:ring-purple-300 transition-all"
+              aria-label="Configure voice settings"
+            >
+              <Mic className="inline-block mr-2" size={28} />
+              Voice Settings
+            </button>
+
             {/* Search - Large Input */}
             <div className="flex-1 min-w-[300px]">
               <label htmlFor="search" className="sr-only">Search knowledge base</label>
@@ -197,6 +258,100 @@ const AdminKnowledgeBase: React.FC = () => {
             Showing {filteredItems.length} of {items.length} items
           </div>
         </div>
+
+        {/* Voice Settings Panel */}
+        {showVoiceSettings && (
+          <div className="bg-purple-50 border-4 border-purple-400 rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-2xl font-bold mb-4 flex items-center">
+              <Settings className="mr-3" size={32} />
+              ElevenLabs Voice Configuration
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-lg font-semibold mb-2" htmlFor="voice-select">
+                  Select Voice Actor
+                </label>
+                <select
+                  id="voice-select"
+                  value={selectedVoice}
+                  onChange={(e) => {
+                    setSelectedVoice(e.target.value);
+                    const option = e.target.options[e.target.selectedIndex];
+                    setVoiceName(option.text.split(' - ')[0]);
+                  }}
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  aria-label="Select ElevenLabs voice"
+                >
+                  <option value="">-- Select a Voice --</option>
+                  <optgroup label="Female Voices">
+                    <option value="21m00Tcm4TlvDq8ikWAM">Rachel - American, young adult female</option>
+                    <option value="AZnzlk1XvdvUeBnXmlld">Domi - American, young adult female</option>
+                    <option value="EXAVITQu4vr4xnSDxMaL">Bella - American, young adult female (default)</option>
+                    <option value="MF3mGyEYCl7XYWbV9V6O">Elli - American, young adult female</option>
+                    <option value="XB0fDUnXU5powFXDhCwa">Charlotte - English-Swedish, middle aged female</option>
+                    <option value="Xb7hH8MSUJpSbSDYk0k2">Alice - British, middle aged female</option>
+                    <option value="pFZP5JQG7iQjIQuC4Bku">Lily - British, middle aged female</option>
+                  </optgroup>
+                  <optgroup label="Male Voices">
+                    <option value="ErXwobaYiN019PkySvjV">Antoni - American, adult male</option>
+                    <option value="VR6AewLTigWG4xSOukaG">Arnold - American, adult male</option>
+                    <option value="pNInz6obpgDQGcFmaJgB">Adam - American, middle aged male</option>
+                    <option value="yoZ06aMxZJJ28mfd3POQ">Sam - American, young adult male</option>
+                    <option value="TxGEqnHWrfWFTfGW9XjX">Josh - American, young adult male</option>
+                    <option value="2EiwWnXFnvU5JabPnv8n">Clyde - American, adult male</option>
+                    <option value="IKne3meq5aSn9XLyUdCD">Charlie - Australian, middle aged male</option>
+                    <option value="XrExE9yKIg1WjnnlVkGX">Patrick - American, middle aged male</option>
+                  </optgroup>
+                  <optgroup label="Special Voices">
+                    <option value="iP95p4xoKVk53GoZ742B">Chris - American, middle aged male (conversational)</option>
+                    <option value="onwK4e9ZLuTAKqWW03F9">Daniel - British, middle aged male (news presenter)</option>
+                    <option value="ThT5KcBeYPX3keUQqHPh">Dorothy - British, young adult female (children's stories)</option>
+                    <option value="LcfcDJNUP1GQjkzn1xUU">Emily - American, young adult female (meditation/calm)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-lg font-semibold mb-2">
+                  Current Voice: <span className="text-purple-600">{voiceName || 'Not selected'}</span>
+                </label>
+                <p className="text-gray-600">
+                  This voice will be used for all AI chat responses when voice mode is enabled.
+                </p>
+              </div>
+
+              <div className="bg-yellow-100 border-2 border-yellow-400 rounded-lg p-4">
+                <p className="text-lg font-semibold mb-2">💡 Voice Selection Tips:</p>
+                <ul className="list-disc list-inside text-gray-700 space-y-1">
+                  <li>Choose a voice that matches your brand personality</li>
+                  <li>Test different voices with sample text before selecting</li>
+                  <li>Consider your target audience (age, preferences)</li>
+                  <li>Some voices work better for technical content, others for casual chat</li>
+                </ul>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={saveVoiceSettings}
+                  className="px-8 py-4 bg-purple-600 text-white text-xl font-semibold rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-4 focus:ring-purple-300"
+                  aria-label="Save voice settings"
+                >
+                  <Save className="inline-block mr-2" size={24} />
+                  Save Voice Settings
+                </button>
+                <button
+                  onClick={() => setShowVoiceSettings(false)}
+                  className="px-8 py-4 bg-gray-600 text-white text-xl font-semibold rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300"
+                  aria-label="Cancel voice settings"
+                >
+                  <X className="inline-block mr-2" size={24} />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Edit/Add Form */}
         {(editingItem || isAddingNew) && (
