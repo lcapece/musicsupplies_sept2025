@@ -1,4 +1,4 @@
-// Music Supplies App - Version 813.1400 - Deployment Update
+// Music Supplies App - Version 813.2020 - Voice Chat Update
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthProvider, useAuth } from './context/AuthContext';

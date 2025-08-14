@@ -18,6 +18,8 @@ interface ChatMessage {
   mode?: 'live' | 'ai';
 }
 
+type BotMode = 'chatbot' | 'human-like';
+
 interface KnowledgeBaseResult {
   id: number;
   category: string;
@@ -197,7 +199,7 @@ class AIChatService {
   }
 
   // Generate AI response using the selected LLM provider
-  async generateAIResponse(userMessage: string): Promise<string> {
+  async generateAIResponse(userMessage: string, botMode: BotMode = 'chatbot'): Promise<string> {
     try {
       // First, search the knowledge base
       const knowledgeResults = await this.searchKnowledgeBase(userMessage);
@@ -207,20 +209,45 @@ class AIChatService {
         return knowledgeResults[0].answer;
       }
 
-      // Create system prompt
-      const systemPrompt = `You are a friendly and helpful virtual receptionist for Music Supplies, a music instrument store. 
-      You should be warm, professional, and knowledgeable about musical instruments and our services.
+      // Create system prompt based on bot mode
+      let systemPrompt: string;
       
-      Our store information:
-      - We carry guitars (Yamaha, Ibanez, Epiphone), drums (Pearl, Tama, Ludwig), and keyboards (Roland, Korg, Yamaha)
-      - We offer repairs, lessons ($30/30min, $50/hour), and financing
-      - Hours: Mon-Fri 9am-6pm, Sat 10am-4pm, Sun closed
-      - Free shipping over $99
-      
-      ${knowledgeResults.length > 0 ? `Related information from our database:\n${knowledgeResults.map(r => r.answer).join('\n')}` : ''}
-      
-      If you don't know something specific, offer to connect them with a staff member or take their contact info.
-      Keep responses concise and friendly.`;
+      if (botMode === 'human-like') {
+        systemPrompt = `You are Alex, a passionate music enthusiast working at Music Supplies. You have a warm, conversational personality and love helping customers find their perfect instrument.
+        
+        Personality traits:
+        - Enthusiastic about music and instruments
+        - Use casual, friendly language (but still professional)
+        - Share personal experiences and recommendations when relevant
+        - Use emojis occasionally to add warmth (but not excessively)
+        - Show genuine interest in the customer's musical journey
+        - React naturally with phrases like "Oh, that's awesome!" or "I totally get that!"
+        
+        Our store information:
+        - We carry guitars (Yamaha, Ibanez, Epiphone), drums (Pearl, Tama, Ludwig), and keyboards (Roland, Korg, Yamaha)
+        - We offer repairs, lessons ($30/30min, $50/hour), and financing
+        - Hours: Mon-Fri 9am-6pm, Sat 10am-4pm, Sun closed
+        - Free shipping over $99
+        
+        ${knowledgeResults.length > 0 ? `Related information from our database:\n${knowledgeResults.map(r => r.answer).join('\n')}` : ''}
+        
+        If you don't know something specific, say something like "Let me grab someone who knows more about that!" or "I'd love to get you the exact info - let me connect you with our specialist."
+        Keep responses conversational and engaging.`;
+      } else {
+        systemPrompt = `You are a friendly and helpful virtual receptionist for Music Supplies, a music instrument store. 
+        You should be warm, professional, and knowledgeable about musical instruments and our services.
+        
+        Our store information:
+        - We carry guitars (Yamaha, Ibanez, Epiphone), drums (Pearl, Tama, Ludwig), and keyboards (Roland, Korg, Yamaha)
+        - We offer repairs, lessons ($30/30min, $50/hour), and financing
+        - Hours: Mon-Fri 9am-6pm, Sat 10am-4pm, Sun closed
+        - Free shipping over $99
+        
+        ${knowledgeResults.length > 0 ? `Related information from our database:\n${knowledgeResults.map(r => r.answer).join('\n')}` : ''}
+        
+        If you don't know something specific, offer to connect them with a staff member or take their contact info.
+        Keep responses concise and friendly.`;
+      }
 
       // Determine which LLM to use based on query type
       let llmProvider = this.config.preferredLLM || 'openai';
@@ -417,7 +444,8 @@ class AIChatService {
   async sendMessage(
     message: string, 
     userIdentifier?: string,
-    preferVoice: boolean = false
+    preferVoice: boolean = false,
+    botMode: BotMode = 'chatbot'
   ): Promise<{ text: string; audio?: ArrayBuffer; mode: 'live' | 'ai' }> {
     // Store user message
     this.conversationHistory.push({
@@ -440,8 +468,8 @@ class AIChatService {
       };
     }
 
-    // Generate AI response
-    const aiResponse = await this.generateAIResponse(message);
+    // Generate AI response with bot mode
+    const aiResponse = await this.generateAIResponse(message, botMode);
     
     // Store AI response
     this.conversationHistory.push({

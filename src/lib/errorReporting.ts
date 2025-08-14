@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { handleError, logSecureError } from '../utils/secureErrorHandler';
 
 interface ErrorDetails {
   message: string;
@@ -36,14 +37,13 @@ export const sendErrorNotificationSMS = async (errorDetails: ErrorDetails): Prom
     });
 
     if (error) {
-      console.error('Error sending error notification SMS:', error);
+      // Silently fail in production
       return false;
     }
 
-    console.log('Error notification SMS sent successfully:', data);
     return true;
   } catch (error) {
-    console.error('Failed to send error notification SMS:', error);
+    // Silently fail in production
     return false;
   }
 };
@@ -65,11 +65,18 @@ export const reportError = async (
     additionalContext
   };
 
-  // Log error to console for debugging
-  console.error('Error reported:', errorDetails);
+  // Use secure error logging
+  logSecureError(error, component, user?.accountNumber?.toString());
 
   // Send SMS notification (don't await to avoid blocking)
-  sendErrorNotificationSMS(errorDetails).catch(console.error);
+  // Only send sanitized error message
+  const sanitizedDetails = {
+    ...errorDetails,
+    message: handleError(error, component),
+    stack: undefined, // Never send stack traces
+    additionalContext: undefined // Never send internal context
+  };
+  sendErrorNotificationSMS(sanitizedDetails).catch(() => {});
 
   // You could also log to a monitoring service here
   // e.g., Sentry, LogRocket, etc.

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-const CURRENT_VERSION = 'RC813.1015'; // HARDCODED FOR EMERGENCY FIX
+const CURRENT_VERSION = 'RC813.2020'; // Updated for voice chat features
 const VERSION_CHECK_INTERVAL = 30000; // Check every 30 seconds
 
 export const VersionCheck: React.FC = () => {

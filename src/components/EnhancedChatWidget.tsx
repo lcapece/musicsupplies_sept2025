@@ -12,6 +12,8 @@ interface Message {
   mode: 'live' | 'ai';
 }
 
+type BotMode = 'chatbot' | 'human-like';
+
 const EnhancedChatWidget: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -24,6 +26,7 @@ const EnhancedChatWidget: React.FC = () => {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showLiveChat, setShowLiveChat] = useState(false);
+  const [botMode, setBotMode] = useState<BotMode>('chatbot');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -112,18 +115,25 @@ const EnhancedChatWidget: React.FC = () => {
   // Add welcome message when chat opens
   useEffect(() => {
     if (isOpen && messages.length === 0) {
+      let welcomeContent: string;
+      if (isStaffAvailable) {
+        welcomeContent = "Hello! Welcome to Music Supplies. Our receptionist is available to help you. How can we assist you today?";
+      } else if (botMode === 'human-like') {
+        welcomeContent = "Hey there! 👋 Welcome to Music Supplies! I'm here to help you find the perfect instrument or answer any questions. What brings you in today?";
+      } else {
+        welcomeContent = "Hello! Welcome to Music Supplies. I'm your virtual assistant. How can I help you today? Ask me about our products, services, or store information!";
+      }
+      
       const welcomeMessage: Message = {
         id: `msg-${Date.now()}`,
         role: 'assistant',
-        content: isStaffAvailable 
-          ? "Hello! Welcome to Music Supplies. Our receptionist is available to help you. How can we assist you today?"
-          : "Hello! Welcome to Music Supplies. I'm your virtual assistant. How can I help you today? Ask me about our products, services, or store information!",
+        content: welcomeContent,
         timestamp: new Date(),
         mode: isStaffAvailable ? 'live' : 'ai'
       };
       setMessages([welcomeMessage]);
     }
-  }, [isOpen, isStaffAvailable]);
+  }, [isOpen, isStaffAvailable, botMode]);
 
   // Handle sending message
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -174,11 +184,12 @@ const EnhancedChatWidget: React.FC = () => {
         return;
       }
 
-      // Get AI response
+      // Get AI response with bot mode
       const response = await aiChatService.sendMessage(
         inputMessage,
         user?.accountNumber,
-        voiceEnabled
+        voiceEnabled,
+        botMode
       );
 
       const assistantMessage: Message = {
@@ -379,7 +390,7 @@ const EnhancedChatWidget: React.FC = () => {
           </div>
         </div>
         
-        {/* Voice controls */}
+        {/* Voice controls and bot mode toggle */}
         <div className="flex items-center gap-2 pt-2 border-t border-purple-600">
           <button
             onClick={toggleVoiceOutput}
@@ -390,6 +401,22 @@ const EnhancedChatWidget: React.FC = () => {
             {voiceEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
             {voiceEnabled ? 'Voice On' : 'Voice Off'}
           </button>
+          
+          {/* Bot Mode Toggle */}
+          {!isStaffAvailable && (
+            <button
+              onClick={() => setBotMode(botMode === 'chatbot' ? 'human-like' : 'chatbot')}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                botMode === 'human-like' 
+                  ? 'bg-orange-600 hover:bg-orange-500' 
+                  : 'bg-blue-600 hover:bg-blue-500'
+              }`}
+              title={`Switch to ${botMode === 'chatbot' ? 'Human-like' : 'Chatbot'} mode`}
+            >
+              {botMode === 'human-like' ? <User size={14} /> : <Bot size={14} />}
+              {botMode === 'human-like' ? 'Human-like' : 'Chatbot'}
+            </button>
+          )}
           
           {isStaffAvailable && (
             <button
