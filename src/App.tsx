@@ -27,6 +27,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
 import EnhancedChatWidget from './components/EnhancedChatWidget';
 import ChatPage from './pages/ChatPage';
+import AdminKnowledgeBase from './pages/AdminKnowledgeBase'; // Admin knowledge base management
 import { useLocation } from 'react-router-dom';
 import { VersionCheck } from './components/VersionCheck';
 
@@ -251,6 +252,15 @@ function AppContent() {
             </ProtectedRoute>
           } 
         />
+        {/* Admin Knowledge Base Management - Account 999 only */}
+        <Route 
+          path="/admin/knowledge-base"
+          element={
+            <AdminProtectedRoute>
+              <AdminKnowledgeBase />
+            </AdminProtectedRoute>
+          }
+        />
         {/* Chat route - accessible to everyone */}
         <Route path="/chat" element={<ChatPage />} />
          {/* Redirect any unmatched routes to the home page */}
@@ -274,8 +284,6 @@ function AppContent() {
         />
       )}
 
-      {/* Enhanced Chat Widget - AI-powered, works for both authenticated and non-authenticated users */}
-      {location.pathname !== '/chat' && <EnhancedChatWidget />}
     </>
   );
 }
@@ -362,6 +370,8 @@ function App() {
           <CartProvider>
             <NotificationProvider>
               <AppContentWithStatusCheck bypassCheck={bypassCheck} />
+              {/* Enhanced Chat Widget - Available to all users, no login required */}
+              {window.location.pathname !== '/chat' && <EnhancedChatWidget />}
             </NotificationProvider>
           </CartProvider>
         </AuthProvider>

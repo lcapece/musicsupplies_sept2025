@@ -79,7 +79,20 @@ const AdminDashboard: React.FC = () => {
       case 'history':
         return <OrderHistoryTab />;
       case 'chat':
-        return <AdminChatManagementPage />;
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-gray-900">Chat System Management</h2>
+              <a
+                href="/admin/knowledge-base"
+                className="px-6 py-3 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300"
+              >
+                Manage Knowledge Base →
+              </a>
+            </div>
+            <AdminChatManagementPage />
+          </div>
+        );
       case 'sms':
         return <div className="text-center py-16 text-2xl text-gray-500">SMS Notifications coming soon...</div>;
       case 'clicksend':

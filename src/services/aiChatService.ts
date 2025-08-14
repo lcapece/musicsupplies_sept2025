@@ -5,7 +5,9 @@ interface AIConfig {
   openaiApiKey: string;
   elevenLabsApiKey: string;
   elevenLabsVoiceId: string;
-  anthropicApiKey?: string; // Optional - if you want to use Claude
+  anthropicApiKey?: string;
+  perplexityApiKey?: string;
+  preferredLLM?: 'openai' | 'anthropic' | 'perplexity'; // User can choose
 }
 
 // Message types
@@ -36,7 +38,9 @@ class AIChatService {
       openaiApiKey: config.openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY || '',
       elevenLabsApiKey: config.elevenLabsApiKey || import.meta.env.VITE_ELEVENLABS_API_KEY || '',
       elevenLabsVoiceId: config.elevenLabsVoiceId || import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL', // Default to "Bella" voice
-      anthropicApiKey: config.anthropicApiKey || import.meta.env.VITE_ANTHROPIC_API_KEY
+      anthropicApiKey: config.anthropicApiKey || import.meta.env.VITE_ANTHROPIC_API_KEY,
+      perplexityApiKey: config.perplexityApiKey || import.meta.env.VITE_PERPLEXITY_API_KEY,
+      preferredLLM: config.preferredLLM || 'openai'
     };
     this.sessionId = this.generateSessionId();
   }
@@ -45,14 +49,33 @@ class AIChatService {
     return `chat_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   }
 
-  // Check if live staff is available
+  // Check if live staff is available (9 AM - 5 PM Eastern Time)
   async isStaffAvailable(): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .rpc('is_chat_staff_available');
+      // Get current time in Eastern Time
+      const now = new Date();
+      const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const hours = easternTime.getHours();
+      const day = easternTime.getDay(); // 0 = Sunday, 6 = Saturday
       
-      if (error) throw error;
-      return data || false;
+      // Business hours: Monday-Friday (1-5), 9 AM - 5 PM (9-17)
+      const isBusinessHours = day >= 1 && day <= 5 && hours >= 9 && hours < 17;
+      
+      // Optional: Still check database for manual override (staff marked as available/unavailable)
+      try {
+        const { data, error } = await supabase
+          .rpc('is_chat_staff_available');
+        
+        if (!error && data !== null) {
+          // If database has override, use it
+          return data;
+        }
+      } catch (dbError) {
+        // If database check fails, fall back to business hours
+        console.log('Database check failed, using business hours:', dbError);
+      }
+      
+      return isBusinessHours;
     } catch (error) {
       console.error('Error checking staff availability:', error);
       return false;
@@ -76,7 +99,85 @@ class AIChatService {
     }
   }
 
-  // Generate AI response using OpenAI
+  // Generate AI response using Anthropic Claude
+  async generateClaudeResponse(userMessage: string, systemPrompt: string): Promise<string> {
+    if (!this.config.anthropicApiKey) {
+      throw new Error('Anthropic API key not configured');
+    }
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.config.anthropicApiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-opus-20240229', // Most capable model
+          max_tokens: 300,
+          temperature: 0.7,
+          system: systemPrompt,
+          messages: [
+            ...this.conversationHistory.slice(-5).map(msg => ({
+              role: msg.role === 'assistant' ? 'assistant' : 'user',
+              content: msg.content
+            })),
+            { role: 'user', content: userMessage }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Anthropic API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.content[0].text;
+    } catch (error) {
+      console.error('Error with Claude:', error);
+      throw error;
+    }
+  }
+
+  // Generate AI response using Perplexity
+  async generatePerplexityResponse(userMessage: string, systemPrompt: string): Promise<string> {
+    if (!this.config.perplexityApiKey) {
+      throw new Error('Perplexity API key not configured');
+    }
+
+    try {
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.perplexityApiKey}`
+        },
+        body: JSON.stringify({
+          model: 'pplx-70b-online', // Online model for real-time info
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...this.conversationHistory.slice(-5),
+            { role: 'user', content: userMessage }
+          ],
+          temperature: 0.7,
+          max_tokens: 300
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Perplexity API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error('Error with Perplexity:', error);
+      throw error;
+    }
+  }
+
+  // Generate AI response using the selected LLM provider
   async generateAIResponse(userMessage: string): Promise<string> {
     try {
       // First, search the knowledge base
@@ -87,7 +188,7 @@ class AIChatService {
         return knowledgeResults[0].answer;
       }
 
-      // Otherwise, use OpenAI for more complex queries
+      // Create system prompt
       const systemPrompt = `You are a friendly and helpful virtual receptionist for Music Supplies, a music instrument store. 
       You should be warm, professional, and knowledgeable about musical instruments and our services.
       
@@ -102,30 +203,95 @@ class AIChatService {
       If you don't know something specific, offer to connect them with a staff member or take their contact info.
       Keep responses concise and friendly.`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.config.openaiApiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4-turbo-preview',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...this.conversationHistory.slice(-5), // Include last 5 messages for context
-            { role: 'user', content: userMessage }
-          ],
-          temperature: 0.7,
-          max_tokens: 200
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+      // Determine which LLM to use based on query type
+      let llmProvider = this.config.preferredLLM || 'openai';
+      
+      // Use Perplexity for real-time info queries
+      if (userMessage.toLowerCase().includes('price') || 
+          userMessage.toLowerCase().includes('stock') ||
+          userMessage.toLowerCase().includes('availability')) {
+        llmProvider = 'perplexity';
+      }
+      
+      // Use Claude for complex reasoning
+      if (userMessage.toLowerCase().includes('compare') || 
+          userMessage.toLowerCase().includes('recommend') ||
+          userMessage.toLowerCase().includes('which is better')) {
+        llmProvider = 'anthropic';
       }
 
-      const data = await response.json();
-      return data.choices[0].message.content;
+      // Try the selected LLM, fallback to others if needed
+      let response: string;
+      
+      try {
+        switch (llmProvider) {
+          case 'anthropic':
+            response = await this.generateClaudeResponse(userMessage, systemPrompt);
+            break;
+          case 'perplexity':
+            response = await this.generatePerplexityResponse(userMessage, systemPrompt);
+            break;
+          default:
+            // Use OpenAI as default
+            const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.config.openaiApiKey}`
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o', // Using GPT-4o for better performance
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  ...this.conversationHistory.slice(-5), // Include last 5 messages for context
+                  { role: 'user', content: userMessage }
+                ],
+                temperature: 0.7,
+                max_tokens: 200
+              })
+            });
+
+            if (!openAIResponse.ok) {
+              throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+            }
+
+            const data = await openAIResponse.json();
+            response = data.choices[0].message.content;
+        }
+      } catch (primaryError) {
+        console.error(`Error with ${llmProvider}:`, primaryError);
+        
+        // Fallback to OpenAI if primary fails
+        try {
+          const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${this.config.openaiApiKey}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-3.5-turbo', // Use cheaper model as fallback
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userMessage }
+              ],
+              temperature: 0.7,
+              max_tokens: 150
+            })
+          });
+
+          if (!fallbackResponse.ok) {
+            throw new Error(`Fallback OpenAI API error: ${fallbackResponse.statusText}`);
+          }
+
+          const fallbackData = await fallbackResponse.json();
+          response = fallbackData.choices[0].message.content;
+        } catch (fallbackError) {
+          throw fallbackError;
+        }
+      }
+      
+      return response;
     } catch (error) {
       console.error('Error generating AI response:', error);
       
@@ -184,11 +350,11 @@ class AIChatService {
           },
           body: JSON.stringify({
             text: text,
-            model_id: 'eleven_monolingual_v1',
+            model_id: 'eleven_turbo_v2', // Latest and fastest model
             voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.5,
+              stability: 0.65, // More natural variation
+              similarity_boost: 0.85, // Higher voice consistency
+              style: 0.35, // More conversational
               use_speaker_boost: true
             }
           })
