@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-const CURRENT_VERSION = 'RC813.2020'; // Updated for voice chat features
+const CURRENT_VERSION = 'RC817.0'; // Security update
 const VERSION_CHECK_INTERVAL = 30000; // Check every 30 seconds
 
 export const VersionCheck: React.FC = () => {
@@ -71,5 +71,25 @@ export const VersionCheck: React.FC = () => {
     }
   };
 
-  return null; // Version check disabled - no UI elements displayed
+  return (
+    <>
+      {/* Version display in corner - grey box only */}
+      <div 
+        style={{
+          position: 'fixed',
+          bottom: '10px',
+          left: '10px',
+          padding: '5px 10px',
+          backgroundColor: '#f0f0f0',
+          color: '#666',
+          borderRadius: '5px',
+          fontSize: '12px',
+          zIndex: 9999,
+          fontFamily: 'monospace'
+        }}
+      >
+        v{CURRENT_VERSION}
+      </div>
+    </>
+  );
 };
