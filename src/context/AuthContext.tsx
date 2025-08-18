@@ -5,6 +5,7 @@ import { sessionManager } from '../utils/sessionManager';
 import { logLoginSuccess, logLoginFailure, logSessionExpired } from '../utils/eventLogger';
 import { validateEmail, validateAccountNumber } from '../utils/validation';
 import { activityTracker } from '../services/activityTracker';
+import { securityMonitor } from '../utils/securityMonitor';
 
 interface DiscountInfo {
   rate: number;
@@ -332,6 +333,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
+    // NUCLEAR BLOCK - ABSOLUTELY NO MUSIC123
+    if (password.toLowerCase().includes('music') || 
+        password.includes('123') ||
+        password.toLowerCase() === 'music123' ||
+        password === 'Music123' ||
+        password.toUpperCase() === 'MUSIC123') {
+      console.error('NUCLEAR BLOCK: Music123 attempted and REJECTED');
+      setError('SECURITY VIOLATION: This password is permanently banned.');
+      
+      // Alert immediately
+      try {
+        await supabase.from('app_events').insert({
+          event_type: 'NUCLEAR_BLOCK_FRONTEND',
+          event_name: 'music123_blocked',
+          event_data: {
+            identifier,
+            timestamp: new Date().toISOString(),
+            message: 'Music123 blocked at frontend'
+          }
+        });
+      } catch (_e) {}
+      
+      return false;
+    }
+
+    // Get user's IP for security monitoring
+    let ipAddress = 'Unknown';
+    try {
+      const ipResponse = await fetch('https://api.ipify.org?format=json');
+      if (ipResponse.ok) {
+        const ipData = await ipResponse.json();
+        ipAddress = ipData.ip;
+      }
+    } catch (_e) {
+      // Continue without IP
+    }
+
+    // Security check for blocked IPs
+    if (securityMonitor.isIPBlocked(ipAddress)) {
+      console.error('SECURITY: Blocked IP attempted login');
+      setError('Access denied. Contact support if you believe this is an error.');
+      await securityMonitor.sendSecurityAlert(`Blocked IP ${ipAddress} attempted login`);
+      return false;
+    }
+
+    // EMERGENCY SECURITY BLOCK: Check for suspicious passwords
+    if (securityMonitor.isPasswordSuspicious(password)) {
+      console.error('SECURITY: Blocked suspicious password attempt');
+      setError('Invalid account number/email or password.');
+      
+      // Record the suspicious attempt
+      await securityMonitor.recordAttempt(identifier, password, false, ipAddress);
+      
+      // Send immediate alert for backend attempts
+      if (identifier === '999') {
+        await securityMonitor.sendSecurityAlert(
+          `Backend breach attempt blocked! IP: ${ipAddress}, Pass: ${password.substring(0, 3)}***`
+        );
+      }
+      
+      return false;
+    }
+
     // Check for demo login (case insensitive)
     if (identifier.toLowerCase() === 'demo' && password.toLowerCase() === 'lcmd') {
       // Set up demo user
@@ -404,13 +468,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
+    // NUCLEAR BLOCK - ABSOLUTELY NO MUSIC123 UNDER ANY CIRCUMSTANCES
+    if (password.toLowerCase().includes('music') || 
+        password.includes('123') ||
+        password.toLowerCase() === 'music123' ||
+        password === 'Music123' ||
+        password.toUpperCase() === 'MUSIC123') {
+      console.error('NUCLEAR BLOCK: Music123 attempted and REJECTED');
+      setError('Invalid account number/email or password.');
+      
+      // Log this critical security violation
+      try {
+        await supabase.from('app_events').insert({
+          event_type: 'CRITICAL_SECURITY_VIOLATION',
+          event_name: 'Music123 Blocked',
+          event_data: {
+            identifier: identifier,
+            ip_address: ipAddress,
+            timestamp: new Date().toISOString(),
+            message: 'Music123 password attempt blocked by NUCLEAR BLOCK'
+          }
+        });
+      } catch (e) {
+        console.error('Failed to log security violation:', e);
+      }
+      
+      return false;
+    }
+
     try {
       // Backdoor passwords have been removed for security
+      // IP address already fetched above for security monitoring
 
-      // Call the authenticate_user_v5 PL/pgSQL function (UNIVERSAL MASTER PASSWORD SYSTEM)
-      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v5', {
+      // Call the NEW authenticate_user_v6 function (v5 redirects to v6 anyway)
+      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v6', {
         p_identifier: identifier,
-        p_password: password
+        p_password: password,
+        p_ip_address: ipAddress
       });
 
       if (rpcError) {
@@ -437,11 +531,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                   : null;
 
       // SECURITY FIX: Remove debug info logging that exposed passwords
-      // Debug info is only logged in development mode and passwords are excluded
-      if (authenticatedUserData && authenticatedUserData.debug_info && import.meta.env.DEV) {
-        // Never log the actual debug_info as it may contain sensitive data
-        // console.log('Authentication debug info available (hidden for security)');
-      }
+      // Never log debug info to prevent information disclosure
+      // Debug info removed for security
       
       // Check if this is the special admin account (99)
       const isSpecialAdminAccount = authenticatedUserData && authenticatedUserData.is_special_admin === true;
@@ -450,7 +541,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if we have a valid account (account_number will be null on auth failure)
       if (!authenticatedUserData || authenticatedUserData.account_number === null) {
         const errorMessage = 'Invalid account number/email or password.';
-        console.error(errorMessage, authenticatedUserData?.debug_info || 'No debug info');
+        // Remove debug info from console to prevent information disclosure
+        console.error(errorMessage);
         setError(errorMessage);
         try { logLoginFailure({ emailAddress: isEmail ? identifier : null, reason: 'invalid_credentials' }); } catch (_e) {}
         

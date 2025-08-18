@@ -107,8 +107,33 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
     setError(null);
     setSuccessMessage(null);
 
-    if (newPassword.length < 6) {
-        setError("Password must be at least 6 characters long.");
+    if (newPassword.length < 12) {
+        setError("Password must be at least 12 characters long for security.");
+        setIsLoading(false);
+        return;
+    }
+    
+    // Additional password strength checks
+    if (!/[A-Z]/.test(newPassword)) {
+        setError("Password must contain at least one uppercase letter.");
+        setIsLoading(false);
+        return;
+    }
+    
+    if (!/[a-z]/.test(newPassword)) {
+        setError("Password must contain at least one lowercase letter.");
+        setIsLoading(false);
+        return;
+    }
+    
+    if (!/[0-9]/.test(newPassword)) {
+        setError("Password must contain at least one number.");
+        setIsLoading(false);
+        return;
+    }
+    
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
+        setError("Password must contain at least one special character.");
         setIsLoading(false);
         return;
     }

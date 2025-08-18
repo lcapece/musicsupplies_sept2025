@@ -34,8 +34,39 @@ serve(async (req) => {
       )
     }
 
-    // Special case for account 999 has been removed for security
+    // EMERGENCY SECURITY BLOCK: REJECT Music123 IMMEDIATELY
+    if (password.toLowerCase() === 'music123' || password === 'Music123' || password === '999') {
+      console.error('SECURITY BREACH ATTEMPT: Music123 or backdoor password used!', {
+        accountNumber,
+        timestamp: new Date().toISOString()
+      })
+      
+      // Log to database
+      await supabase.from('app_events').insert({
+        event_type: 'SECURITY_BREACH',
+        event_name: 'edge_function_backdoor_blocked',
+        event_data: {
+          account: accountNumber,
+          password_pattern: 'Music123_or_backdoor',
+          timestamp: new Date().toISOString()
+        }
+      })
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid account number/email or password.' 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401 
+        }
+      )
+    }
 
+    // CRITICAL SECURITY: No universal passwords allowed
+    // The old Music123 backdoor has been removed
+    
     // STEP 1: Try regular authentication first
     console.log('Attempting regular authentication for:', accountNumber)
     
@@ -87,19 +118,21 @@ serve(async (req) => {
         .eq('account_number', actualAccountNumber)
         .single()
 
-      if (!userPasswordError && userPasswordData && userPasswordData.password_hash === password) {
-        console.log('Regular authentication successful via user_passwords table')
-        regularAuthSucceeded = true
-        regularAccountData = accountData
-      } else if (accountData.password === password) {
-        // Fall back to old accounts_lcmd.password system
-        console.log('Regular authentication successful via accounts_lcmd.password')
-        regularAuthSucceeded = true
-        regularAccountData = accountData
+      if (!userPasswordError && userPasswordData && userPasswordData.password_hash) {
+        // Use bcrypt verification via database function
+        const { data: verifyResult, error: verifyError } = await supabase.rpc('verify_password', {
+          plain_password: password,
+          hashed_password: userPasswordData.password_hash
+        })
+        
+        if (!verifyError && verifyResult === true) {
+          console.log('Regular authentication successful via user_passwords table (bcrypt)')
+          regularAuthSucceeded = true
+          regularAccountData = accountData
+        }
       } else {
         console.log('Regular authentication failed - password mismatch')
         console.log('user_passwords result:', userPasswordData)
-        console.log('accounts_lcmd password exists:', !!accountData.password)
       }
     } catch (regularAuthException) {
       console.log('Regular authentication exception:', regularAuthException.message)

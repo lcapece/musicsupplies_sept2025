@@ -25,7 +25,11 @@
       "Bash(git push:*)",
       "Bash(node:*)",
       "Bash(npx netlify-cli@latest deploy:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(dir:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

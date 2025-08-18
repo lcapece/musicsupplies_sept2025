@@ -511,16 +511,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string, shippingAddress?: ShippingAddress): Promise<string> => {
-    // CRITICAL FIX: Use atomic order number generation to prevent duplicate constraint violations
-    const { data: orderNumberForDb, error: orderNumberError } = await supabase.rpc('get_next_order_number');
-    
-    if (orderNumberError || !orderNumberForDb) {
-      console.error('Failed to generate order number:', orderNumberError);
-      throw new Error('Unable to generate order number. Please try again.');
+    // Get session ID for order pre-allocation
+    const sessionId = sessionStorage.getItem('sessionId') || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (!sessionStorage.getItem('sessionId')) {
+      sessionStorage.setItem('sessionId', sessionId);
     }
-    
-    const orderNumberGenerated = `WB${orderNumberForDb}`;
-    console.log('Generated atomic order number:', orderNumberGenerated);
     
     if (!user || !user.accountNumber) {
       console.error('Place Order: User or account number is not available.');
@@ -533,6 +528,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const accountNumberInt = parseInt(user.accountNumber, 10);
     if (isNaN(accountNumberInt)) { throw new Error('Invalid user account number format.'); }
 
+    // Reserve or get existing order number for this session
+    console.log('Reserving order number for session:', sessionId);
+    const { data: orderReservation, error: reserveError } = await supabase.rpc('reserve_order_number', {
+      p_session_id: sessionId,
+      p_account_number: user.accountNumber
+    });
+    
+    if (reserveError || !orderReservation || orderReservation.length === 0) {
+      console.error('Failed to reserve order number:', reserveError);
+      throw new Error('Unable to reserve order number. Please try again.');
+    }
+    
+    const orderNumberForDb = orderReservation[0].order_number;
+    const orderId = orderReservation[0].order_id;
+    const orderNumberGenerated = `WB${orderNumberForDb}`;
+    console.log('Reserved order number:', orderNumberGenerated, 'Order ID:', orderId);
+    
     // Log checkout started (fire-and-forget)
     try {
       await logCheckoutStarted({
@@ -604,26 +616,37 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const grandTotal = totalPrice - finalDiscountAmount;
-    const orderPayload = {
-      order_number: orderNumberForDb, account_number: accountNumberInt, order_comments: orderComments,
-      order_items: orderItems, subtotal: totalPrice, 
-      discount_percentage: 0, // No percentage discounts, only fixed amount promo codes
-      discount_amount: finalDiscountAmount, grand_total: grandTotal, status: 'Pending Confirmation',
-      order_status: 'Not Shipped', // Set initial order status
-      // Include shipping address fields if provided
-      ...(shippingAddress?.shippingDifferent && {
-        shipped_to_address: shippingAddress.shippingAddress,
-        shipped_to_city: shippingAddress.shippingCity,
-        shipped_to_state: shippingAddress.shippingState,
-        shipped_to_zip: shippingAddress.shippingZip,
-        shipped_to_phone: shippingAddress.shippingPhone,
-        shipped_to_contact_name: shippingAddress.shippingContactName
-      })
-    };
+    
+    // Prepare shipping info for the complete_order function
+    const shippingInfo = shippingAddress?.shippingDifferent ? {
+      first_name: '', // You might want to parse from shippingContactName
+      last_name: '',
+      company: '',
+      address: shippingAddress.shippingAddress,
+      city: shippingAddress.shippingCity,
+      state: shippingAddress.shippingState,
+      zip_code: shippingAddress.shippingZip,
+      phone: shippingAddress.shippingPhone
+    } : null;
 
     try {
-      const { data: insertedOrder, error: insertError } = await supabase.from('web_orders').insert(orderPayload).select('id').single();
-      if (insertError || !insertedOrder) throw insertError || new Error('Failed to save order.');
+      // Complete the pre-allocated order
+      const { data: completionResult, error: completeError } = await supabase.rpc('complete_order', {
+        p_session_id: sessionId,
+        p_order_items: orderItems,
+        p_order_comments: orderComments,
+        p_subtotal: totalPrice,
+        p_discount_percentage: 0,
+        p_discount_amount: finalDiscountAmount,
+        p_grand_total: grandTotal,
+        p_shipping_info: shippingInfo
+      });
+      
+      if (completeError || !completionResult || !completionResult[0].success) {
+        throw completeError || new Error(completionResult?.[0]?.message || 'Failed to complete order.');
+      }
+      
+      const insertedOrder = { id: completionResult[0].order_id };
       
       console.log('Order saved successfully:', insertedOrder);
       // Log checkout completed (fire-and-forget)

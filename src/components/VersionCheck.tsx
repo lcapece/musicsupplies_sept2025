@@ -45,8 +45,16 @@ export const VersionCheck: React.FC = () => {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else if (isOutdated && countdown === 0) {
-      // Force hard refresh
-      window.location.reload(true);
+      // Force hard refresh by clearing caches first
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        }).then(() => {
+          window.location.reload();
+        });
+      } else {
+        window.location.reload();
+      }
     }
   }, [isOutdated, countdown]);
 
@@ -56,71 +64,12 @@ export const VersionCheck: React.FC = () => {
       caches.keys().then(names => {
         names.forEach(name => caches.delete(name));
       }).then(() => {
-        window.location.reload(true);
+        window.location.reload();
       });
     } else {
-      window.location.reload(true);
+      window.location.reload();
     }
   };
 
-  return (
-    <>
-      {/* Version display in corner */}
-      <div 
-        style={{
-          position: 'fixed',
-          bottom: '10px',
-          left: '10px',
-          padding: '5px 10px',
-          backgroundColor: isOutdated ? '#ff6b6b' : '#f0f0f0',
-          color: isOutdated ? 'white' : '#666',
-          borderRadius: '5px',
-          fontSize: '12px',
-          zIndex: 9999,
-          fontFamily: 'monospace'
-        }}
-      >
-        v{CURRENT_VERSION}
-      </div>
-
-      {/* Update notification */}
-      {isOutdated && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: '0',
-            left: '0',
-            right: '0',
-            backgroundColor: '#ff6b6b',
-            color: 'white',
-            padding: '15px',
-            textAlign: 'center',
-            zIndex: 10000,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-          }}
-        >
-          <div style={{ marginBottom: '10px' }}>
-            <strong>New version available!</strong> Your version: {CURRENT_VERSION} → Latest: {latestVersion}
-          </div>
-          <div style={{ marginBottom: '10px' }}>
-            Page will refresh automatically in {countdown} seconds...
-          </div>
-          <button
-            onClick={handleRefresh}
-            style={{
-              backgroundColor: 'white',
-              color: '#ff6b6b',
-              border: 'none',
-              padding: '8px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            Refresh Now
-          </button>
-        </div>
-      )}
-    </>
-  );
+  return null; // Version check disabled - no UI elements displayed
 };

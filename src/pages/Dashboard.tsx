@@ -538,18 +538,19 @@ const Dashboard: React.FC = () => {
         console.log('Filtered out promo codes from product search:', promoCodeList);
       }
 
-      // Apply search terms by checking partnumber and description
-      if (searchTerms.primary) {
-        query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);
-      }
-      if (searchTerms.additional) {
-        // This acts as an AND condition with the primary search due to sequential application
-        query = query.or(`partnumber.ilike.%${searchTerms.additional}%,description.ilike.%${searchTerms.additional}%`);
-      }
-      if (searchTerms.exclude) {
-        // Product must NOT contain the exclude term in partnumber AND must NOT contain it in description.
-        query = query.not('partnumber', 'ilike', `%${searchTerms.exclude}%`);
-        query = query.not('description', 'ilike', `%${searchTerms.exclude}%`);
+      // Apply search terms - handle AND logic properly
+      // When both primary and additional are present, we need to fetch broader set and filter client-side
+      if (searchTerms.primary || searchTerms.additional) {
+        if (searchTerms.primary && searchTerms.additional) {
+          // For AND logic, we first get all products matching primary term
+          query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);
+        } else if (searchTerms.primary) {
+          // Only primary search term
+          query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);
+        } else if (searchTerms.additional) {
+          // Only additional search term (when primary is empty)
+          query = query.or(`partnumber.ilike.%${searchTerms.additional}%,description.ilike.%${searchTerms.additional}%`);
+        }
       }
 
       if (inStockOnly) {
@@ -563,12 +564,40 @@ const Dashboard: React.FC = () => {
         return;
       }
 
+      let filteredData = data || [];
+
+      // CRITICAL FIX: Apply AND logic client-side for additional term
+      if (searchTerms.primary && searchTerms.additional && filteredData.length > 0) {
+        const additionalLower = searchTerms.additional.toLowerCase();
+        filteredData = filteredData.filter(product => {
+          const partnumberMatch = product.partnumber?.toLowerCase().includes(additionalLower) || false;
+          const descriptionMatch = product.description?.toLowerCase().includes(additionalLower) || false;
+          return partnumberMatch || descriptionMatch;
+        });
+        console.log(`Applied AND filter for additional term "${searchTerms.additional}": ${data.length} -> ${filteredData.length} products`);
+      }
+
+      // CRITICAL FIX: Apply exclude filter client-side for better control
+      if (searchTerms.exclude && filteredData.length > 0) {
+        const excludeLower = searchTerms.exclude.toLowerCase();
+        filteredData = filteredData.filter(product => {
+          const partnumberHasExclude = product.partnumber?.toLowerCase().includes(excludeLower) || false;
+          const descriptionHasExclude = product.description?.toLowerCase().includes(excludeLower) || false;
+          // Keep product only if exclude term is NOT in either field
+          return !partnumberHasExclude && !descriptionHasExclude;
+        });
+        console.log(`Applied exclude filter for "${searchTerms.exclude}": ${filteredData.length} products remaining`);
+      }
+
+      const finalData = filteredData;
+
       // Log the fetched data
       console.log('Fetched raw product data:', data);
+      console.log('Final filtered data:', finalData);
 
-      setProducts(data || []);
+      setProducts(finalData);
       try {
-        const resultsCount = Array.isArray(data) ? data.length : 0;
+        const resultsCount = Array.isArray(finalData) ? finalData.length : 0;
         const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
         const email = user?.email || null;
         // Log keyword search when search terms are used (and categories were cleared in handleSearch)
