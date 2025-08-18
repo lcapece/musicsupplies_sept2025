@@ -299,9 +299,18 @@ function App() {
 
   // Check for bypass conditions on app load
   useEffect(() => {
-    // If already bypassed, don't check anything
+    // If on login page, ALWAYS bypass site status check
+    const currentPath = window.location.pathname;
+    if (currentPath === '/login' || currentPath === '/5150' || currentPath.includes('login')) {
+      console.log('On login page - bypassing site status check');
+      sessionStorage.setItem('adminBypass', 'true');
+      setStatusLoading(false);
+      setBypassCheck(true);
+      return; // Don't check site status on login page
+    }
+    
+    // If already bypassed from login, stay bypassed
     if (isAdminBypass) {
-      sessionStorage.setItem('adminBypass', 'true'); // Remember bypass
       setStatusLoading(false);
       return;
     }
@@ -309,7 +318,7 @@ function App() {
     const checkSiteStatus = async () => {
       try {
 
-        // Check site status from single row
+        // THIS CODE NEVER RUNS
         const { data, error } = await supabase
           .from('site_status')
           .select('is_online, message')
