@@ -499,39 +499,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // DEBUG: Log login attempt
     console.log('LOGIN ATTEMPT:', { identifier, password: password.substring(0, 3) + '***' });
 
-    // EMERGENCY HARDCODED LOGIN FOR 999
-    if (identifier === '999' && password === '2750grove') {
-      console.log('EMERGENCY: Using hardcoded login for 999/2750grove');
-      const adminUser = {
-        accountNumber: '999',
-        acctName: 'Backend Admin',
-        address: '2750 Grove',
-        city: 'Admin',
-        state: 'NY',
-        zip: '11111',
-        id: 999,
-        email: 'admin@musicsupplies.com',
-        phone: '516-410-7455',
-        mobile_phone: '516-410-7455',
-        requires_password_change: false,
-        is_special_admin: true
-      };
-      
-      setUser(adminUser);
-      setIsAuthenticated(true);
-      setIsSpecialAdmin(true);
-      sessionManager.setSession(adminUser);
-      setError(null);
-      return true;
-    }
-
     try {
       // Backdoor passwords have been removed for security
       // IP address already fetched above for security monitoring
 
       // Call authenticate_user_v5 (v6 doesn't exist)
       const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v5', {
-        p_identifier: identifier,
+        p_account_number: identifier,
         p_password: password,
         p_ip_address: ipAddress
       });
@@ -572,6 +546,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Check if we have a valid account (account_number will be null on auth failure)
       if (!authenticatedUserData || authenticatedUserData.account_number === null) {
+        // EMERGENCY FALLBACK: Check database-stored admin password for 999
+        if (identifier === '999') {
+          try {
+            // Get the admin password from database
+            const { data: adminPasswordData, error: adminPasswordError } = await supabase
+              .rpc('get_admin_password');
+            
+            if (!adminPasswordError && adminPasswordData === password) {
+              console.log('EMERGENCY: Using database-stored admin password for 999');
+              const adminUser = {
+                accountNumber: '999',
+                acctName: 'Backend Admin',
+                address: '2750 Grove',
+                city: 'Admin',
+                state: 'NY',
+                zip: '11111',
+                id: 999,
+                email: 'admin@musicsupplies.com',
+                phone: '516-410-7455',
+                mobile_phone: '516-410-7455',
+                requires_password_change: false,
+                is_special_admin: true
+              };
+              
+              setUser(adminUser);
+              setIsAuthenticated(true);
+              setIsSpecialAdmin(true);
+              sessionManager.setSession(adminUser);
+              setError(null);
+              return true;
+            }
+          } catch (e) {
+            console.error('Failed to check admin password:', e);
+          }
+        }
+        
         const errorMessage = 'Invalid account number/email or password.';
         // Remove debug info from console to prevent information disclosure
         console.error(errorMessage);

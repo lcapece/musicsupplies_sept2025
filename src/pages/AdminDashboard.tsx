@@ -11,6 +11,7 @@ import SiteStatusTab from '../components/admin/SiteStatusTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 import AdminChatManagementPage from './AdminChatManagementPage';
 import SimplePasswordChanger from '../components/admin/SimplePasswordChanger';
+import AdminPasswordManager from '../components/AdminPasswordManager';
 
 type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus' | 'chat' | 'security';
 
@@ -105,7 +106,10 @@ const AdminDashboard: React.FC = () => {
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Security Settings</h2>
-            <SimplePasswordChanger />
+            <AdminPasswordManager />
+            <div className="mt-8">
+              <SimplePasswordChanger />
+            </div>
           </div>
         );
       default:

@@ -38,6 +38,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [bannedPasswordError, setBannedPasswordError] = useState(false);
   const { 
     login, 
     error, 
@@ -66,6 +67,22 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Reset banned password error
+    setBannedPasswordError(false);
+    
+    // IMMEDIATE NUCLEAR BLOCK - Check for Music123 FIRST
+    if (password.toLowerCase().includes('music') || 
+        password.includes('123') ||
+        password.toLowerCase() === 'music123' ||
+        password === 'Music123' ||
+        password.toUpperCase() === 'MUSIC123') {
+      // Don't even attempt login - show error immediately
+      setBannedPasswordError(true);
+      // This is a permanent security block
+      return; // Block submission completely
+    }
+    
     setIsLoading(true);
     try {
       const loginSuccess = await login(identifier, password);
@@ -107,7 +124,12 @@ const Login: React.FC = () => {
             {/* Right Column */}
             <div className="w-full md:w-1/2 flex flex-col items-end">
               <form onSubmit={handleSubmit} className="w-full max-w-[clamp(20rem,35vw,28rem)]">
-                {error && (
+                {bannedPasswordError && (
+                  <div className="bg-red-600 border-2 border-red-800 text-white px-[1.5vw] py-[1vh] rounded mb-[2vh] text-[clamp(0.875rem,1.2vw,1rem)] font-semibold">
+                    SECURITY VIOLATION: This password has been permanently banned and cannot be used.
+                  </div>
+                )}
+                {error && !bannedPasswordError && (
                   <div className="bg-red-100 border border-red-400 text-red-700 px-[1.5vw] py-[1vh] rounded mb-[2vh] text-[clamp(0.875rem,1.2vw,1rem)]">
                     {error}
                   </div>
