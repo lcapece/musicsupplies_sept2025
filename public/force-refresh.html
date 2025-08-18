@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Updating MusicSupplies.com</title>
+    <script>
+        // AGGRESSIVE CACHE CLEARING
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                names.forEach(name => caches.delete(name));
+            });
+        }
+        
+        // Clear all storage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Force reload with cache bypass
+        setTimeout(() => {
+            window.location.href = '/?v=' + Date.now();
+        }, 100);
+    </script>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 50px; font-family: Arial;">
+        <h2>Updating to latest version...</h2>
+        <p>Please wait...</p>
+    </div>
+</body>
+</html>

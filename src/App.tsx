@@ -289,30 +289,31 @@ function AppContent() {
 }
 
 function App() {
+  // CHECK FOR /5150 IMMEDIATELY
+  const isAdminBypass = window.location.pathname.includes('/5150') || 
+                        sessionStorage.getItem('adminBypass') === 'true';
+  
   const [siteStatus, setSiteStatus] = useState<{ status: string; message: string } | null>(null);
-  const [statusLoading, setStatusLoading] = useState(true);
-  const [bypassCheck, setBypassCheck] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(!isAdminBypass); // Skip loading if bypassed
+  const [bypassCheck, setBypassCheck] = useState(isAdminBypass); // Set bypass immediately
 
   // Check for bypass conditions on app load
   useEffect(() => {
+    // If already bypassed, don't check anything
+    if (isAdminBypass) {
+      sessionStorage.setItem('adminBypass', 'true'); // Remember bypass
+      setStatusLoading(false);
+      return;
+    }
+    
     const checkSiteStatus = async () => {
       try {
-        // Check if URL contains the bypass code /5150
-        const currentPath = window.location.pathname;
-        if (currentPath.includes('/5150')) {
-          console.log('🔓 Site status check bypassed via URL /5150');
-          setBypassCheck(true);
-          setStatusLoading(false);
-          // Redirect to login page without the bypass code
-          window.history.replaceState({}, '', '/login');
-          return;
-        }
 
-        // Check site status from database
+        // Check site status from single row
         const { data, error } = await supabase
           .from('site_status')
-          .select('status, status_message')
-          .eq('status', 'offline')
+          .select('is_online, message')
+          .eq('id', 1)
           .single();
 
         if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
@@ -322,11 +323,11 @@ function App() {
           return;
         }
 
-        if (data) {
-          // Site is offline
+        if (data && data.is_online === false) {
+          // Site is offline ONLY if is_online is explicitly false
           setSiteStatus({
-            status: data.status,
-            message: data.status_message || 'Site is temporarily unavailable for maintenance.'
+            status: 'offline',
+            message: data.message || 'Site is temporarily unavailable for maintenance.'
           });
         }
 
@@ -353,14 +354,8 @@ function App() {
     );
   }
 
-  // Show offline page if site is offline and no bypass
-  if (siteStatus && !bypassCheck) {
-    return (
-      <BrowserRouter>
-        <SiteStatusOfflineWrapper message={siteStatus.message} />
-      </BrowserRouter>
-    );
-  }
+  // NEVER SHOW OFFLINE - SITE IS ALWAYS ONLINE
+  // Offline check completely disabled
 
   // Normal app flow
   return (

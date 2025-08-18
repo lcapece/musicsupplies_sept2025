@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-const CURRENT_VERSION = 'RC817.0'; // Security update
-const VERSION_CHECK_INTERVAL = 30000; // Check every 30 seconds
+const CURRENT_VERSION = 'RC818.0145'; // Emergency hardcoded admin login
+const VERSION_CHECK_INTERVAL = 300000; // Check every 5 MINUTES - not 5 seconds!
 
 export const VersionCheck: React.FC = () => {
   const [isOutdated, setIsOutdated] = useState(false);
@@ -40,23 +40,24 @@ export const VersionCheck: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (isOutdated && countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (isOutdated && countdown === 0) {
-      // Force hard refresh by clearing caches first
-      if ('caches' in window) {
-        caches.keys().then(names => {
-          names.forEach(name => caches.delete(name));
-        }).then(() => {
-          window.location.reload();
-        });
-      } else {
-        window.location.reload();
-      }
-    }
-  }, [isOutdated, countdown]);
+  // DISABLED - NO AUTO RELOAD
+  // useEffect(() => {
+  //   if (isOutdated && countdown > 0) {
+  //     const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+  //     return () => clearTimeout(timer);
+  //   } else if (isOutdated && countdown === 0) {
+  //     // Force hard refresh by clearing caches first
+  //     if ('caches' in window) {
+  //       caches.keys().then(names => {
+  //         names.forEach(name => caches.delete(name));
+  //       }).then(() => {
+  //         window.location.reload();
+  //       });
+  //     } else {
+  //       window.location.reload();
+  //     }
+  //   }
+  // }, [isOutdated, countdown]);
 
   const handleRefresh = () => {
     // Clear all caches and force reload
