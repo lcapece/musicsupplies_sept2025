@@ -60,7 +60,12 @@ const Login: React.FC = () => {
     // Only navigate if authenticated, user exists, doesn't require password change, 
     // and password modal is not showing
     if (isAuthenticated && user && !user.requires_password_change && !showPasswordChangeModal) {
-      navigate('/dashboard');
+      // Check if this is admin account 999 - redirect to admin page
+      if (user.accountNumber === '999' || user.accountNumber === 999) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [isAuthenticated, user, navigate, showPasswordChangeModal]);
 
@@ -98,7 +103,12 @@ const Login: React.FC = () => {
   const handleModalClose = (wasSuccess: boolean) => {
     handlePasswordModalClose(wasSuccess);
     if (wasSuccess) {
-      navigate('/dashboard');
+      // Check if admin account 999
+      if (user && (user.accountNumber === '999' || user.accountNumber === 999)) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
