@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { KeyRound, User as UserIcon, Eye, EyeOff } from 'lucide-react';
+import { KeyRound, User as UserIcon, Eye, EyeOff, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import PasswordChangeModal from './PasswordChangeModal';
 import DeactivatedAccountModal from './DeactivatedAccountModal';
 import { User } from '../types';
 import { validateEmail, validateAccountNumber } from '../utils/validation';
+import { supabase } from '../lib/supabase';
 import logo from '../images/music_supplies_logo.png';
 import building from '../images/buildings.png';
 import packageJson from '../../package.json';
@@ -39,6 +40,10 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [bannedPasswordError, setBannedPasswordError] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [showTwoFactor, setShowTwoFactor] = useState(false);
+  const [twoFactorSent, setTwoFactorSent] = useState(false);
+  const [twoFactorTimer, setTwoFactorTimer] = useState(0);
   const { 
     login, 
     error, 
@@ -61,13 +66,78 @@ const Login: React.FC = () => {
     // and password modal is not showing
     if (isAuthenticated && user && !user.requires_password_change && !showPasswordChangeModal) {
       // Check if this is admin account 999 - redirect to admin page
-      if (user.accountNumber === '999' || user.accountNumber === 999) {
-        navigate('/admin');
+      if (String(user.accountNumber) === '999') {
+        navigate('/admin');  // Admin dashboard
       } else {
-        navigate('/dashboard');
+        navigate('/');  // Regular dashboard
       }
     }
   }, [isAuthenticated, user, navigate, showPasswordChangeModal]);
+
+  // Toggle 2FA input based on identifier (enable for admin 999)
+  useEffect(() => {
+    const isAdmin999 = identifier.trim() === '999';
+    setShowTwoFactor(isAdmin999);
+    setTwoFactorCode('');
+    setTwoFactorSent(false);
+    setTwoFactorTimer(0);
+  }, [identifier]);
+
+  // Handle 2FA timer countdown
+  useEffect(() => {
+    if (twoFactorTimer > 0) {
+      const timer = setTimeout(() => {
+        setTwoFactorTimer(twoFactorTimer - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [twoFactorTimer]);
+
+  // Function to send 2FA code
+  const send2FACode = async () => {
+    try {
+      // Step 1: trigger server-side code generation via authenticate_user (requires identifier + password)
+      const { data: authResp, error: authErr } = await supabase.rpc('authenticate_user', {
+        p_identifier: identifier,
+        p_password: password,
+        p_ip_address: 'ui_send_code_button',
+        p_2fa_code: null
+      });
+      if (authErr) {
+        console.error('Error triggering 2FA generation:', authErr);
+        return;
+      }
+
+      // Step 2: send SMS via Edge Function using latest unexpired code and event recipients
+      const { data: smsData, error: smsError } = await supabase.functions.invoke('send-admin-sms', {
+        body: {
+          eventName: '2FA_LOGIN',
+          lookupLatest2faCode: true,
+          accountNumber: 999,
+          additionalData: {
+            account: 999,
+            timestamp: new Date().toISOString(),
+            source: 'ui_send_code'
+          }
+        },
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        }
+      });
+
+      if (smsError) {
+        console.error('Error sending 2FA SMS:', smsError);
+        return;
+      }
+      console.log('2FA SMS sent:', smsData);
+
+      setTwoFactorSent(true);
+      setTwoFactorTimer(90); // 90 seconds
+    } catch (err) {
+      console.error('Failed to send 2FA code:', err);
+    }
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,9 +158,10 @@ const Login: React.FC = () => {
       return; // Block submission completely
     }
     
+    
     setIsLoading(true);
     try {
-      const loginSuccess = await login(identifier, password);
+      const loginSuccess = await login(identifier, password, twoFactorCode);
       // Don't navigate immediately - let the AuthContext handle showing password change modal
       // Navigation will happen after modal closes if password change is successful
     } catch (err) {
@@ -104,10 +175,10 @@ const Login: React.FC = () => {
     handlePasswordModalClose(wasSuccess);
     if (wasSuccess) {
       // Check if admin account 999
-      if (user && (user.accountNumber === '999' || user.accountNumber === 999)) {
-        navigate('/admin');
+      if (user && String(user.accountNumber) === '999') {
+        navigate('/admin');  // Admin dashboard
       } else {
-        navigate('/dashboard');
+        navigate('/');  // Regular dashboard
       }
     }
   };
@@ -189,6 +260,43 @@ const Login: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                {showTwoFactor && (
+                  <div className="mb-[3vh]">
+                    <label htmlFor="twoFactorCode" className="block text-[clamp(0.875rem,1.2vw,1rem)] font-medium text-gray-700 mb-[0.5vh]">
+                      Security Code {twoFactorTimer > 0 && <span className="text-blue-600">({twoFactorTimer}s)</span>}
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-[1vw] flex items-center pointer-events-none">
+                        <Shield size={Math.max(16, Math.min(24, window.innerWidth * 0.015))} className="text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        id="twoFactorCode"
+                        className="w-full pl-[3vw] pr-[1vw] py-[1.2vh] text-[clamp(1rem,1.4vw,1.125rem)] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="6-digit code"
+                        value={twoFactorCode}
+                        onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        maxLength={6}
+                        disabled={!twoFactorSent}
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={send2FACode}
+                        className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+                        disabled={twoFactorTimer > 0}
+                      >
+                        {twoFactorSent ? (twoFactorTimer > 0 ? `Resend available in ${twoFactorTimer}s` : 'Resend code') : 'Send code'}
+                      </button>
+                    </div>
+                    {twoFactorSent && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Security code sent to all authorized numbers
+                      </p>
+                    )}
+                  </div>
+                )}
                 <button
                   type="submit"
                   className="w-full bg-blue-600 text-white py-[1.5vh] px-[2vw] text-[clamp(1rem,1.4vw,1.125rem)] font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors duration-200"

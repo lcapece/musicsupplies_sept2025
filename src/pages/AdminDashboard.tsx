@@ -25,7 +25,8 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const checkForSmsFailures = async () => {
       // CRITICAL: Only check for SMS failures if this is the admin account (999)
-      if (!hasCheckedForFailures && user?.accountNumber === '999' && isAuthenticated) {
+      const isAdminUser = user?.accountNumber === '999' || user?.accountNumber === 999 || String(user?.accountNumber) === '999';
+      if (!hasCheckedForFailures && isAdminUser && isAuthenticated) {
         try {
           // Check if there are any unacknowledged SMS failures
           const { data, error } = await supabase.rpc('get_unacknowledged_sms_failures');
@@ -39,7 +40,7 @@ const AdminDashboard: React.FC = () => {
           console.error('Error checking for SMS failures:', error);
           setHasCheckedForFailures(true);
         }
-      } else if (user?.accountNumber !== '999') {
+      } else if (!isAdminUser) {
         // Not admin, mark as checked to prevent any future attempts
         setHasCheckedForFailures(true);
       }
@@ -48,7 +49,10 @@ const AdminDashboard: React.FC = () => {
     checkForSmsFailures();
   }, [user, hasCheckedForFailures, isAuthenticated]);
 
-  if (!isAuthenticated || user?.accountNumber !== '999') {
+  // Check if user is admin (account 999) - handle both string and number types
+  const isAdmin = user?.accountNumber === '999' || user?.accountNumber === 999 || String(user?.accountNumber) === '999';
+  
+  if (!isAuthenticated || !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-lg shadow-lg">

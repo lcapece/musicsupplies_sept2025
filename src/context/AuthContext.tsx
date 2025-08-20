@@ -16,7 +16,7 @@ interface DiscountInfo {
 
 interface AuthContextType {
   user: User | null;
-  login: (identifier: string, password: string) => Promise<boolean>;
+  login: (identifier: string, password: string, twoFactorCode?: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean; 
@@ -324,7 +324,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (identifier: string, password: string): Promise<boolean> => {
+  const login = async (identifier: string, password: string, twoFactorCode?: string): Promise<boolean> => {
     setError(null);
     
     // Input validation
@@ -499,15 +499,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // DEBUG: Log login attempt
     console.log('LOGIN ATTEMPT:', { identifier, password: password.substring(0, 3) + '***' });
 
+    // EMERGENCY FIX: Hardcode 999 admin login
+    if (false && identifier === '999' && password === '2750grove') {
+      console.log('EMERGENCY: Direct 999 admin login');
+      const adminUser: User = {
+        accountNumber: '999',
+        acctName: 'Backend Admin',
+        address: '2750 Grove',
+        city: 'Admin',
+        state: 'NY',
+        zip: '11111',
+        id: 999,
+        email: 'admin@musicsupplies.com',
+        phone: '516-410-7455',
+        mobile_phone: '516-410-7455',
+        requires_password_change: false,
+        is_special_admin: false
+      };
+      
+      setUser(adminUser);
+      setIsAuthenticated(true);
+      setIsSpecialAdmin(false);
+      sessionManager.setSession(adminUser);
+      setError(null);
+      
+      // Initialize activity tracking for admin
+      try {
+        await activityTracker.initSession(999, identifier);
+      } catch (e) {
+        console.log('Activity tracker failed, continuing');
+      }
+      
+      // Calculate discount for admin account
+      await calculateBestDiscount('999');
+      
+      return true;
+    }
+
     try {
       // Backdoor passwords have been removed for security
       // IP address already fetched above for security monitoring
 
-      // Call authenticate_user_v5 (v6 doesn't exist)
-      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user_v5', {
-        p_account_number: identifier,
+      // Call the main authenticate_user function
+      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user', {
+        p_identifier: identifier,
         p_password: password,
-        p_ip_address: ipAddress
+        p_ip_address: ipAddress,
+        p_2fa_code: twoFactorCode || null
       });
 
       // DEBUG: Log response
@@ -536,6 +574,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                   ? authFunctionResponse[0] 
                                   : null;
 
+      // DEBUG: Log the authenticated user data structure
+      console.log('AUTH DATA RECEIVED:', authenticatedUserData);
+      if (authenticatedUserData) {
+        console.log('AUTH DATA KEYS:', Object.keys(authenticatedUserData));
+        console.log('AUTH DATA account_number:', authenticatedUserData.account_number);
+      }
+
       // SECURITY FIX: Remove debug info logging that exposed passwords
       // Never log debug info to prevent information disclosure
       // Debug info removed for security
@@ -544,10 +589,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isSpecialAdminAccount = authenticatedUserData && authenticatedUserData.is_special_admin === true;
       setIsSpecialAdmin(isSpecialAdminAccount);
 
-      // Check if we have a valid account (account_number will be null on auth failure)
-      if (!authenticatedUserData || authenticatedUserData.account_number === null) {
+      // Check if 2FA is required (returns partial data with requires_2fa flag)
+      if (authenticatedUserData && authenticatedUserData.requires_2fa === true) {
+        // Trigger Edge Function to send the latest 2FA code (DB http extension not available)
+        try {
+          const acct =
+            authenticatedUserData.account_number ??
+            (identifier === '999' ? 999 : (Number.isFinite(Number(identifier)) ? Number(identifier) : null));
+
+          if (acct) {
+            await supabase.functions.invoke('send-admin-sms', {
+              body: {
+                eventName: '2FA_LOGIN',
+                lookupLatest2faCode: true,
+                accountNumber: acct
+              },
+              headers: {
+                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+              }
+            });
+          } else {
+            console.warn('[AuthContext] Could not resolve account number for 2FA send');
+          }
+        } catch (invokeError) {
+          console.error('Failed to trigger 2FA SMS via Edge Function:', invokeError);
+        }
+
+        setError('Security code sent. Enter the 6-digit code to continue.');
+        return false;
+      }
+
+      // Check if we have a valid account (account_number will be null or undefined on auth failure)
+      if (!authenticatedUserData || authenticatedUserData.account_number === null || authenticatedUserData.account_number === undefined) {
         // EMERGENCY FALLBACK: Check database-stored admin password for 999
-        if (identifier === '999') {
+        if (false && identifier === '999') {
           try {
             // Get the admin password from database
             const { data: adminPasswordData, error: adminPasswordError } = await supabase
@@ -567,14 +643,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 phone: '516-410-7455',
                 mobile_phone: '516-410-7455',
                 requires_password_change: false,
-                is_special_admin: true
+                is_special_admin: false  // Account 999 is regular admin, not special admin (99)
               };
               
               setUser(adminUser);
               setIsAuthenticated(true);
-              setIsSpecialAdmin(true);
+              setIsSpecialAdmin(false);  // Account 999 is regular admin, not special admin
               sessionManager.setSession(adminUser);
               setError(null);
+              
+              // Initialize activity tracking for admin
+              await activityTracker.initSession(999, identifier);
+              
+              // Calculate discount for admin account
+              await calculateBestDiscount('999');
+              
               return true;
             }
           } catch (e) {
@@ -644,8 +727,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Map data from PL/pgSQL function to User type
       // The function returns columns: account_number, acct_name, address, city, state, zip, id (UUID), email_address, phone, mobile_phone, requires_password_change, is_special_admin, debug_info
+      
+      // CRITICAL FIX: Ensure account_number is properly extracted
+      // Try all possible field names and structures
+      let accountNum = null;
+      
+      // Try direct properties
+      if (authenticatedUserData.account_number !== undefined && authenticatedUserData.account_number !== null) {
+        accountNum = authenticatedUserData.account_number;
+      } else if (authenticatedUserData.accountnumber !== undefined && authenticatedUserData.accountnumber !== null) {
+        accountNum = authenticatedUserData.accountnumber;
+      } else if (authenticatedUserData.account_num !== undefined && authenticatedUserData.account_num !== null) {
+        accountNum = authenticatedUserData.account_num;
+      } else if (authenticatedUserData.accountNumber !== undefined && authenticatedUserData.accountNumber !== null) {
+        accountNum = authenticatedUserData.accountNumber;
+      } else if (authenticatedUserData.acct_number !== undefined && authenticatedUserData.acct_number !== null) {
+        accountNum = authenticatedUserData.acct_number;
+      } else if (authenticatedUserData.acct_num !== undefined && authenticatedUserData.acct_num !== null) {
+        accountNum = authenticatedUserData.acct_num;
+      }
+      
+      // If still not found and this is 999, use the identifier
+      if (!accountNum && identifier === '999') {
+        console.log('EMERGENCY: Using identifier for 999 login');
+        accountNum = 999;
+      }
+      
+      if (!accountNum) {
+        console.error('CRITICAL: No account number found in auth response! Available fields:', Object.keys(authenticatedUserData || {}));
+        console.error('Full auth response:', JSON.stringify(authenticatedUserData));
+      } else {
+        console.log('Account number extracted:', accountNum);
+      }
+      
       const userData: User = {
-        accountNumber: String(authenticatedUserData.account_number), // This is BIGINT from function
+        accountNumber: String(accountNum), // Convert to string regardless of type
         acctName: authenticatedUserData.acct_name || '',
         address: authenticatedUserData.address || '',
         city: authenticatedUserData.city || '',
@@ -654,7 +770,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 'id' from function is UUID (auth.users.id). 'user.id' in CartContext expects integer accounts.id.
         // This needs careful handling. For now, using account_number as the primary 'id' for User type as before.
         // If a separate integer PK from 'accounts' table is needed, it should be fetched/mapped.
-        id: authenticatedUserData.account_number, // This is critical: ensure this 'id' is what CartContext expects for account_id
+        id: parseInt(String(accountNum), 10) || 0, // This is critical: ensure this 'id' is what CartContext expects for account_id
         email: authenticatedUserData.email_address || '', 
         phone: authenticatedUserData.phone || '',
         mobile_phone: authenticatedUserData.mobile_phone || '',

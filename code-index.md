@@ -1,0 +1,286 @@
+# Code Index
+
+Generated: 2025-08-19T15:59:32.905Z
+
+## Summary
+
+- Total files indexed: 265
+- By category:
+  - frontend: 106
+  - edge_function: 16
+  - migration: 143
+- By extension:
+  - .tsx: 84
+  - .ts: 38
+  - .sql: 143
+- Edge functions (15): assign-introductory-promo-to-account, authenticate-with-master-password, cleanup-abandoned-orders, generate-pdf-invoice, get-applicable-intro-promo, get-promotional-offers-status, list-s3-files, list-s3-images, log-event, process-sms-queue, record-intro-promo-usage, send-admin-sms, send-customer-sms, send-mailgun-email, send-order-sms
+
+## Files
+
+- src/App.tsx — default:App
+- src/components/AccountSettingsModal.tsx — default:AccountSettingsModal
+- src/components/ActiveDiscountDisplayModal.tsx — default:ActiveDiscountDisplayModal
+- src/components/admin/AccountApplicationsTab.tsx — default:AccountApplicationsTab
+- src/components/admin/AccountsTab.tsx — default:AccountsTab
+- src/components/admin/AddPromoCodeModal.tsx — default:AddPromoCodeModal
+- src/components/admin/AdminPasswordManager.tsx — default:AdminPasswordManager
+- src/components/admin/CategoryManagementTab.tsx — default:CategoryManagementTab
+- src/components/admin/ClickSendTab.tsx — default:ClickSendTab
+- src/components/admin/DataSyncTab.tsx — default:DataSyncTab
+- src/components/admin/DiscountManagementTab.tsx — default:DiscountManagementTab
+- src/components/admin/EditPromoCodeModal.tsx — default:EditPromoCodeModal
+- src/components/admin/EmailTab.tsx — default:EmailTab
+- src/components/admin/GeneralSettingsTab.tsx — default:GeneralSettingsTab
+- src/components/admin/HistoryTab.tsx — default:HistoryTab
+- src/components/admin/IconGenerationTab.tsx — default:IconGenerationTab
+- src/components/admin/ImageManagementTab.tsx — default:ImageManagementTab
+- src/components/admin/InvoiceManagementTab.tsx — default:InvoiceManagementTab
+- src/components/admin/ManagementTab.tsx — default:ManagementTab
+- src/components/admin/ManageTreeviewTab.tsx — default:ManageTreeviewTab
+- src/components/admin/MasterPasswordTab.tsx — named:[MasterPasswordTab]
+- src/components/admin/MissingSubgroupsTab.tsx — default:MissingSubgroupsTab
+- src/components/admin/NetlifyTab.tsx — default:NetlifyTab
+- src/components/admin/OrderHistoryTab.tsx — default:OrderHistoryTab
+- src/components/admin/OrderManagementTab.tsx — default:OrderManagementTab
+- src/components/admin/ProductGroupManagementTab.tsx — default:ProductGroupManagementTab
+- src/components/admin/ProductManagementTab.tsx — default:ProductManagementTab
+- src/components/admin/ProductsTab.tsx — default:ProductsTab
+- src/components/admin/PromoCodeManagementTab.tsx — default:PromoCodeManagementTab
+- src/components/admin/S3ImageCacheTab.tsx — default:S3ImageCacheTab
+- src/components/admin/SimplePasswordChanger.tsx — default:SimplePasswordChanger
+- src/components/admin/SiteStatusTab.tsx — default:SiteStatusTab
+- src/components/admin/SystemAnalyticsTab.tsx — default:SystemAnalyticsTab
+- src/components/admin/UnresolvedIssuesTab.tsx — default:UnresolvedIssuesTab
+- src/components/admin/WebOrdersTab.tsx — default:WebOrdersTab
+- src/components/AdminPasswordManager.tsx — default:AdminPasswordManager
+- src/components/CategoryTree.tsx — default:CategoryTree interfaces:[CategorySelection]
+- src/components/ChatWidget.tsx — default:ChatWidget
+- src/components/ContactInfoModal.tsx — default:ContactInfoModal
+- src/components/Dashboard.tsx — default:Dashboard
+- src/components/DeactivatedAccountModal.tsx — default:DeactivatedAccountModal
+- src/components/DemoModeBanner.tsx — default:DemoModeBanner
+- src/components/DiscountFormModal.tsx — default:DiscountFormModal
+- src/components/EnhancedChatWidget.tsx — default:EnhancedChatWidget
+- src/components/ErrorBoundary.tsx — default:ErrorBoundary
+- src/components/Header.tsx — default:Header
+- src/components/Login.tsx — default:Login
+- src/components/LoginFixBanner.tsx — default:LoginFixBanner
+- src/components/NotificationModal.tsx — default:NotificationModal types:[NotificationType]
+- src/components/OrderConfirmationModal.tsx — default:OrderConfirmationModal
+- src/components/PasswordChangeModal.tsx — default:PasswordChangeModal
+- src/components/ProductImportModal.tsx — default:ProductImportModal interfaces:[ImportStepStatus]
+- src/components/ProductTable.tsx — default:ProductTable
+- src/components/PromoCodePopup.tsx — default:PromoCodePopup
+- src/components/PromotionalPopupModal.tsx — default:PromotionalPopupModal interfaces:[PromotionalOffersStatus]
+- src/components/QuantitySelector.tsx — default:QuantitySelector
+- src/components/SearchBar.tsx — default:SearchBar
+- src/components/ShoppingCart.tsx — default:ShoppingCart
+- src/components/SiteStatusOffline.tsx — default:SiteStatusOffline
+- src/components/SmsConsentModal.tsx — default:SmsConsentModal
+- src/components/SmsFailureNotificationModal.tsx — default:SmsFailureNotificationModal
+- src/components/VersionCheck.tsx
+- src/context/AuthContext.tsx — named:[useAuth]
+- src/context/CartContext.tsx — named:[useCart]
+- src/context/NotificationContext.tsx — named:[useNotification]
+- src/data/categoryTree.ts — named:[fetchCategoryData, buildCategoryTreeFromSimpleStructure, buildCategoryTree]
+- src/data/mockData.ts — named:[buildCategoryTree, getProductsByCategory, searchProducts, searchCategories, validateLogin]
+- src/lib/errorReporting.ts — named:[sendErrorNotificationSMS, reportError, reportReactError, setupGlobalErrorHandling]
+- src/lib/supabase.ts — named:[supabase]
+- src/main.tsx
+- src/pages/AdminAccountApplicationsPage.tsx — default:AdminAccountApplicationsPage
+- src/pages/AdminChatManagementPage.tsx — default:AdminChatManagementPage
+- src/pages/AdminDashboard.tsx — default:AdminDashboard
+- src/pages/AdminKnowledgeBase.tsx — default:AdminKnowledgeBase
+- src/pages/ChatPage.tsx — default:ChatPage
+- src/pages/CustomerAccountPage.tsx — default:CustomerAccountPage
+- src/pages/Dashboard.tsx — default:Dashboard
+- src/pages/EmailCommunicationsPage.tsx — default:EmailCommunicationsPage
+- src/pages/ForgotPasswordPage.tsx — default:ForgotPasswordPage
+- src/pages/NewAccountApplicationPage.tsx — default:NewAccountApplicationPage
+- src/pages/OrderHistory.tsx — default:OrderHistory
+- src/pages/PrivacyPolicyPage.tsx — default:PrivacyPolicyPage
+- src/pages/SkuImportPage.tsx — default:SkuImportPage
+- src/pages/SmsCommunicationsPage.tsx — default:SmsCommunicationsPage
+- src/pages/SmsConsentPreviewPage.tsx — default:SmsConsentPreviewPage
+- src/pages/TermsAndConditionsPage.tsx — default:TermsAndConditionsPage
+- src/pages/UpdatePasswordPage.tsx — default:UpdatePasswordPage
+- src/pages/WebOrdersDisplay.tsx — default:WebOrdersDisplay
+- src/services/activityTracker.ts — named:[activityTracker]
+- src/services/aiChatService.ts — default:AIChatService named:[aiChatService]
+- src/services/secureVoiceService.ts — named:[secureVoiceService]
+- src/types/index.ts — interfaces:[Category, Product, CartItem, Account, User, ProductGroup, OrderConfirmationDetails, RtExtended, PromoCode, PromoCodeUsage, PromoCodeValidity, PromoCodeSummary, AvailablePromoCode]
+- src/utils/adminSessionManager.ts — named:[AdminSessionManager, adminSessionManager]
+- src/utils/applyMigration.ts — named:[applyFixedAuthFunctionMigration, applyPasswordRulesMigration, applyTreeViewMigration, applyBrandMapColumnsMigration, applyPromoCodeFunctionMigration, applyAccount99Migration]
+- src/utils/applyPromoCodeLimitsUpdates.ts — named:[applyPromoCodeLimitsUpdates]
+- src/utils/checkDbUpdate.ts — named:[checkDbUpdate]
+- src/utils/eventLogger.ts — named:[logEvent, logLoginSuccess, logLoginFailure, logSessionExpired, logKeywordSearch, logNavTreeSearch, logItemAddedToCart, logItemRemovedFromCart, logCartView, logCheckoutStarted, logCheckoutCompleted, logCheckoutFailed, logPasswordChanged, logAdminPasswordChanged, logPasswordSetToDefaultZip] types:[EventType, AuthMethod] interfaces:[LogEventOptions]
+- src/utils/iconGenerator.ts — named:[IconGenerator, updateCategoryTreeWithGeneratedIcons, runIconGeneration] interfaces:[CategoryIconRequest]
+- src/utils/invoiceGenerator.ts — named:[generateInvoiceHTML, generateInvoiceText, createInvoiceDataFromOrder] interfaces:[InvoiceData, CompanyInfo]
+- src/utils/secureErrorHandler.ts — named:[handleError, logSecureError, createErrorResponse, withErrorHandling, handleReactError, setupSecureErrorHandling]
+- src/utils/securityConfig.ts — default:SECURITY_CONFIG named:[SecurityUtils, SECURITY_CONFIG]
+- src/utils/securityHeaders.ts — default:SecurityHeadersManager named:[SecurityHeadersManager] interfaces:[SecurityHeaders]
+- src/utils/securityMonitor.ts — named:[securityMonitor]
+- src/utils/sessionManager.ts — named:[SessionManager, sessionManager] interfaces:[SessionData]
+- src/utils/validation.ts — named:[InputValidator, validateEmail, validatePhone, validateAccountNumber, validatePromoCode, validateQuantity, sanitizeText, validatePassword, validatePartNumber, validateAmount, validateSearchQuery] interfaces:[ValidationResult]
+- src/vite-env.d.ts
+- supabase/functions/_shared/cors.ts — named:[corsHeaders]
+- supabase/functions/assign-introductory-promo-to-account/index.ts (edge: assign-introductory-promo-to-account)
+- supabase/functions/authenticate-with-master-password/index.ts (edge: authenticate-with-master-password)
+- supabase/functions/cleanup-abandoned-orders/index.ts (edge: cleanup-abandoned-orders)
+- supabase/functions/generate-pdf-invoice/index.ts (edge: generate-pdf-invoice)
+- supabase/functions/get-applicable-intro-promo/index.ts (edge: get-applicable-intro-promo)
+- supabase/functions/get-promotional-offers-status/index.ts (edge: get-promotional-offers-status)
+- supabase/functions/list-s3-files/index.ts (edge: list-s3-files)
+- supabase/functions/list-s3-images/index.ts (edge: list-s3-images)
+- supabase/functions/log-event/index.ts (edge: log-event)
+- supabase/functions/process-sms-queue/index.ts (edge: process-sms-queue)
+- supabase/functions/record-intro-promo-usage/index.ts (edge: record-intro-promo-usage)
+- supabase/functions/send-admin-sms/index.ts (edge: send-admin-sms)
+- supabase/functions/send-customer-sms/index.ts (edge: send-customer-sms)
+- supabase/functions/send-mailgun-email/index.ts (edge: send-mailgun-email)
+- supabase/functions/send-order-sms/index.ts (edge: send-order-sms)
+- supabase/migrations/20240813_chat_config_table.sql — sql:[table:IF]
+- supabase/migrations/20240813_create_knowledge_base.sql — sql:[table:IF, index:for, index:idx_knowledge_keywords, index:idx_knowledge_category, index:idx_knowledge_active]
+- supabase/migrations/20250516161459_wooden_plain.sql — sql:[table:IF, index:IF, index:IF, index:IF, policy:for, policy:"Enable]
+- supabase/migrations/20250516164846_gentle_truth.sql — sql:[table:IF, index:IF, index:IF, policy:for, policy:"Enable]
+- supabase/migrations/20250516184252_summer_boat.sql — sql:[table:IF]
+- supabase/migrations/20250517181000_add_test_accounts.sql — sql:[table:IF, policy:for, policy:"Enable, table:IF]
+- supabase/migrations/20250517181100_create_production_ordhist.sql — sql:[table:IF, policy:for, policy:"Enable]
+- supabase/migrations/20250517184100_add_test_orders.sql
+- supabase/migrations/20250517210551_long_cottage.sql — sql:[table:IF, policy:for, policy:"Enable]
+- supabase/migrations/20250530174500_create_logon_lcmd_table.sql — sql:[table:IF, index:for, index:IF, policy:for, policy:"Enable, function:to]
+- supabase/migrations/20250530181600_fix_account_101_data.sql
+- supabase/migrations/20250601061500_create_sms_verification_table.sql — sql:[function:to, table:IF, index:for, index:IF, index:IF, policy:for, policy:"Enable, function:to, function:to]
+- supabase/migrations/20250602154500_add_password_hashing.sql — sql:[extension:IF]
+- supabase/migrations/20250602155000_add_admin_account.sql
+- supabase/migrations/20250602160000_create_admin_backend.sql — sql:[table:IF, index:for, index:IF, index:IF, function:for, trigger:set_timestamp_lcmd_discount]
+- supabase/migrations/20250603100000_fix_default_password_logic.sql
+- supabase/migrations/20250603140000_update_products_to_two_level_structure.sql
+- supabase/migrations/20250603143000_fix_requires_password_change_null.sql
+- supabase/migrations/20250603145000_drop_old_authenticate_function.sql
+- supabase/migrations/20250603151000_fix_missing_rls_policies.sql — sql:[policy:"Allow, policy:"Allow]
+- supabase/migrations/20250603152000_fix_rls_policies_for_custom_auth.sql — sql:[policy:"Allow, policy:"Allow, policy:"Allow, policy:"Allow]
+- supabase/migrations/20250604120000_add_order_based_discounts.sql — sql:[table:IF, policy:"Users, policy:"System]
+- supabase/migrations/20250604130000_insert_first_orders_promo.sql
+- supabase/migrations/20250605014900_fix_zip_code_password_logic.sql
+- supabase/migrations/20250605020000_fix_authenticate_function_parameter_type.sql
+- supabase/migrations/20250605021000_final_authenticate_fix.sql
+- supabase/migrations/20250605080500_consolidate_accounts_password_logic.sql — sql:[extension:IF]
+- supabase/migrations/20250605095500_create_unresolved_issues_table.sql — sql:[table:IF, policy:"Admins, policy:"Admins, policy:"Admins]
+- supabase/migrations/20250605153222_little_gate.sql
+- supabase/migrations/20250605153324_falling_trail.sql
+- supabase/migrations/20250605153530_calm_smoke.sql — sql:[extension:IF]
+- supabase/migrations/20250609193923_divine_fire.sql
+- supabase/migrations/20250609194125_dusty_mouse.sql
+- supabase/migrations/20250609194312_white_swamp.sql
+- supabase/migrations/20250609194754_orange_feather.sql
+- supabase/migrations/20250609194857_frosty_ember.sql
+- supabase/migrations/20250609195030_holy_base.sql
+- supabase/migrations/20250609195113_morning_villa.sql
+- supabase/migrations/20250609203531_late_portal.sql
+- supabase/migrations/20250610044026_frosty_resonance.sql
+- supabase/migrations/20250610044741_old_resonance.sql — sql:[table:IF, index:IF, index:IF, index:IF, policy:"Enable, policy:"Enable, function:to]
+- supabase/migrations/20250610045334_misty_tooth.sql — sql:[table:IF, index:IF, index:IF, index:IF, policy:"Enable]
+- supabase/migrations/20250610061132_rapid_ember.sql
+- supabase/migrations/20250610113434_sunny_summit.sql
+- supabase/migrations/20250610115000_update_webmsrp_display.sql
+- supabase/migrations/20250610121500_create_tree_view_data_source.sql — sql:[table:IF, index:for, index:IF, trigger:products_tree_view_refresh_trigger]
+- supabase/migrations/20250610124500_create_treeview_view.sql
+- supabase/migrations/20250610125000_fix_treeview_table_access.sql — sql:[policy:"Allow]
+- supabase/migrations/20250610131000_remove_special_account_password_rules.sql
+- supabase/migrations/20250610131500_drop_authenticate_user_lcmd_function.sql
+- supabase/migrations/20250610132000_create_login_activity_log_table.sql — sql:[table:IF, index:IF, index:IF, index:IF, policy:"Allow, policy:"Allow]
+- supabase/migrations/20250611_add_is_dirty_to_accounts_lcmd.sql
+- supabase/migrations/20250611_add_rls_to_treeview_datasource.sql — sql:[policy:"Allow]
+- supabase/migrations/20250611080834_add_introductory_promo.sql
+- supabase/migrations/20250611084754_ensure_web_orders_table.sql — sql:[table:IF, policy:"Users, policy:"Service, index:IF, index:IF]
+- supabase/migrations/20250611103000_fix_authenticate_function_final.sql
+- supabase/migrations/20250616_add_user_id_to_accounts_lcmd.sql
+- supabase/migrations/20250617_add_rls_for_authenticated_lcmd_discount.sql — sql:[policy:"Allow]
+- supabase/migrations/20250617_add_rls_for_authenticated_pre_products_supabase.sql — sql:[policy:"Allow]
+- supabase/migrations/20250617_add_rls_for_authenticated_products_supabase.sql — sql:[policy:"Allow]
+- supabase/migrations/20250617_add_rls_for_authenticated_products_table.sql — sql:[policy:"Allow]
+- supabase/migrations/20250617_add_sms_consent_to_accounts_lcmd.sql
+- supabase/migrations/20250617_fix_all_product_tables_rls.sql — sql:[policy:"Allow, policy:"Allow, policy:"Allow, policy:"Allow, policy:"Allow]
+- supabase/migrations/20250617_fix_pre_products_supabase_rls.sql
+- supabase/migrations/20250617_fix_products_supabase_rls_public_access.sql — sql:[policy:"Allow]
+- supabase/migrations/20250617_fix_products_view_underlying_tables.sql
+- supabase/migrations/20250617_fix_rt_extended_bullet_points.sql
+- supabase/migrations/20250617_troubleshoot_and_fix_product_display.sql — sql:[policy:"Allow, policy:"Allow]
+- supabase/migrations/20250620_enable_read_access_for_all_tables_fixed.sql — sql:[policy:"Allow]
+- supabase/migrations/20250620_enable_read_access_for_all_tables.sql — sql:[policy:"Allow]
+- supabase/migrations/20250620_fix_treeview_datasource_access.sql
+- supabase/migrations/20250620_fix_treeview_datasource_rls.sql
+- supabase/migrations/20250623_add_get_all_promo_codes_function.sql
+- supabase/migrations/20250623_consolidated_discount_changes.sql — sql:[table:IF, table:IF, policy:"Admin, policy:"Users, policy:"Admin, policy:"Users, function:to, function:to, function:to, trigger:prevent_discount_activation]
+- supabase/migrations/20250623_create_promo_codes_tables.sql — sql:[table:IF, table:IF, policy:"Admin, policy:"Users, policy:"Admin, policy:"Users, function:to, function:to]
+- supabase/migrations/20250623_remove_lcmd_discount_features.sql — sql:[trigger:prevent_discount_activation]
+- supabase/migrations/20250627_add_email_login_to_auth_function.sql
+- supabase/migrations/20250627_add_identifier_used_to_login_activity_log.sql
+- supabase/migrations/20250627_update_auth_function_for_email_support.sql
+- supabase/migrations/20250629_fix_authenticate_function_email_support.sql
+- supabase/migrations/20250701_add_account_99.sql
+- supabase/migrations/20250701_add_truncate_stg_update_skus_function.sql — sql:[function:to]
+- supabase/migrations/20250701_create_stg_update_skus_table.sql — sql:[table:IF, policy:stg_update_skus_policy]
+- supabase/migrations/20250701_fix_auth_for_account_99.sql
+- supabase/migrations/20250701_update_auth_for_account_99.sql
+- supabase/migrations/20250702_add_brand_and_map_columns.sql
+- supabase/migrations/20250702_add_get_best_promo_code_function.sql
+- supabase/migrations/20250704_add_exec_sql_function.sql
+- supabase/migrations/20250704_enhance_promo_codes_with_account_limits.sql — sql:[index:to, index:IF]
+- supabase/migrations/20250704_fix_promo_codes_admin_rls.sql — sql:[policy:"Admin, policy:"Admin, policy:"Admin, policy:"Admin, policy:"Admin, policy:"Admin]
+- supabase/migrations/20250704_fix_promo_codes_user_access_simple.sql — sql:[policy:"Users]
+- supabase/migrations/20250704_fix_promo_codes_user_access.sql — sql:[policy:"Users]
+- supabase/migrations/20250707_add_fresh_promo_codes.sql
+- supabase/migrations/20250707_fix_promo_codes_simple.sql
+- supabase/migrations/20250710_add_test_promo_codes.sql
+- supabase/migrations/20250710_debug_promo_code_validation.sql — sql:[policy:"Allow, policy:"Allow]
+- supabase/migrations/20250710_ensure_promo_usage_function.sql
+- supabase/migrations/20250710_fix_promo_code_functions.sql
+- supabase/migrations/20250711_final_promo_code_fix.sql — sql:[policy:"Enable, policy:"Enable, policy:"Enable]
+- supabase/migrations/20250714_add_marketing_sms_consent_field.sql — sql:[index:idx_accounts_lcmd_marketing_sms_consent, index:idx_accounts_lcmd_sms_consents]
+- supabase/migrations/20250716_add_product_image_fallback_system.sql — sql:[function:to]
+- supabase/migrations/20250717_add_promo_code_status_tracking.sql
+- supabase/migrations/20250724_strengthen_promo_code_single_use.sql — sql:[table:IF, policy:"Admin]
+- supabase/migrations/20250725_create_new_account_applications_table.sql — sql:[table:new_account_applications, policy:"Allow, policy:"Allow, policy:"Allow, policy:"Allow]
+- supabase/migrations/20250728_create_sms_notification_failures_table.sql — sql:[table:to, table:IF, index:for, index:idx_sms_failures_acknowledged, index:idx_sms_failures_order, policy:"Admin, policy:"Admin, policy:"Service, function:to, function:to]
+- supabase/migrations/20250728_fix_save10_single_use.sql
+- supabase/migrations/20250728_fix_sms_failure_notifications.sql — sql:[table:IF, index:for, index:IF, policy:"Admin, policy:"Admin, policy:"Service]
+- supabase/migrations/20250729_create_user_preferences_table.sql — sql:[table:IF, policy:"Users, policy:"Users, policy:"Users, function:to, trigger:to, trigger:trigger_update_user_preferences_updated_at]
+- supabase/migrations/20250802_add_mobile_phone_to_accounts.sql
+- supabase/migrations/20250811_create_app_events.sql — sql:[type:public.event_type, table:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, policy:service_role_all, extension:in, extension:IF]
+- supabase/migrations/20250812_comprehensive_activity_tracking.sql — sql:[table:IF, table:IF, table:IF, table:IF, table:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, index:IF, policy:"Admin, policy:"Admin, policy:"Admin, policy:"Admin, policy:"Admin, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Users]
+- supabase/migrations/20250812_create_contactinfo_table.sql — sql:[table:IF, index:for, index:IF, trigger:trigger_contactinfo_updated_at, policy:contactinfo_select_policy, policy:contactinfo_insert_policy, policy:contactinfo_update_policy, policy:contactinfo_delete_policy, function:to]
+- supabase/migrations/20250812_create_employees_table.sql — sql:[table:IF, index:on, index:IF, index:on, index:IF, trigger:trigger_employees_last_updated, policy:employees_select_policy, policy:employees_insert_policy, policy:employees_update_policy, policy:employees_delete_policy]
+- supabase/migrations/20250812_create_shopping_activity_tracking.sql — sql:[table:IF, index:idx_product_views_account, index:idx_product_views_timestamp, index:idx_product_views_product, table:IF, index:idx_search_history_account, index:idx_search_history_timestamp, table:IF, index:idx_cart_activity_account, index:idx_cart_activity_timestamp, index:idx_cart_activity_product, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Users, policy:"Admin, policy:"Admin, policy:"Admin]
+- supabase/migrations/20250812_create_site_status_table_with_rls.sql — sql:[table:IF, policy:"Anyone, policy:"Only, policy:"Only, policy:"Only]
+- supabase/migrations/20250812_update_upsert_contact_info_sync_accounts.sql
+- supabase/migrations/20250813_create_shopping_activity_table.sql — sql:[table:IF, index:idx_shopping_activity_account, index:idx_shopping_activity_session, index:idx_shopping_activity_type, index:idx_shopping_activity_created, policy:"Users, policy:"Users, policy:"Admin]
+- supabase/migrations/20250813_create_staff_table.sql — sql:[table:IF, index:for, index:IF, index:IF, trigger:trigger_staff_updated_at, policy:staff_select_policy, policy:staff_insert_policy, policy:staff_update_policy, policy:staff_delete_policy]
+- supabase/migrations/20250813_fix_admin_contact_info_permissions.sql — sql:[policy:contactinfo_select_policy, policy:contactinfo_insert_policy, policy:contactinfo_update_policy, policy:contactinfo_delete_policy, policy:accounts_lcmd_admin_policy]
+- supabase/migrations/20250813_fix_shopping_activity_table_structure.sql — sql:[index:IF, index:IF, policy:"Users]
+- supabase/migrations/20250814_create_chat_knowledge_base.sql — sql:[extension:IF, table:IF, index:for, index:ON, index:for, index:ON, table:for, table:IF, table:for, table:IF, policy:"Knowledge, policy:"Admins, policy:"Anyone, policy:"Users, policy:"Availability, policy:"Admins]
+- supabase/migrations/20250815_order_preallocation_system.sql — sql:[index:IF, index:IF, index:IF, function:to, function:to]
+- supabase/migrations/20250816_ABSOLUTE_OVERRIDE.sql
+- supabase/migrations/20250816_add_order_and_backend_login_sms_notifications.sql — sql:[table:IF, function:to, trigger:for, trigger:trigger_notify_new_order_sms]
+- supabase/migrations/20250816_add_sms_queue_processing_cron.sql — sql:[extension:IF, trigger:for, trigger:trigger_notify_sms_queue, index:IF, index:IF]
+- supabase/migrations/20250816_CHECK_WHAT_EXISTS.sql
+- supabase/migrations/20250816_COMPLETE_AUTH_RESET.sql
+- supabase/migrations/20250816_COMPLETE_OVERRIDE.sql
+- supabase/migrations/20250816_COMPLETE_SECURITY_LOCKDOWN.sql — sql:[extension:IF, extension:IF, table:IF, index:for, index:idx_security_audit_created, index:idx_security_audit_event, table:IF, policy:"Service, policy:"Service]
+- supabase/migrations/20250816_CREATE_SIMPLE_BACKEND_AUTH.sql
+- supabase/migrations/20250816_EMERGENCY_BLOCK_MUSIC123.sql
+- supabase/migrations/20250816_enable_http_extension.sql — sql:[extension:IF, extension:IF]
+- supabase/migrations/20250816_FIND_THE_BREACH.sql
+- supabase/migrations/20250816_FIX_BACKEND_PASSWORD_NOW.sql — sql:[extension:IF]
+- supabase/migrations/20250816_FIX_LOGIN_PERMISSIONS.sql
+- supabase/migrations/20250816_FORCE_RESET_BACKEND_PASSWORD.sql — sql:[extension:IF]
+- supabase/migrations/20250816_NUCLEAR_REMOVE_MUSIC123.sql
+- supabase/migrations/20250816_remove_universal_password_and_secure_auth.sql
+- supabase/migrations/20250816_simplified_sms_notifications.sql — sql:[table:IF, index:for, index:IF, policy:"Service, trigger:for, trigger:trigger_queue_order_sms]
+- supabase/migrations/20250816_TOTAL_LOCKDOWN_NOW.sql
+- supabase/migrations/20250816_TOTAL_SYSTEM_SHUTDOWN.sql — sql:[table:IF]
+- supabase/migrations/20250818_FINAL_OVERRIDE_NO_MUSIC123.sql
+- supabase/migrations/20250819_create_2fa_system.sql — sql:[table:IF, table:IF, index:IF]
+
+_* inferred from filename_

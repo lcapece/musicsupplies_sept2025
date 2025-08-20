@@ -29,7 +29,20 @@
       "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(dir:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(psql:*)",
+      "Bash(supabase status:*)",
+      "Bash(supabase start:*)",
+      "Bash(cmd /c:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase db:*)",
+      "Bash(supabase sql:*)",
+      "Bash(supabase migration:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(claude-flow --version)"
     ],
     "deny": []
   }

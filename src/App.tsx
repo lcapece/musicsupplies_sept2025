@@ -58,7 +58,9 @@ const AdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return user?.accountNumber === '999' ? children : <Navigate to="/" replace />; // Redirect non-admins to dashboard
+  // Check for admin account 999
+  const isAdmin = user?.accountNumber === '999' || user?.accountNumber === 999;
+  return isAdmin ? children : <Navigate to="/" replace />; // Redirect non-admins to dashboard
 };
 
 // Specific protected route for special admin (user 99)
@@ -204,12 +206,21 @@ function AppContent() {
             </AdminProtectedRoute>
           } 
         />
+        {/* Admin Dashboard */}
+        <Route 
+          path="/admin" 
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboard />
+            </AdminProtectedRoute>
+          } 
+        />
         {/* Home route with special handling for different account types */}
         <Route 
           path="/" 
           element={
             <ProtectedRoute>
-              {user?.accountNumber === '999' ? (
+              {(user?.accountNumber === '999' || user?.accountNumber === 999) ? (
                 <AdminDashboard />
               ) : user?.accountNumber === '99' || isSpecialAdmin ? (
                 <Navigate to="/sku-import" replace />
@@ -348,24 +359,11 @@ function App() {
       }
     };
 
-    checkSiteStatus();
+    // DISABLED - SITE ALWAYS ONLINE
+    // checkSiteStatus();
   }, []);
 
-  // Show loading while checking status
-  if (statusLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // NEVER SHOW OFFLINE - SITE IS ALWAYS ONLINE
-  // Offline check completely disabled
-
+  // NEVER SHOW LOADING OR OFFLINE - GO STRAIGHT TO APP
   // Normal app flow
   return (
     <BrowserRouter>
@@ -430,7 +428,7 @@ function AppContentWithStatusCheck({ bypassCheck }: { bypassCheck: boolean }) {
 // Final status check for regular users
 function AppContentWithFinalStatusCheck() {
   const [siteStatus, setSiteStatus] = useState<{ status: string; message: string } | null>(null);
-  const [statusLoading, setStatusLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(false); // SITE ALWAYS ONLINE
   
   useEffect(() => {
     const checkStatus = async () => {
@@ -456,24 +454,12 @@ function AppContentWithFinalStatusCheck() {
       }
     };
     
-    checkStatus();
+    // DISABLED - SITE ALWAYS ONLINE
+    // checkStatus();
+    setStatusLoading(false); // Immediately set to false
   }, []);
   
-  if (statusLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (siteStatus) {
-    return <SiteStatusOffline message={siteStatus.message} />;
-  }
-  
+  // NEVER SHOW LOADING - GO STRAIGHT TO APP
   return <AppContent />;
 }
 
