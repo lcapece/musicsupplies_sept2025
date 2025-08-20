@@ -684,6 +684,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if we have a valid account (account_number will be null or undefined on auth failure)
       if (!authenticatedUserData || authenticatedUserData.account_number === null || authenticatedUserData.account_number === undefined) {
         // REMOVED THIRD EMERGENCY BYPASS - All 999 logins must use proper 2FA authentication flow
+
+        // Fallback: if identifier is numeric and password matches on-file ZIP, trigger initialization flow
+        try {
+          if (!isEmail && /^\d+$/.test(identifier)) {
+            const acctNum = parseInt(identifier, 10);
+            const { data: acctRow, error: acctErr } = await supabase
+              .from('accounts_lcmd')
+              .select('account_number, zip')
+              .eq('account_number', acctNum)
+              .single();
+
+            if (!acctErr && acctRow && typeof acctRow.zip === 'string') {
+              if (acctRow.zip.trim() === password.trim()) {
+                // Start password initialization flow
+                setNeedsPasswordInitialization(true);
+                setResolvedAccountNumber(String(acctRow.account_number));
+                setShowPasswordInitializationModal(true);
+
+                // Log as successful ZIP auth (initialization required)
+                try {
+                  await supabase.from('login_activity_log').insert({
+                    account_number: acctRow.account_number,
+                    login_success: true,
+                    ip_address: null,
+                    user_agent: null,
+                    identifier_used: identifier,
+                    notes: 'ZIP code authentication - password initialization required (client fallback)'
+                  });
+                } catch (logError) { console.error('Failed to log ZIP authentication (fallback):', logError); }
+
+                try { await logLoginSuccess({ accountNumber: acctRow.account_number, emailAddress: null, authMethod: 'zip_password' }); } catch (_e) {}
+
+                return false; // Do not proceed to error; initialization modal is shown
+              }
+            }
+          }
+        } catch (zipCheckErr) {
+          console.error('ZIP fallback check failed:', zipCheckErr);
+        }
         
         const errorMessage = 'Invalid account number/email or password.';
         // Remove debug info from console to prevent information disclosure

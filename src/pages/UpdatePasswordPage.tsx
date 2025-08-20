@@ -65,9 +65,7 @@ const UpdatePasswordPage: React.FC = () => {
 
   const validatePassword = (pwd: string): string[] => {
     const errors: string[] = [];
-    if (pwd.length < 8) errors.push('Password must be at least 8 characters long');
-    if (!/[A-Z]/.test(pwd)) errors.push('Password must contain at least one uppercase letter');
-    if (!/[a-z]/.test(pwd)) errors.push('Password must contain at least one lowercase letter');
+    if (pwd.length < 6) errors.push('Password must be at least 6 characters long');
     if (!/[0-9]/.test(pwd)) errors.push('Password must contain at least one number');
     return errors;
   };
@@ -117,12 +115,22 @@ const UpdatePasswordPage: React.FC = () => {
         return;
       }
 
-      // Update the password in the user_passwords table
+      // Hash the password using secure DB function, then upsert
+      const { data: hashedPassword, error: hashErr } = await supabase.rpc('hash_password', {
+        plain_password: password
+      });
+      if (hashErr || !hashedPassword) {
+        setError('Failed to secure password. Please try again.');
+        console.error('Hash error:', hashErr);
+        setIsLoading(false);
+        return;
+      }
+
       const { error: passwordError } = await supabase
         .from('user_passwords')
         .upsert({ 
           account_number: accountData.account_number,
-          password_hash: password, // Note: Backend will handle hashing
+          password_hash: hashedPassword,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, {
@@ -135,16 +143,6 @@ const UpdatePasswordPage: React.FC = () => {
         return;
       }
 
-      // Clear any password change requirement
-      const { error: updateError } = await supabase
-        .from('accounts_lcmd')
-        .update({ requires_password_change: false })
-        .eq('account_number', accountData.account_number);
-
-      if (updateError) {
-        console.error('Error clearing password change requirement:', updateError);
-        // Don't fail the whole operation for this
-      }
 
       // Mark the token as used
       const { error: tokenError } = await supabase
@@ -309,8 +307,7 @@ const UpdatePasswordPage: React.FC = () => {
             <div className="text-xs text-gray-500">
               <p>Password requirements:</p>
               <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>At least 8 characters long</li>
-                <li>Contains uppercase and lowercase letters</li>
+                <li>At least 6 characters long</li>
                 <li>Contains at least one number</li>
               </ul>
             </div>
