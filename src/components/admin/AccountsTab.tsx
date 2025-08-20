@@ -23,6 +23,7 @@ const AccountsTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
@@ -302,37 +303,35 @@ const AccountsTab: React.FC = () => {
   };
 
   const handleResetPassword = async (accountNumber: number) => {
-    if (window.confirm('This will RESET ZIP DEFAULT - removing the custom password and allowing user to authenticate with ZIP code, which will trigger the mandatory password change modal. Continue?')) {
-      try {
-        // STEP 1: Remove record from USER_PASSWORDS (as per requirement)
-        const { error: deleteError } = await supabase
-          .from('user_passwords')
-          .delete()
-          .eq('account_number', accountNumber);
+    try {
+      // STEP 1: Remove record from USER_PASSWORDS (as per requirement)
+      const { error: deleteError } = await supabase
+        .from('user_passwords')
+        .delete()
+        .eq('account_number', accountNumber);
 
-        if (deleteError) {
-          console.error('Error deleting password:', deleteError);
-          alert('Error resetting password: ' + deleteError.message);
-          return;
-        }
-
-        // STEP 2: Clear any auth.users connection
-        const { error: clearUserError } = await supabase
-          .from('accounts_lcmd')
-          .update({ user_id: null })
-          .eq('account_number', accountNumber);
-
-        if (clearUserError) {
-          console.error('Error clearing user connection:', clearUserError);
-          // Don't fail the operation if this fails
-        }
-
-        fetchAccounts();
-        alert('RESET ZIP DEFAULT completed successfully. User can now log in with their ZIP code (once), which will trigger the mandatory password setup modal.');
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Error resetting password');
+      if (deleteError) {
+        console.error('Error deleting password:', deleteError);
+        alert('Error resetting password: ' + deleteError.message);
+        return;
       }
+
+      // STEP 2: Clear any auth.users connection
+      const { error: clearUserError } = await supabase
+        .from('accounts_lcmd')
+        .update({ user_id: null })
+        .eq('account_number', accountNumber);
+
+      if (clearUserError) {
+        console.error('Error clearing user connection:', clearUserError);
+        // Don't fail the operation if this fails
+      }
+
+      fetchAccounts();
+      alert('Password reset completed successfully. User can now log in with their ZIP code (once), which will trigger the mandatory password setup modal.');
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error resetting password');
     }
   };
 
@@ -446,6 +445,49 @@ const AccountsTab: React.FC = () => {
     );
   };
 
+  const ResetConfirmModal: React.FC<{
+    account: Account;
+    onClose: () => void;
+    onConfirm: (accountNumber: number) => void;
+  }> = ({ account, onClose, onConfirm }) => {
+    const handleConfirm = () => {
+      onConfirm(account.account_number);
+      onClose();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
+          <h3 className="text-2xl font-semibold text-gray-900 mb-6">
+            Reset Password Confirmation
+          </h3>
+          <div className="mb-6">
+            <p className="text-lg text-gray-700 mb-4">
+              Are you sure you want to reset the password for account <strong>{account.account_number}</strong> ({account.acct_name}) who is located in zip code <strong>{formatZipCode(account.zip)}</strong>?
+            </p>
+            <p className="text-md text-gray-600">
+              This will remove the user from the user_passwords table and trigger an automatic first-time password setup when they next log in.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-4">
+            <button
+              onClick={onClose}
+              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              className="px-6 py-3 text-lg font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+            >
+              Yes, Reset Password
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 
   return (
     <div>
@@ -552,11 +594,11 @@ const AccountsTab: React.FC = () => {
                         <button
                           onClick={() => {
                             setSelectedAccount(account);
-                            setShowPasswordModal(true);
+                            setShowResetConfirmModal(true);
                           }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium"
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-medium"
                         >
-                          Change Password
+                          Reset Password
                         </button>
                         <button
                           onClick={() => {
@@ -617,6 +659,15 @@ const AccountsTab: React.FC = () => {
           onClose={() => setShowPasswordModal(false)}
           onSave={handleSetPassword}
           onResetZip={handleResetPassword}
+        />
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirmModal && selectedAccount && (
+        <ResetConfirmModal
+          account={selectedAccount}
+          onClose={() => setShowResetConfirmModal(false)}
+          onConfirm={handleResetPassword}
         />
       )}
 
