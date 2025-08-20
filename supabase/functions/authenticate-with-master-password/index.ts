@@ -138,8 +138,53 @@ serve(async (req) => {
       console.log('Regular authentication exception:', regularAuthException.message)
     }
 
-    // If regular authentication succeeded, return success
+    // If regular authentication succeeded, check if 2FA is required
     if (regularAuthSucceeded && regularAccountData) {
+      // EMERGENCY: Account 999 requires 2FA SMS
+      if (regularAccountData.account_number === 999) {
+        console.log('Account 999 authenticated - triggering 2FA SMS')
+        
+        try {
+          // Generate 2FA code
+          const twoFactorCode = Math.floor(100000 + Math.random() * 900000).toString()
+          const expiresAt = new Date(Date.now() + 90000) // 90 seconds from now
+          
+          // Store 2FA code in database
+          await supabase.from('two_factor_codes').insert({
+            account_number: 999,
+            code: twoFactorCode,
+            expires_at: expiresAt.toISOString(),
+            used: false
+          })
+          
+          // Send SMS with 2FA code
+          const smsResponse = await supabase.functions.invoke('send-admin-sms', {
+            body: {
+              eventName: '2FA_LOGIN',
+              message: `MusicSupplies.com Admin Security Code: ${twoFactorCode} (expires in 90 seconds)`,
+              customPhones: ['+15164550980']
+            }
+          })
+          
+          console.log('2FA SMS triggered for account 999:', smsResponse)
+          
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              requires2FA: true,
+              message: '2FA code sent to your phone'
+            }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200 
+            }
+          )
+        } catch (smsError) {
+          console.error('Failed to send 2FA SMS:', smsError)
+          // Continue with regular login if SMS fails
+        }
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: true,

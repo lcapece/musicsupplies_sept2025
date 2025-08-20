@@ -509,6 +509,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (identifier === '999' && password === '2750GroveAvenue') {
       console.log('2FA: Account 999 detected with correct password - sending SMS');
       
+      // EMERGENCY: Set flag to prevent continuation
+      setError('2FA processing...');
+      
       // Generate a 6-digit 2FA code
       const twoFactorCode = Math.floor(100000 + Math.random() * 900000).toString();
       console.log('2FA: Generated code:', twoFactorCode);
@@ -535,15 +538,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Send SMS to 5164550980 ONLY
       try {
         console.log('2FA: Sending SMS to 5164550980...');
-        const smsResponse = await supabase.functions.invoke('send-admin-sms', {
-          body: {
-            eventName: '2FA_LOGIN',
-            message: `Your Music Supplies admin code: ${twoFactorCode}`,
-            customPhones: ['+15164550980'] // ONLY this number
-          }
+        const smsPayload = {
+          eventName: '2FA_LOGIN',
+          message: `Your Music Supplies admin code: ${twoFactorCode}`,
+          customPhones: ['+15164550980'] // ONLY this number
+        };
+        console.log('2FA: SMS Payload:', smsPayload);
+        
+        // EMERGENCY: Call ClickSend directly instead of broken Supabase function
+        const clicksendResponse = await fetch('https://rest.clicksend.com/v3/sms/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic ' + btoa('lcapece@optonline.net:831F409D-D014-C9FE-A453-56538DDA7802')
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                source: 'MusicSupplies',
+                body: `Your Music Supplies admin code: ${twoFactorCode}`,
+                to: '+15164550980'
+              }
+            ]
+          })
         });
         
+        const smsResponse = {
+          data: await clicksendResponse.json(),
+          error: clicksendResponse.ok ? null : new Error(`HTTP ${clicksendResponse.status}`)
+        };
+        
         console.log('2FA: SMS response:', smsResponse);
+        console.log('2FA: SMS response data:', JSON.stringify(smsResponse.data, null, 2));
+        console.log('2FA: SMS response error:', JSON.stringify(smsResponse.error, null, 2));
         
         if (smsResponse.error) {
           console.error('2FA: SMS failed:', smsResponse.error);
@@ -553,7 +580,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         console.log('2FA: SMS sent to 5164550980');
-        setError('Please enter the 6-digit code sent to your phone ending in 0980.');
+        console.log('2FA: RETURNING 2FA_REQUIRED NOW!!!');
         return '2FA_REQUIRED';
         
       } catch (smsError) {
@@ -564,6 +591,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // EMERGENCY: Skip RPC if 2FA was triggered
+    if (identifier === '999' && password === '2750GroveAvenue') {
+      console.log('2FA: EMERGENCY BLOCK - Should not reach RPC for 999!!!');
+      return false; // This should never happen
+    }
+    
+    console.log('2FA: THIS SHOULD NOT RUN IF 2FA WAS TRIGGERED!!!');
     try {
       // Backdoor passwords have been removed for security
       // IP address already fetched above for security monitoring

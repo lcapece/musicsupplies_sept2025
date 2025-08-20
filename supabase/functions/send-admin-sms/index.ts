@@ -11,7 +11,7 @@ type ClickSendCreds = { username: string; apiKey: string };
 
 // EMERGENCY HARDCODED CREDENTIALS FOR IMMEDIATE DEPLOYMENT
 async function getClickSendCredentials(): Promise<ClickSendCreds> {
-  // HARDCODED FOR EMERGENCY - CHANGE AFTER FIXING
+  // HARDCODED FOR EMERGENCY - CORRECT USERNAME
   return { 
     username: 'lcapece@optonline.net',
     apiKey: '831F409D-D014-C9FE-A453-56538DDA7802'

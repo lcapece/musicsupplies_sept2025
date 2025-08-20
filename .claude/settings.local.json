@@ -46,7 +46,9 @@
       "Bash(where node)",
       "Bash(rg:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(start test_sms_function.html)"
+      "Bash(start test_sms_function.html)",
+      "Bash(supabase functions deploy:*)",
+      "Bash(start direct_clicksend_test.html)"
     ],
     "deny": []
   }

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EMERGENCY SMS TEST NOW</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>EMERGENCY SMS TEST - UPDATED FUNCTION</h1>
+    <button onclick="testSMSNow()">SEND EMERGENCY SMS NOW</button>
+    <div id="result"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ekklokrukxmqlahtonnc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+        
+        const { createClient } = supabase;
+        const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testSMSNow() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>SENDING EMERGENCY SMS NOW...</p>';
+            
+            try {
+                const response = await client.functions.invoke('send-admin-sms', {
+                    body: {
+                        eventName: '2FA_LOGIN',
+                        message: 'EMERGENCY TEST - CREDENTIALS FIXED: 999888',
+                        customPhones: ['+15164550980']
+                    }
+                });
+                
+                console.log('Emergency SMS Response:', response);
+                
+                result.innerHTML = `
+                    <h2>EMERGENCY SMS RESULT:</h2>
+                    <pre style="color: ${response.error ? 'red' : 'green'};">${JSON.stringify(response, null, 2)}</pre>
+                `;
+                
+            } catch (e) {
+                console.error('Exception:', e);
+                result.innerHTML = `<p style="color: red;">EXCEPTION: ${e.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
