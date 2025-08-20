@@ -44,7 +44,8 @@
       "WebFetch(domain:github.com)",
       "Bash(claude-flow --version)",
       "Bash(where node)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": []
   }

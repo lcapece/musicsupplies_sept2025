@@ -45,6 +45,6 @@ if (fs.existsSync(mobilePackage)) {
   updatePackageJson(mobilePackage);
 }
 
-// Version is now only stored in package.json - no duplicate files needed
+// VERSION IS NOW ONLY IN PACKAGE.JSON - NO OTHER FILES NEEDED
 
 console.log(`Version update complete: ${version}`);

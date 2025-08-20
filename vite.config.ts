@@ -1,11 +1,12 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const appVersion = env.VITE_APP_VERSION || Date.now().toString();
+  const appVersion = pkg.version; // Use package.json version for cache busting
   
   return {
   root: '.', // Explicitly set the root directory
@@ -37,6 +38,32 @@ export default defineConfig(({ mode }) => {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0'
+    },
+    proxy: {
+      '/api/version-check': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('Proxy error - using fallback version check');
+          });
+        },
+        // Fallback to local version when proxy fails
+        bypass: (req, res, options) => {
+          // Return current package.json version directly for development
+          if (req.headers.accept?.includes('application/json')) {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.end(JSON.stringify({
+              version: appVersion,
+              timestamp: new Date().toISOString(),
+              build: Date.now(),
+              source: 'dev-server-fallback'
+            }));
+            return true; // bypass proxy
+          }
+        }
+      }
     }
   },
   plugins: [
@@ -81,7 +108,7 @@ export default defineConfig(({ mode }) => {
   define: {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://ekklokrukxmqlahtonnc.supabase.co'),
     'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k'),
-    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+    '__APP_VERSION__': JSON.stringify(appVersion),
   },
   };
 });

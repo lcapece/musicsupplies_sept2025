@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-const CURRENT_VERSION = 'RC818.0145'; // Emergency hardcoded admin login
+import packageJson from '../../package.json';
+const CURRENT_VERSION = packageJson.version; // Use package.json version
 const VERSION_CHECK_INTERVAL = 300000; // Check every 5 MINUTES - not 5 seconds!
 
 export const VersionCheck: React.FC = () => {

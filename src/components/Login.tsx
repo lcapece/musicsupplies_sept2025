@@ -9,7 +9,6 @@ import { validateEmail, validateAccountNumber } from '../utils/validation';
 import { supabase } from '../lib/supabase';
 import logo from '../images/music_supplies_logo.png';
 import building from '../images/buildings.png';
-import packageJson from '../../package.json';
 
 // Import all brand logos
 import logo1 from '../images/logo_1.png';
@@ -107,17 +106,28 @@ const Login: React.FC = () => {
     }
 
     try {
+      console.log('🔐 Validating admin password for account 999...');
+      
       // Step 1: Validate admin password using secure admin_config table
       const { data: isValidPassword, error: validationErr } = await supabase.rpc('validate_admin_password', {
         p_password: password
       });
       
-      if (validationErr || !isValidPassword) {
-        console.error('Error validating admin password:', validationErr);
+      console.log('🔐 Password validation result:', { isValidPassword, validationErr });
+      
+      if (validationErr) {
+        console.error('❌ Database error validating admin password:', validationErr);
+        alert(`Database error: ${validationErr.message}. Please check console for details.`);
+        return;
+      }
+      
+      if (!isValidPassword) {
+        console.error('❌ Invalid password for admin account 999');
         alert('Invalid password. Please check your credentials.');
         return;
       }
 
+      console.log('✅ Password validated successfully - showing 2FA field');
       // Only show 2FA field after successful password validation
       setShowTwoFactor(true);
 
@@ -441,11 +451,6 @@ const Login: React.FC = () => {
         accountName={deactivatedAccountName}
         onClose={closeDeactivatedAccountModal}
       />
-      
-      {/* Version info in lower left corner */}
-      <div className="absolute bottom-2 left-2 text-xs text-gray-400">
-        v{packageJson.version}
-      </div>
       
       {/* Contact info in lower right corner */}
       <div className="absolute bottom-2 right-2 text-xs text-gray-400">

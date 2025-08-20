@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import packageJson from '../../package.json';
 
 interface VersionData {
   version: string;
@@ -8,12 +9,21 @@ interface VersionData {
 
 export const useAutoVersionCheck = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const currentVersion = import.meta.env.VITE_APP_VERSION || 'Unknown';
+  const currentVersion = packageJson.version;
   
   const checkAndUpdateVersion = async () => {
     try {
-      // Fetch latest version with cache-busting timestamp
-      const response = await fetch(`/version.json?t=${Date.now()}`);
+      // SERVER-SIDE VERSION CHECK - bypasses all client cache
+      // Hit a Supabase Edge Function that returns current package.json version
+      const response = await fetch('/api/version-check', {
+        method: 'GET',
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      
       if (!response.ok) return;
       
       const versionData: VersionData = await response.json();
@@ -23,7 +33,7 @@ export const useAutoVersionCheck = () => {
       if (latestVersion !== currentVersion) {
         console.log(`Version update detected: ${currentVersion} → ${latestVersion}`);
         
-        // Clear all caches silently
+        // NUCLEAR CACHE CLEAR - bypass chicken-and-egg problem
         if ('caches' in window) {
           const cacheNames = await caches.keys();
           await Promise.all(
@@ -31,16 +41,31 @@ export const useAutoVersionCheck = () => {
           );
         }
 
-        // Clear storage
+        // Clear ALL storage
         localStorage.clear();
         sessionStorage.clear();
+        
+        // Clear cookies (if any)
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
 
-        // Force reload to get latest version
-        window.location.reload();
+        // Force hard reload - bypasses all cache
+        window.location.href = window.location.href + '?v=' + Date.now();
       }
     } catch (error) {
-      // Silently fail - don't disrupt user experience
-      console.debug('Version check failed:', error);
+      // Fallback: Try direct package.json fetch (for development)
+      try {
+        const pkgResponse = await fetch('/package.json?t=' + Date.now(), { cache: 'no-cache' });
+        if (pkgResponse.ok) {
+          const pkg = await pkgResponse.json();
+          if (pkg.version && pkg.version !== currentVersion) {
+            window.location.href = window.location.href + '?v=' + Date.now();
+          }
+        }
+      } catch (fallbackError) {
+        console.debug('Version check failed completely:', error, fallbackError);
+      }
     }
   };
 
