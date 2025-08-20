@@ -12,22 +12,16 @@ const AdminPasswordManager: React.FC = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const { user } = useAuth();
 
-  // Load current admin password from database
+  // Load state: we do not retrieve current admin password for security
   const loadAdminPassword = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_admin_password');
-      
-      if (error) {
-        console.error('Error loading admin password:', error);
-        setMessage({ type: 'error', text: 'Failed to load admin password' });
-      } else {
-        setAdminPassword(data || '');
-        setNewPassword(data || '');
-      }
+      setAdminPassword('');
+      setNewPassword('');
+      setMessage({ type: 'success', text: 'Admin password is set but not retrievable. Enter a new value to replace it.' });
     } catch (err) {
-      console.error('Exception loading admin password:', err);
-      setMessage({ type: 'error', text: 'Error loading admin password' });
+      console.error('Admin password init error:', err);
+      setMessage({ type: 'error', text: 'Initialization error' });
     } finally {
       setIsLoading(false);
     }
@@ -40,11 +34,14 @@ const AdminPasswordManager: React.FC = () => {
       return;
     }
 
-    // Check for Music123 pattern
+    // Enforce banned pattern and minimum complexity (>=6 chars, at least one digit)
     if (newPassword.toLowerCase().includes('music') || 
-        newPassword.includes('123') ||
         newPassword.toLowerCase() === 'music123') {
       setMessage({ type: 'error', text: 'This password has been permanently banned for security reasons' });
+      return;
+    }
+    if (!/^(?=.*\d).{6,}$/.test(newPassword.trim())) {
+      setMessage({ type: 'error', text: 'Password must be at least 6 characters and include at least one number' });
       return;
     }
 
@@ -52,26 +49,20 @@ const AdminPasswordManager: React.FC = () => {
     setMessage(null);
     
     try {
-      const { data, error } = await supabase.rpc('update_admin_password', {
-        p_new_password: newPassword,
-        p_updated_by: user?.accountNumber || 'system'
+      const { error } = await supabase.rpc('set_admin_password', {
+        p_password: newPassword.trim()
       });
       
       if (error) {
         console.error('Error updating admin password:', error);
-        setMessage({ type: 'error', text: 'Failed to update admin password' });
-      } else if (data === true) {
-        setAdminPassword(newPassword);
-        setMessage({ type: 'success', text: 'Admin password updated successfully' });
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          setMessage(null);
-        }, 3000);
+        setMessage({ type: 'error', text: error.message || 'Failed to update admin password' });
       } else {
-        setMessage({ type: 'error', text: 'Failed to update admin password' });
+        setAdminPassword(''); // do not display
+        setNewPassword('');
+        setMessage({ type: 'success', text: 'Admin password updated successfully' });
+        setTimeout(() => setMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Exception updating admin password:', err);
       setMessage({ type: 'error', text: 'Error updating admin password' });
     } finally {
@@ -114,27 +105,15 @@ const AdminPasswordManager: React.FC = () => {
           </label>
           <div className="relative">
             <input
-              type={showPassword ? 'text' : 'password'}
-              value={adminPassword}
+              type="password"
+              value="********"
               readOnly
               className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 pr-10"
-              placeholder={isLoading ? 'Loading...' : 'No password set'}
+              placeholder={isLoading ? 'Loading...' : 'Not retrievable'}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              title={showPassword ? 'Hide password' : 'Reveal password'}
-            >
-              {showPassword ? (
-                <EyeOff className="text-gray-500 hover:text-gray-700" size={20} />
-              ) : (
-                <Eye className="text-gray-500 hover:text-gray-700" size={20} />
-              )}
-            </button>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            {showPassword ? 'Password is visible - ensure you are in a private view' : 'Click the eye icon to reveal the password'}
+            For security, the current admin password cannot be displayed. Enter a new password below to replace it.
           </p>
         </div>
 
@@ -151,7 +130,7 @@ const AdminPasswordManager: React.FC = () => {
             placeholder="Enter new password"
           />
           <p className="mt-1 text-xs text-gray-500">
-            Enter a new password to replace the current admin password
+            Enter a new password to replace the current admin password. Must be at least 6 characters and include at least one number.
           </p>
         </div>
 

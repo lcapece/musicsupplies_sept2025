@@ -504,9 +504,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // DEBUG: Log login attempt
     console.log('LOGIN ATTEMPT:', { identifier, password: password.substring(0, 3) + '***' });
-    
+
+    // Normalize inputs to avoid whitespace issues for admin login
+    const idTrim = identifier.trim();
+    const pwdTrim = password.trim();
+
+    // Check admin password centrally via RPC (no hardcoding)
+    let adminOk = false;
+    if (idTrim === '999') {
+      try {
+        const { data: isValid, error: adminCheckError } = await supabase.rpc('is_admin_password_valid', { p_password: pwdTrim });
+        if (adminCheckError) {
+          console.error('Admin password check RPC error:', adminCheckError);
+        } else {
+          adminOk = isValid === true;
+        }
+      } catch (e) {
+        console.error('Admin password check exception:', e);
+      }
+    }
+
     // SIMPLE 2FA WITH CLICKSEND SMS
-    if (identifier === '999' && password === '2750GroveAvenue') {
+    if (idTrim === '999' && adminOk) {
       console.log('2FA: Account 999 detected with correct password - sending SMS');
       
       // EMERGENCY: Set flag to prevent continuation
@@ -592,7 +611,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // EMERGENCY: Skip RPC if 2FA was triggered
-    if (identifier === '999' && password === '2750GroveAvenue') {
+    if (idTrim === '999' && adminOk) {
       console.log('2FA: EMERGENCY BLOCK - Should not reach RPC for 999!!!');
       return false; // This should never happen
     }
@@ -841,8 +860,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWith2FA = async (identifier: string, password: string, twoFactorCode: string): Promise<boolean> => {
     setError(null);
     
+    // Normalize inputs to avoid whitespace issues for admin login
+    const idTrim = identifier.trim();
+    const pwdTrim = password.trim();
+
     // FRONTEND 2FA VALIDATION - BYPASS DATABASE COMPLETELY
-    if (identifier === '999' && password === '2750GroveAvenue') {
+    if (idTrim === '999' && sessionStorage.getItem('temp_2fa_code') && sessionStorage.getItem('temp_admin_user')) {
       console.log('FRONTEND 2FA: Validating 2FA code');
       
       // Get the stored test code
