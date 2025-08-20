@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
 import ShoppingCartComponent from './ShoppingCart';
 import AccountSettingsModal from './AccountSettingsModal';
+import { useAutoVersionCheck } from '../hooks/useAutoVersionCheck';
 import packageJson from '../../package.json';
 
 interface HeaderProps {
@@ -17,6 +18,9 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
   const { totalItems } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  
+  // Silent automatic version checking
+  useAutoVersionCheck();
   
   const handleLogout = () => {
     logout();

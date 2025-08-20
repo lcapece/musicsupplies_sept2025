@@ -240,7 +240,7 @@ serve(async (req) => {
         const latest = await fetchLatestTwoFactorCode(accountNumber);
         // Build standard 2FA message if caller did not supply a custom message
         if (!finalMessage) {
-          finalMessage = `Music Supplies Admin Security Code: ${latest.code} (expires in 90 seconds)`;
+          finalMessage = `MusicSupplies.com Admin Security Code: ${latest.code} (expires in 90 seconds)`;
         }
       } catch (err) {
         console.error('Failed to fetch latest 2FA code:', (err as Error).message);

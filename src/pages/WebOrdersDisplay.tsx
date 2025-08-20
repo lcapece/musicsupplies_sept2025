@@ -86,24 +86,24 @@ const WebOrdersDisplay: React.FC = () => {
         }
       }
 
-      // Get backend IVD and status values from pre_order_history_lcmd
+      // Get backend invoice_number and status values from v_legacy_order_info view
       const orderNumbers = data?.map(order => order.order_number) || [];
-      let backendLookup = new Map();
+      const backendLookup = new Map<string, { ivd: string; status: string }>();
       
       if (orderNumbers.length > 0) {
         const { data: backendData, error: backendError } = await supabase
-          .from('pre_order_history_lcmd')
-          .select('web_order_number, ivd, status')
+          .from('v_legacy_order_info')
+          .select('invoice_number, status, web_order_number')
           .in('web_order_number', orderNumbers);
 
         if (backendError) {
-          console.warn('Error fetching backend IVD data:', backendError);
+          console.warn('Error fetching backend data from v_legacy_order_info:', backendError);
         } else {
           // Group by web_order_number and take the first IVD and status value (using distinct logic)
           backendData?.forEach((item: any) => {
             if (!backendLookup.has(item.web_order_number)) {
               backendLookup.set(item.web_order_number, {
-                ivd: item.ivd,
+                ivd: item.invoice_number,
                 status: item.status
               });
             }
@@ -115,13 +115,9 @@ const WebOrdersDisplay: React.FC = () => {
       const processedOrders: WebOrder[] = data?.map(order => {
         const backendInfo = backendLookup.get(order.order_number);
         const originalStatus = order.status;
-        
-        // Use backend status unless the current status is "Canceled"
-        let finalStatus = originalStatus;
-        if (originalStatus?.toLowerCase() !== 'canceled' && backendInfo?.status) {
-          finalStatus = backendInfo.status;
-        }
-        
+
+        const finalStatus = backendInfo?.status ?? originalStatus;
+
         return {
           ...order,
           customer_name: (order as any).accounts_lcmd?.acct_name || 'Unknown',
@@ -347,15 +343,19 @@ const WebOrdersDisplay: React.FC = () => {
                       {new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        order.status === 'completed' 
-                          ? 'bg-green-100 text-green-800'
-                          : order.status === 'processing'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : order.status === 'pending'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          order.status === 'Shipped' || order.status === 'Completed'
+                            ? 'bg-green-100 text-green-800'
+                            : order.status === 'Processing'
+                            ? 'bg-blue-100 text-blue-800'
+                            : order.status === 'Not Shipped' || order.status === 'Pending Confirmation'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : order.status === 'Canceled'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
                         {order.status}
                       </span>
                     </td>

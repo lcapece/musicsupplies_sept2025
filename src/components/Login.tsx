@@ -74,10 +74,10 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, user, navigate, showPasswordChangeModal]);
 
-  // Toggle 2FA input based on identifier (enable for admin 999)
+  // Only show 2FA after successful password validation for user 999
   useEffect(() => {
-    const isAdmin999 = identifier.trim() === '999';
-    setShowTwoFactor(isAdmin999);
+    // Reset 2FA state when identifier changes
+    setShowTwoFactor(false);
     setTwoFactorCode('');
     setTwoFactorSent(false);
     setTwoFactorTimer(0);
@@ -93,21 +93,42 @@ const Login: React.FC = () => {
     }
   }, [twoFactorTimer]);
 
-  // Function to send 2FA code
-  const send2FACode = async () => {
+  // Function to validate password and show 2FA field for user 999
+  const validatePasswordAndShow2FA = async () => {
+    // Only allow for user 999
+    if (identifier.trim() !== '999') {
+      return;
+    }
+
+    // Validate that password is provided
+    if (!password.trim()) {
+      alert('Please enter your password first.');
+      return;
+    }
+
     try {
-      // Step 1: trigger server-side code generation via authenticate_user (requires identifier + password)
+      // Step 1: Validate admin password using secure admin_config table
+      const { data: isValidPassword, error: validationErr } = await supabase.rpc('validate_admin_password', {
+        p_password: password
+      });
+      
+      if (validationErr || !isValidPassword) {
+        console.error('Error validating admin password:', validationErr);
+        alert('Invalid password. Please check your credentials.');
+        return;
+      }
+
+      // Only show 2FA field after successful password validation
+      setShowTwoFactor(true);
+
+      // Step 2: Generate 2FA code by calling authenticate_user to create the code in the database
       const { data: authResp, error: authErr } = await supabase.rpc('authenticate_user', {
         p_identifier: identifier,
         p_password: password,
         p_ip_address: 'ui_send_code_button',
         p_2fa_code: null
       });
-      if (authErr) {
-        console.error('Error triggering 2FA generation:', authErr);
-        return;
-      }
-
+      
       // Step 2: send SMS via Edge Function using latest unexpired code and event recipients
       const { data: smsData, error: smsError } = await supabase.functions.invoke('send-admin-sms', {
         body: {
@@ -128,14 +149,19 @@ const Login: React.FC = () => {
 
       if (smsError) {
         console.error('Error sending 2FA SMS:', smsError);
+        alert('Password validated but failed to send SMS code. Please try again.');
         return;
       }
       console.log('2FA SMS sent:', smsData);
 
       setTwoFactorSent(true);
       setTwoFactorTimer(90); // 90 seconds
+      
+      // Show success popup as requested
+      alert('For additional security of the site, please enter the 6-digit code that was sent to you by text message.');
     } catch (err) {
-      console.error('Failed to send 2FA code:', err);
+      console.error('Failed to validate password and send 2FA code:', err);
+      alert('An error occurred. Please try again.');
     }
   };
 
@@ -260,6 +286,18 @@ const Login: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                {identifier.trim() === '999' && !showTwoFactor && (
+                  <div className="mb-[3vh]">
+                    <button
+                      type="button"
+                      onClick={validatePasswordAndShow2FA}
+                      className="w-full bg-yellow-600 text-white py-[1.2vh] px-[2vw] text-[clamp(0.875rem,1.2vw,1rem)] font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-colors duration-200"
+                      disabled={!password.trim()}
+                    >
+                      {!password.trim() ? 'Enter Password Above First' : 'Verify Password & Send Security Code'}
+                    </button>
+                  </div>
+                )}
                 {showTwoFactor && (
                   <div className="mb-[3vh]">
                     <label htmlFor="twoFactorCode" className="block text-[clamp(0.875rem,1.2vw,1rem)] font-medium text-gray-700 mb-[0.5vh]">
@@ -283,11 +321,11 @@ const Login: React.FC = () => {
                     <div className="mt-2">
                       <button
                         type="button"
-                        onClick={send2FACode}
+                        onClick={validatePasswordAndShow2FA}
                         className="text-sm text-blue-600 hover:underline disabled:opacity-50"
                         disabled={twoFactorTimer > 0}
                       >
-                        {twoFactorSent ? (twoFactorTimer > 0 ? `Resend available in ${twoFactorTimer}s` : 'Resend code') : 'Send code'}
+                        {twoFactorTimer > 0 ? `Resend available in ${twoFactorTimer}s` : "Didn't receive your code?"}
                       </button>
                     </div>
                     {twoFactorSent && (
@@ -403,6 +441,11 @@ const Login: React.FC = () => {
         accountName={deactivatedAccountName}
         onClose={closeDeactivatedAccountModal}
       />
+      
+      {/* Version info in lower left corner */}
+      <div className="absolute bottom-2 left-2 text-xs text-gray-400">
+        v{packageJson.version}
+      </div>
       
       {/* Contact info in lower right corner */}
       <div className="absolute bottom-2 right-2 text-xs text-gray-400">

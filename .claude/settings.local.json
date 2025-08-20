@@ -42,7 +42,9 @@
       "Bash(supabase sql:*)",
       "Bash(supabase migration:*)",
       "WebFetch(domain:github.com)",
-      "Bash(claude-flow --version)"
+      "Bash(claude-flow --version)",
+      "Bash(where node)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

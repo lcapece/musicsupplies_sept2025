@@ -28,7 +28,8 @@ interface WebOrder {
   status: string;
   promo_code: string | null;
   created_at: string;
-  order_status: 'Pending Confirmation' | 'In Progress' | 'Completed';
+  backend_ivd: string | null;
+  order_status: string;
 }
 
 const WebOrdersTab: React.FC = () => {
@@ -78,20 +79,24 @@ const WebOrdersTab: React.FC = () => {
         console.warn('Error fetching promo codes:', promoError);
       }
 
-      // Check order status in pre_order_history_lcmd
-      const orderNumbers = ordersData?.map(order => order.order_number) || [];
-      const { data: historyData, error: historyError } = await supabase
-        .from('pre_order_history_lcmd')
-        .select('web_order_number')
+      // Fetch backend invoice_number and status from view (outer-join semantics handled client-side)
+      const orderNumbers = ordersData?.map(order => String(order.order_number)) || [];
+      const { data: backendData, error: backendError } = await supabase
+        .from('v_legacy_order_info')
+        .select('invoice_number, status, web_order_number')
         .in('web_order_number', orderNumbers);
 
-      if (historyError) {
-        console.warn('Error fetching order history:', historyError);
+      if (backendError) {
+        console.warn('Error fetching backend mapping:', backendError);
       }
 
-      const inProgressOrders = new Set(
-        historyData?.map(h => Number(h.web_order_number)) || []
-      );
+      const backendLookup = new Map<string, { ivd: string; status: string }>();
+      backendData?.forEach((row: any) => {
+        const won = String(row.web_order_number);
+        if (!backendLookup.has(won)) {
+          backendLookup.set(won, { ivd: row.invoice_number, status: row.status });
+        }
+      });
 
       // Create promo code lookup
       const promoLookup = new Map();
@@ -101,19 +106,18 @@ const WebOrdersTab: React.FC = () => {
         }
       });
 
-      // Process orders data
+      // Process orders data (outer-merge with backend status/invoice)
       const processedOrders: WebOrder[] = ordersData?.map(order => {
-        const orderStatus = inProgressOrders.has(order.order_number) 
-          ? 'In Progress' 
-          : order.status === 'Completed' 
-            ? 'Completed' 
-            : 'Pending Confirmation';
+        const backend = backendLookup.get(String(order.order_number));
+        // Prefer backend status if available; otherwise fall back to original order status
+        const finalStatus: string = backend?.status ?? order.status;
 
         return {
           ...order,
           account_name: (order as any).accounts_lcmd?.acct_name || 'Unknown',
           promo_code: promoLookup.get(order.id) || null,
-          order_status: orderStatus
+          backend_ivd: backend?.ivd || null,
+          order_status: finalStatus
         };
       }) || [];
 
@@ -150,6 +154,19 @@ const WebOrdersTab: React.FC = () => {
         cell: ({ getValue }) => (
           <span className="font-mono text-sm">{getValue<number>()}</span>
         ),
+      },
+      {
+        accessorKey: 'backend_ivd',
+        header: 'Backend',
+        cell: ({ getValue }) => {
+          const ivd = getValue<string | null>();
+          return ivd ? (
+            <span className="text-sm font-bold text-red-600">{ivd}</span>
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          );
+        },
+        size: 120,
       },
       {
         accessorKey: 'account_name',
@@ -190,13 +207,16 @@ const WebOrdersTab: React.FC = () => {
         header: 'Status',
         cell: ({ getValue }) => {
           const status = getValue<string>();
-          const statusColors = {
-            'Pending Confirmation': 'bg-yellow-100 text-yellow-800',
-            'In Progress': 'bg-blue-100 text-blue-800',
+          const statusColors: Record<string, string> = {
+            'Not Shipped': 'bg-yellow-100 text-yellow-800',
+            'Processing': 'bg-blue-100 text-blue-800',
+            'Shipped': 'bg-green-100 text-green-800',
+            'Canceled': 'bg-red-100 text-red-800',
             'Completed': 'bg-green-100 text-green-800',
+            'Pending Confirmation': 'bg-yellow-100 text-yellow-800',
           };
           return (
-            <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}`}>
+            <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
               {status}
             </span>
           );

@@ -17,11 +17,14 @@ import { logKeywordSearch, logNavTreeSearch } from '../utils/eventLogger';
 import { activityTracker } from '../services/activityTracker';
 import DemoModeBanner from '../components/DemoModeBanner';
 import { useNavigate } from 'react-router-dom';
-import packageJson from '../../package.json';
+import { useAutoVersionCheck } from '../hooks/useAutoVersionCheck';
 
 const Dashboard: React.FC = () => {
   const { user, isDemoMode, logout } = useAuth(); // Get user and demo mode from AuthContext
   const navigate = useNavigate();
+  
+  // Silent automatic version checking (backup to Header)
+  useAutoVersionCheck();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Product | null; direction: 'ascending' | 'descending' }>({ key: 'partnumber', direction: 'ascending' });
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | undefined>();
@@ -693,12 +696,15 @@ const Dashboard: React.FC = () => {
   };
   
   const handleSearch = (primaryQuery: string, additionalQuery: string, excludeQuery: string) => { // Removed showInStock parameter
-    setSearchQuery(primaryQuery);
+    const p = primaryQuery.trim();
+    const a = additionalQuery.trim();
+    const e = excludeQuery.trim();
+    setSearchQuery(p);
     // setInStockOnly is now handled by its own checkbox onChange
     setSearchTerms({
-      primary: primaryQuery,
-      additional: additionalQuery,
-      exclude: excludeQuery
+      primary: p,
+      additional: a,
+      exclude: e
     });
     setSelectedProductForImage(null); // Reset selected product
     setSelectedMainCategory(undefined);
@@ -944,11 +950,6 @@ const Dashboard: React.FC = () => {
         isOpen={showPromoCodePopup}
         onClose={() => setShowPromoCodePopup(false)}
       />
-      
-      {/* Version display in lower left corner */}
-      <div className="fixed bottom-2 left-2 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow-sm border border-gray-200">
-        v{packageJson.version}
-      </div>
     </div>
   );
 };
