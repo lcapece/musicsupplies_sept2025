@@ -51,5 +51,18 @@ ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
 ALWAYS use Supabase MCP, never ask user to run separate SQL's if it can be done in the MCP.
 
+🚨 CRITICAL: NEVER HARD CODE ANYTHING! 🚨
+**NEVER 'hard code' ANYTHING without my express permission!**
+- No hardcoded account numbers
+- No hardcoded passwords  
+- No hardcoded data values
+- ALWAYS use database lookups
+- ALWAYS use real data from tables
+- Read CLAUDE.md FIRST before any code changes
+- Ask permission explicitly before any specific values
+- Use database queries for ALL data
+- Show code before deployment and confirm it uses real data
+- Get approval for any authentication changes
+
 ## Supabase Configuration
 Local Supabase is NOT supported. Always use hosted Supabase! Always use Supabase MCP.

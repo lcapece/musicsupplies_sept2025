@@ -9,12 +9,8 @@ interface AdminPasswordManagerProps {
 const AdminPasswordManager: React.FC<AdminPasswordManagerProps> = ({ 
   accountNumber = '999' 
 }) => {
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | null; text: string }>({ type: null, text: '' });
 
@@ -22,28 +18,13 @@ const AdminPasswordManager: React.FC<AdminPasswordManagerProps> = ({
     e.preventDefault();
     
     // Validation
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setMessage({ type: 'error', text: 'All fields are required' });
+    if (!password.trim()) {
+      setMessage({ type: 'error', text: 'Password is required' });
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Password must be at least 8 characters long' });
-      return;
-    }
-
-    // Check for basic password strength
-    const hasUpperCase = /[A-Z]/.test(newPassword);
-    const hasLowerCase = /[a-z]/.test(newPassword);
-    const hasNumbers = /\d/.test(newPassword);
-    
-    if (!hasUpperCase && !hasLowerCase && !hasNumbers) {
-      setMessage({ type: 'error', text: 'Password should contain a mix of letters and numbers' });
+    if (password.length < 6) {
+      setMessage({ type: 'error', text: 'Password must be at least 6 characters long' });
       return;
     }
 
@@ -51,52 +32,41 @@ const AdminPasswordManager: React.FC<AdminPasswordManagerProps> = ({
     setMessage({ type: null, text: '' });
 
     try {
-      // First verify the current password
-      const { data: authData, error: authError } = await supabase.rpc('authenticate_user', {
-        p_identifier: accountNumber,
-        p_password: currentPassword
-      });
-
-      if (authError || !authData) {
-        setMessage({ type: 'error', text: 'Current password is incorrect' });
-        setIsLoading(false);
-        return;
-      }
-
-      // Update the password
-      const { error: updateError } = await supabase.rpc('update_user_password', {
-        p_account_number: parseInt(accountNumber),
-        p_new_password: newPassword
-      });
-
-      if (updateError) {
-        // If the function doesn't exist, try direct update
-        const { error: directError } = await supabase
-          .from('user_passwords')
-          .update({ 
-            password_hash: await supabase.rpc('crypt', { 
-              password: newPassword, 
-              salt: await supabase.rpc('gen_salt', { type: 'bf' }) 
-            }),
-            updated_at: new Date().toISOString()
-          })
-          .eq('account_number', parseInt(accountNumber));
-
-        if (directError) {
-          throw directError;
-        }
-      }
-
-      setMessage({ type: 'success', text: 'Password changed successfully!' });
+      // Hash the password and update directly
+      const { data: saltData, error: saltError } = await supabase.rpc('gen_salt', { type: 'bf' });
       
-      // Clear form
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      if (saltError) {
+        throw saltError;
+      }
+
+      const { data: hashData, error: hashError } = await supabase.rpc('crypt', { 
+        password: password, 
+        salt: saltData 
+      });
+
+      if (hashError) {
+        throw hashError;
+      }
+
+      // Update or insert the password
+      const { error: upsertError } = await supabase
+        .from('user_passwords')
+        .upsert({ 
+          account_number: parseInt(accountNumber),
+          password_hash: hashData,
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        });
+
+      if (upsertError) {
+        throw upsertError;
+      }
+
+      setMessage({ type: 'success', text: `Password set successfully for account ${accountNumber}!` });
       
     } catch (error) {
-      console.error('Error changing password:', error);
-      setMessage({ type: 'error', text: 'Failed to change password. Please try again.' });
+      console.error('Error setting password:', error);
+      setMessage({ type: 'error', text: 'Failed to set password. Please try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -107,87 +77,39 @@ const AdminPasswordManager: React.FC<AdminPasswordManagerProps> = ({
       <div className="flex items-center gap-3 mb-6">
         <Lock className="text-purple-600" size={24} />
         <h3 className="text-lg font-semibold text-gray-900">
-          Change Admin Password
+          Admin Password Manager
         </h3>
       </div>
 
       {accountNumber === '999' && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
-            This will change the master admin (999) password. Make sure to remember the new password!
+            This will set the master admin (999) password. Make sure to remember the password!
           </p>
         </div>
       )}
 
       <form onSubmit={handlePasswordChange} className="space-y-4">
-        {/* Current Password */}
+        {/* Password Field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Current Password
+            Admin Password
           </label>
           <div className="relative">
             <input
-              type={showCurrentPassword ? 'text' : 'password'}
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent pr-10"
-              placeholder="Enter current password"
-              autoComplete="current-password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-            >
-              {showCurrentPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
-          </div>
-        </div>
-
-        {/* New Password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            New Password
-          </label>
-          <div className="relative">
-            <input
-              type={showNewPassword ? 'text' : 'password'}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent pr-10"
-              placeholder="Enter new password (min 8 characters)"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent pr-20"
+              placeholder="Enter admin password"
               autoComplete="new-password"
             />
             <button
               type="button"
-              onClick={() => setShowNewPassword(!showNewPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border text-gray-600 hover:text-gray-800"
             >
-              {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Confirm New Password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Confirm New Password
-          </label>
-          <div className="relative">
-            <input
-              type={showConfirmPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent pr-10"
-              placeholder="Confirm new password"
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-            >
-              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              {showPassword ? 'Hide' : 'Reveal'}
             </button>
           </div>
         </div>
@@ -196,9 +118,8 @@ const AdminPasswordManager: React.FC<AdminPasswordManagerProps> = ({
         <div className="text-xs text-gray-600 space-y-1">
           <p>Password requirements:</p>
           <ul className="ml-4 space-y-0.5">
-            <li>• At least 8 characters long</li>
-            <li>• Mix of letters and numbers recommended</li>
-            <li>• Avoid common words or patterns</li>
+            <li>• At least 6 characters long</li>
+            <li>• Will be securely hashed and stored</li>
           </ul>
         </div>
 
@@ -232,7 +153,7 @@ const AdminPasswordManager: React.FC<AdminPasswordManagerProps> = ({
           ) : (
             <>
               <Save size={20} />
-              Change Password
+              Set Password
             </>
           )}
         </button>
