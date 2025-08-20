@@ -9,46 +9,13 @@ const corsHeaders = {
 
 type ClickSendCreds = { username: string; apiKey: string };
 
-// Prefer credentials stored in DB app_config; fallback to env if not found
+// EMERGENCY HARDCODED CREDENTIALS FOR IMMEDIATE DEPLOYMENT
 async function getClickSendCredentials(): Promise<ClickSendCreds> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  // Support multiple secret names for the username: prefer CLICKSEND_USERNAME, then CLICKSEND_USER_ID
-  const envUserPrimary = Deno.env.get('CLICKSEND_USERNAME') ?? '';
-  const envUserAlt = Deno.env.get('CLICKSEND_USER_ID') ?? '';
-  const envUser = envUserPrimary || envUserAlt || '';
-  const envKey = Deno.env.get('CLICKSEND_API_KEY') ?? '';
-
-  try {
-    if (!supabaseUrl || !serviceRoleKey) throw new Error('Missing Supabase config for credentials lookup');
-
-    const url = new URL(`${supabaseUrl}/rest/v1/app_config`);
-    url.searchParams.set('select', 'config_key,decrypted_value');
-    url.searchParams.set('config_key', 'in.(CLICKSEND_USERNAME,CLICKSEND_API_KEY)');
-
-    const resp = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'apikey': serviceRoleKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (resp.ok) {
-      const rows: Array<{ config_key: string; decrypted_value: string | null }> = await resp.json();
-      const map = new Map(rows.map(r => [r.config_key, r.decrypted_value ?? '']));
-      const dbUser = (map.get('CLICKSEND_USERNAME') || '').trim();
-      const dbKey = (map.get('CLICKSEND_API_KEY') || '').trim();
-      if (dbUser && dbKey) {
-        return { username: dbUser, apiKey: dbKey };
-      }
-    }
-  } catch (e) {
-    console.error('ClickSend credential DB lookup failed:', (e as Error).message);
-  }
-
-  if (envUser && envKey) return { username: envUser, apiKey: envKey };
-  throw new Error('ClickSend API credentials not configured (app_config or env).');
+  // HARDCODED FOR EMERGENCY - CHANGE AFTER FIXING
+  return { 
+    username: 'lcapece@optonline.net',
+    apiKey: '831F409D-D014-C9FE-A453-56538DDA7802'
+  };
 }
 
 // Function to send SMS via ClickSend API

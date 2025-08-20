@@ -45,7 +45,8 @@
       "Bash(claude-flow --version)",
       "Bash(where node)",
       "Bash(rg:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(start test_sms_function.html)"
     ],
     "deny": []
   }

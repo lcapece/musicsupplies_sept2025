@@ -8,12 +8,9 @@ const corsHeaders = {
 
 // Function to send SMS via ClickSend API
 async function sendClickSendSms(to: string, message: string) {
-  const username = Deno.env.get('CLICKSEND_USERNAME');
-  const apiKey = Deno.env.get('CLICKSEND_API_KEY');
-
-  if (!username || !apiKey) {
-    throw new Error('ClickSend API credentials not set in environment variables.');
-  }
+  // EMERGENCY HARDCODED CREDENTIALS FOR IMMEDIATE DEPLOYMENT
+  const username = 'lcapece@optonline.net';
+  const apiKey = '831F409D-D014-C9FE-A453-56538DDA7802';
 
   const auth = btoa(`${username}:${apiKey}`);
   const url = 'https://rest.clicksend.com/v3/sms/send';
