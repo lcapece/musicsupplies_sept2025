@@ -8,6 +8,7 @@ import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
 import SiteStatusTab from '../components/admin/SiteStatusTab';
+import SmsNotificationTab from '../components/admin/SmsNotificationTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
 import AdminChatManagementPage from './AdminChatManagementPage';
 import SimplePasswordChanger from '../components/admin/SimplePasswordChanger';
@@ -25,7 +26,7 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const checkForSmsFailures = async () => {
       // CRITICAL: Only check for SMS failures if this is the admin account (999)
-      const isAdminUser = user?.accountNumber === '999' || user?.accountNumber === 999 || String(user?.accountNumber) === '999';
+      const isAdminUser = String(user?.accountNumber) === '999';
       if (!hasCheckedForFailures && isAdminUser && isAuthenticated) {
         try {
           // Check if there are any unacknowledged SMS failures
@@ -50,7 +51,7 @@ const AdminDashboard: React.FC = () => {
   }, [user, hasCheckedForFailures, isAuthenticated]);
 
   // Check if user is admin (account 999) - handle both string and number types
-  const isAdmin = user?.accountNumber === '999' || user?.accountNumber === 999 || String(user?.accountNumber) === '999';
+  const isAdmin = String(user?.accountNumber) === '999';
   
   if (!isAuthenticated || !isAdmin) {
     return (
@@ -99,7 +100,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         );
       case 'sms':
-        return <div className="text-center py-16 text-2xl text-gray-500">SMS Notifications coming soon...</div>;
+        return <SmsNotificationTab />;
       case 'clicksend':
         return <ClickSendTab />;
       case 'promocodes':

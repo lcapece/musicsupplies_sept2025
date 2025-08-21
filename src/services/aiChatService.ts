@@ -52,12 +52,24 @@ class AIChatService {
   // Load voice settings from database
   private async loadVoiceSettings() {
     try {
+      // Prefer new centralized chat_voice_config table
+      const { data: vc, error: vcError } = await supabase
+        .from('chat_voice_config')
+        .select('voice_id')
+        .single();
+
+      if (!vcError && vc && vc.voice_id) {
+        this.config.elevenLabsVoiceId = vc.voice_id;
+        return;
+      }
+
+      // Fallback to legacy chat_config keys if present
       const { data, error } = await supabase
         .from('chat_config')
         .select('config_value')
         .eq('config_key', 'elevenlabs_voice_id')
         .single();
-      
+
       if (!error && data) {
         this.config.elevenLabsVoiceId = data.config_value;
       }
@@ -435,10 +447,6 @@ class AIChatService {
     }
   }
 
-  // Enable/disable voice
-  setVoiceEnabled(enabled: boolean): void {
-    this.voiceEnabled = enabled;
-  }
 
   // Main chat method
   async sendMessage(

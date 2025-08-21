@@ -75,6 +75,9 @@ const AdminChatManagementPage: React.FC = () => {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [searchTerm, setSearchTerm] = useState('');
+  // Local UI helpers
+  const [keywordsText, setKeywordsText] = useState<string>('');
+  const categoryOptions = Array.from(new Set(knowledgeEntries.map(e => e.category))).sort();
 
   // Load data on mount
   useEffect(() => {
@@ -247,6 +250,7 @@ const AdminChatManagementPage: React.FC = () => {
       // Update the local knowledge base file
       await updateLocalKnowledgeBase();
 
+      alert('Saved successfully!');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error('Error saving entry:', error);
@@ -316,6 +320,24 @@ const AdminChatManagementPage: React.FC = () => {
         });
 
       if (error) throw error;
+
+      // Verify persisted values
+      const { data: verify, error: vErr } = await supabase
+        .from('chat_voice_config')
+        .select('*')
+        .single();
+
+      if (!vErr && verify &&
+          verify.voice_id === voiceConfig.voiceId &&
+          verify.voice_name === voiceConfig.voiceName &&
+          verify.provider === voiceConfig.provider &&
+          verify.rate_limit === voiceConfig.rateLimit &&
+          verify.daily_limit === voiceConfig.dailyLimit &&
+          verify.enabled === voiceConfig.enabled) {
+        alert('Voice settings saved successfully!');
+      } else {
+        alert('Voice settings save verification failed. Please try again.');
+      }
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -459,6 +481,7 @@ const AdminChatManagementPage: React.FC = () => {
                       priority: 0,
                       active: true
                     });
+                    setKeywordsText('');
                   }}
                   className="ml-4 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
                 >
@@ -478,11 +501,17 @@ const AdminChatManagementPage: React.FC = () => {
                       <label className="block text-sm font-medium mb-1">Category</label>
                       <input
                         type="text"
+                        list="kb-categories"
                         value={editingEntry?.category || ''}
                         onChange={(e) => setEditingEntry({...editingEntry!, category: e.target.value})}
                         className="w-full px-3 py-2 border rounded-lg"
                         placeholder="e.g., Products, Services, Policies"
                       />
+                      <datalist id="kb-categories">
+                        {categoryOptions.map((cat) => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Priority (0-100)</label>
@@ -499,11 +528,8 @@ const AdminChatManagementPage: React.FC = () => {
                       <label className="block text-sm font-medium mb-1">Keywords (comma-separated)</label>
                       <input
                         type="text"
-                        value={editingEntry?.keywords?.join(', ') || ''}
-                        onChange={(e) => setEditingEntry({
-                          ...editingEntry!,
-                          keywords: e.target.value.split(',').map(k => k.trim()).filter(k => k)
-                        })}
+                        value={keywordsText}
+                        onChange={(e) => setKeywordsText(e.target.value)}
                         className="w-full px-3 py-2 border rounded-lg"
                         placeholder="guitar, electric guitar, fender, gibson"
                       />
@@ -542,7 +568,10 @@ const AdminChatManagementPage: React.FC = () => {
                   </div>
                   <div className="flex gap-2 mt-4">
                     <button
-                      onClick={() => saveKnowledgeEntry(editingEntry!)}
+                      onClick={() => {
+                        const parsed = (keywordsText || '').split(',').map(k => k.trim()).filter(Boolean);
+                        saveKnowledgeEntry({ ...editingEntry!, keywords: parsed });
+                      }}
                       className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
                     >
                       <Save size={18} />
@@ -611,7 +640,10 @@ const AdminChatManagementPage: React.FC = () => {
                         <td className="py-3 px-2">
                           <div className="flex justify-center gap-2">
                             <button
-                              onClick={() => setEditingEntry(entry)}
+                              onClick={() => {
+                                setEditingEntry(entry);
+                                setKeywordsText(entry.keywords?.join(', ') || '');
+                              }}
                               className="text-blue-600 hover:bg-blue-50 p-1 rounded"
                             >
                               <Edit2 size={18} />

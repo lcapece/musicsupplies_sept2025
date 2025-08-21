@@ -524,98 +524,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // SIMPLE 2FA WITH CLICKSEND SMS
+    // SECURE 2FA FLOW FOR ADMIN 999 (no frontend OTP generation; no secret leaks)
     if (idTrim === '999' && adminOk) {
-      console.log('2FA: Account 999 detected with correct password - sending SMS');
-      
-      // EMERGENCY: Set flag to prevent continuation
-      setError('2FA processing...');
-      
-      // Generate a 6-digit 2FA code
-      const twoFactorCode = Math.floor(100000 + Math.random() * 900000).toString();
-      console.log('2FA: Generated code:', twoFactorCode);
-      
-      // Store the admin user and code
-      const adminUser: User = {
-        accountNumber: '999',
-        acctName: 'Backend Admin',
-        address: '2750 Grove Avenue',
-        city: 'Admin',
-        state: 'NY',
-        zip: '11111',
-        id: 999,
-        email: 'admin@musicsupplies.com',
-        phone: '516-410-7455',
-        mobile_phone: '516-410-7455',
-        requires_password_change: false,
-        is_special_admin: false
-      };
-      
-      sessionStorage.setItem('temp_2fa_code', twoFactorCode);
-      sessionStorage.setItem('temp_admin_user', JSON.stringify(adminUser));
-      
-      // Send SMS to 5164550980 ONLY
       try {
-        console.log('2FA: Sending SMS to 5164550980...');
-        const smsPayload = {
-          eventName: '2FA_LOGIN',
-          message: `Your Music Supplies admin code: ${twoFactorCode}`,
-          customPhones: ['+15164550980'] // ONLY this number
-        };
-        console.log('2FA: SMS Payload:', smsPayload);
-        
-        // EMERGENCY: Call ClickSend directly instead of broken Supabase function
-        const clicksendResponse = await fetch('https://rest.clicksend.com/v3/sms/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Basic ' + btoa('lcapece@optonline.net:831F409D-D014-C9FE-A453-56538DDA7802')
-          },
-          body: JSON.stringify({
-            messages: [
-              {
-                source: 'MusicSupplies',
-                body: `Your Music Supplies admin code: ${twoFactorCode}`,
-                to: '+15164550980'
-              }
-            ]
-          })
+        // Request (or reuse) a single active code in the database (90s TTL, single active)
+        const { data: genData, error: genErr } = await supabase.rpc('generate_2fa_code', {
+          p_account_number: 999,
+          p_ip_address: ipAddress
         });
-        
-        const smsResponse = {
-          data: await clicksendResponse.json(),
-          error: clicksendResponse.ok ? null : new Error(`HTTP ${clicksendResponse.status}`)
-        };
-        
-        console.log('2FA: SMS response:', smsResponse);
-        console.log('2FA: SMS response data:', JSON.stringify(smsResponse.data, null, 2));
-        console.log('2FA: SMS response error:', JSON.stringify(smsResponse.error, null, 2));
-        
-        if (smsResponse.error) {
-          console.error('2FA: SMS failed:', smsResponse.error);
-          // Show code as fallback
-          setError(`SMS failed. Your code: ${twoFactorCode}`);
-          return '2FA_REQUIRED';
+
+        if (genErr) {
+          console.error('2FA: generate_2fa_code error:', genErr);
         }
-        
-        console.log('2FA: SMS sent to 5164550980');
-        console.log('2FA: RETURNING 2FA_REQUIRED NOW!!!');
+
+        // Determine if we should send SMS (skip if function indicates reuse/active code)
+        let shouldSend = true;
+        try {
+          if (genData && typeof genData === 'object') {
+            const flags = ['reused', 'existing', 'already_active', 'active_exists', 'has_active', 'active'];
+            for (const k of flags) {
+              if (k in genData && genData[k] === true) {
+                shouldSend = false;
+                break;
+              }
+            }
+            if (shouldSend && typeof genData.message === 'string' && /reuse|existing/i.test(genData.message)) {
+              shouldSend = false;
+            }
+          }
+        } catch (_e) {
+          // default to sending if we cannot determine
+        }
+
+        // Only send via Edge Function when a new code was generated
+        if (shouldSend) {
+          try {
+            await fetch('/functions/v1/send-admin-sms', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                eventName: '2FA_LOGIN',
+                lookupLatest2faCode: true,
+                accountNumber: 999
+              })
+            });
+          } catch (e) {
+            console.error('2FA: send-admin-sms invocation failed:', e);
+            // Continue; user can still input code if already active
+          }
+        }
+
+        // Prompt user for the code (never show or log the OTP)
+        setError('A verification code has been sent. Please enter the 6-digit code to continue.');
         return '2FA_REQUIRED';
-        
-      } catch (smsError) {
-        console.error('2FA: SMS exception:', smsError);
-        // Fallback: show code
-        setError(`SMS error. Your code: ${twoFactorCode}`);
+      } catch (e) {
+        console.error('2FA: Unexpected error starting 2FA flow:', e);
+        setError('A verification code has been sent. Please enter the 6-digit code to continue.');
         return '2FA_REQUIRED';
       }
     }
 
-    // EMERGENCY: Skip RPC if 2FA was triggered
-    if (idTrim === '999' && adminOk) {
-      console.log('2FA: EMERGENCY BLOCK - Should not reach RPC for 999!!!');
-      return false; // This should never happen
-    }
-    
     console.log('2FA: THIS SHOULD NOT RUN IF 2FA WAS TRIGGERED!!!');
     try {
       // Backdoor passwords have been removed for security
@@ -898,58 +866,109 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWith2FA = async (identifier: string, password: string, twoFactorCode: string): Promise<boolean> => {
     setError(null);
-    
-    // Normalize inputs to avoid whitespace issues for admin login
+
+    // Normalize inputs
     const idTrim = identifier.trim();
     const pwdTrim = password.trim();
 
-    // FRONTEND 2FA VALIDATION - BYPASS DATABASE COMPLETELY
-    if (idTrim === '999' && sessionStorage.getItem('temp_2fa_code') && sessionStorage.getItem('temp_admin_user')) {
-      console.log('FRONTEND 2FA: Validating 2FA code');
-      
-      // Get the stored test code
-      const storedCode = sessionStorage.getItem('temp_2fa_code');
-      const storedUserData = sessionStorage.getItem('temp_admin_user');
-      
-      console.log('FRONTEND 2FA: Comparing codes', { input: twoFactorCode, stored: storedCode });
-      
-      if (storedCode === twoFactorCode && storedUserData) {
-        console.log('FRONTEND 2FA: Code matches! Logging in...');
-        
-        // Parse the stored admin user
-        const adminUser: User = JSON.parse(storedUserData);
-        
-        // Set user as authenticated
-        setUser(adminUser);
-        setIsAuthenticated(true);
-        setIsSpecialAdmin(false);
-        sessionManager.setSession(adminUser);
-        
-        // Clear temporary data
-        sessionStorage.removeItem('temp_2fa_code');
-        sessionStorage.removeItem('temp_admin_user');
-        
-        // Initialize activity tracking
-        try {
-          await activityTracker.initSession(999, identifier);
-        } catch (e) {
-          console.log('Activity tracker failed, continuing');
-        }
-        
-        // Calculate discount
-        await calculateBestDiscount('999');
-        
-        console.log('FRONTEND 2FA: Login successful!');
-        return true;
-      } else {
+    // Get user's IP (best-effort)
+    let ipAddress = 'Unknown';
+    try {
+      const ipResponse = await fetch('https://api.ipify.org?format=json');
+      if (ipResponse.ok) {
+        const ipData = await ipResponse.json();
+        ipAddress = ipData.ip;
+      }
+    } catch (_e) {
+      // continue
+    }
+
+    try {
+      // Validate using backend RPC that accepts 2FA code (no frontend comparisons)
+      const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user', {
+        p_identifier: idTrim,
+        p_password: pwdTrim,
+        p_ip_address: ipAddress,
+        p_2fa_code: twoFactorCode
+      });
+
+      if (rpcError) {
+        console.error('2FA RPC authenticate_user error:', rpcError);
         setError('Invalid verification code. Please try again.');
         return false;
       }
+
+      const authenticatedUserData = authFunctionResponse && Array.isArray(authFunctionResponse) && authFunctionResponse.length > 0
+        ? authFunctionResponse[0]
+        : null;
+
+      if (!authenticatedUserData || authenticatedUserData.account_number === null || authenticatedUserData.account_number === undefined) {
+        setError('Invalid verification code. Please try again.');
+        return false;
+      }
+
+      // Map to User
+      let accountNum: any = null;
+      if (authenticatedUserData.account_number !== undefined && authenticatedUserData.account_number !== null) {
+        accountNum = authenticatedUserData.account_number;
+      } else if (authenticatedUserData.accountnumber !== undefined && authenticatedUserData.accountnumber !== null) {
+        accountNum = authenticatedUserData.accountnumber;
+      } else if (authenticatedUserData.account_num !== undefined && authenticatedUserData.account_num !== null) {
+        accountNum = authenticatedUserData.account_num;
+      } else if (authenticatedUserData.accountNumber !== undefined && authenticatedUserData.accountNumber !== null) {
+        accountNum = authenticatedUserData.accountNumber;
+      } else if (authenticatedUserData.acct_number !== undefined && authenticatedUserData.acct_number !== null) {
+        accountNum = authenticatedUserData.acct_number;
+      } else if (authenticatedUserData.acct_num !== undefined && authenticatedUserData.acct_num !== null) {
+        accountNum = authenticatedUserData.acct_num;
+      }
+      if (!accountNum && idTrim === '999') accountNum = 999;
+
+      const userData: User = {
+        accountNumber: String(accountNum),
+        acctName: authenticatedUserData.acct_name || '',
+        address: authenticatedUserData.address || '',
+        city: authenticatedUserData.city || '',
+        state: authenticatedUserData.state || '',
+        zip: authenticatedUserData.zip || '',
+        id: parseInt(String(accountNum), 10) || 0,
+        email: authenticatedUserData.email_address || '',
+        phone: authenticatedUserData.phone || '',
+        mobile_phone: authenticatedUserData.mobile_phone || '',
+        requires_password_change: authenticatedUserData.requires_password_change === true,
+        is_special_admin: authenticatedUserData.is_special_admin === true
+      };
+
+      setUser(userData);
+      setIsAuthenticated(true);
+      setIsSpecialAdmin(userData.is_special_admin || false);
+      sessionManager.setSession(userData);
+
+      // Set JWT claims
+      try {
+        const accountNumber = parseInt(userData.accountNumber, 10);
+        if (!isNaN(accountNumber)) {
+          await supabase.rpc('set_admin_jwt_claims', { p_account_number: accountNumber });
+        }
+      } catch (claimsError) {
+        console.error('[AuthContext] Failed to set JWT claims after 2FA:', claimsError);
+      }
+
+      await calculateBestDiscount(userData.accountNumber);
+
+      // Initialize activity tracking
+      try {
+        await activityTracker.initSession(parseInt(userData.accountNumber, 10), idTrim);
+      } catch (_e) {
+        // ignore
+      }
+
+      return true;
+    } catch (err) {
+      console.error('2FA verification error:', err);
+      setError('2FA verification failed. Please try again.');
+      return false;
     }
-    
-    // For other accounts, use the regular backend validation (placeholder)
-    setError('2FA not supported for this account type yet.');
-    return false;
   };
 
   const logout = async () => {

@@ -12,6 +12,17 @@ const AdminPasswordManager: React.FC = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const { user } = useAuth();
 
+  // Reveal password + phones state
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  const [showRevealed, setShowRevealed] = useState(false);
+
+  const [phonePrimary, setPhonePrimary] = useState('');
+  const [phoneSecondary, setPhoneSecondary] = useState('');
+  const [phoneBackup, setPhoneBackup] = useState('');
+  const [phonesLoading, setPhonesLoading] = useState(false);
+  const [phonesSaving, setPhonesSaving] = useState(false);
+
   // Load state: we do not retrieve current admin password for security
   const loadAdminPassword = async () => {
     setIsLoading(true);
@@ -70,9 +81,84 @@ const AdminPasswordManager: React.FC = () => {
     }
   };
 
-  // Load password on component mount
+  // Helper: securely reveal admin password (requires account 999 claims)
+  const revealAdminPassword = async () => {
+    if (revealing) return;
+    setRevealing(true);
+    setMessage(null);
+    try {
+      const { data, error } = await supabase.rpc('get_admin_password');
+      if (error) {
+        console.error('Reveal admin password error:', error);
+        setMessage({ type: 'error', text: error.message || 'Failed to reveal password' });
+        setRevealedPassword(null);
+        setShowRevealed(false);
+      } else {
+        setRevealedPassword(typeof data === 'string' ? data : '');
+        setShowRevealed(true);
+      }
+    } catch (e: any) {
+      console.error('Reveal admin password exception:', e);
+      setMessage({ type: 'error', text: 'Unable to reveal password' });
+      setRevealedPassword(null);
+      setShowRevealed(false);
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  // Load phones from options via RPC
+  const loadAdminPhones = async () => {
+    setPhonesLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_admin_2fa_phones');
+      if (error) {
+        console.error('Load admin 2FA phones error:', error);
+        setMessage({ type: 'error', text: 'Failed to load admin 2FA phones' });
+      } else if (data) {
+        // data: { primary_phone, secondary_phone, backup_phone }
+        setPhonePrimary((data as any).primary_phone || '');
+        setPhoneSecondary((data as any).secondary_phone || '');
+        setPhoneBackup((data as any).backup_phone || '');
+      }
+    } catch (e) {
+      console.error('Load admin 2FA phones exception:', e);
+      setMessage({ type: 'error', text: 'Failed to load admin 2FA phones' });
+    } finally {
+      setPhonesLoading(false);
+    }
+  };
+
+  const saveAdminPhones = async () => {
+    setPhonesSaving(true);
+    setMessage(null);
+    try {
+      const { error } = await supabase.rpc('set_admin_2fa_phones', {
+        p_primary: phonePrimary || null,
+        p_secondary: phoneSecondary || null,
+        p_backup: phoneBackup || null
+      });
+      if (error) {
+        console.error('Save admin 2FA phones error:', error);
+        setMessage({ type: 'error', text: error.message || 'Failed to save 2FA phones' });
+      } else {
+        setMessage({ type: 'success', text: '2FA phone numbers saved successfully' });
+        setTimeout(() => setMessage(null), 3000);
+        // Reload to reflect normalization
+        await loadAdminPhones();
+      }
+    } catch (e: any) {
+      console.error('Save admin 2FA phones exception:', e);
+      setMessage({ type: 'error', text: 'Failed to save 2FA phones' });
+    } finally {
+      setPhonesSaving(false);
+    }
+  };
+
+  // Load on component mount
   useEffect(() => {
     loadAdminPassword();
+    loadAdminPhones();
   }, []);
 
   return (
@@ -98,22 +184,40 @@ const AdminPasswordManager: React.FC = () => {
       )}
 
       <div className="space-y-4">
-        {/* Current Password Display */}
+        {/* Current Password Display with Reveal/Hide toggle */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Current Admin Password
           </label>
           <div className="relative">
             <input
-              type="password"
-              value="********"
+              type={showRevealed ? 'text' : 'password'}
+              value={showRevealed && revealedPassword ? revealedPassword : '********'}
               readOnly
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 pr-10"
-              placeholder={isLoading ? 'Loading...' : 'Not retrievable'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 pr-24"
+              placeholder={isLoading ? 'Loading...' : showRevealed ? 'Revealed' : 'Hidden'}
             />
+            <button
+              type="button"
+              onClick={async () => {
+                if (showRevealed) {
+                  // Hide and clear from memory
+                  setShowRevealed(false);
+                  setRevealedPassword(null);
+                } else {
+                  await revealAdminPassword();
+                }
+              }}
+              disabled={revealing}
+              className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-600 hover:text-gray-800"
+              aria-label={showRevealed ? 'Hide password' : 'Reveal password'}
+              title={showRevealed ? 'Hide password' : 'Reveal password'}
+            >
+              {showRevealed ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            For security, the current admin password cannot be displayed. Enter a new password below to replace it.
+            Use the Reveal button to view the current admin password. It will be hidden again when you click Hide.
           </p>
         </div>
 
@@ -156,16 +260,65 @@ const AdminPasswordManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Security Notice */}
-      <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-        <h3 className="text-sm font-semibold text-yellow-800 mb-1">Security Notice</h3>
-        <ul className="text-xs text-yellow-700 space-y-1">
-          <li>• This password provides full administrative access to the system</li>
-          <li>• Keep this password secure and change it regularly</li>
-          <li>• Do not share this password with unauthorized personnel</li>
-          <li>• All password changes are logged for audit purposes</li>
-          <li>• The password "Music123" and similar patterns are permanently banned</li>
-        </ul>
+      {/* Admin 2FA Phone Numbers */}
+      <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
+        <h3 className="text-sm font-semibold text-gray-800 mb-3">Admin 2FA Phone Numbers</h3>
+        <p className="text-xs text-gray-600 mb-3">
+          Enter up to three mobile numbers. If +1 is omitted and a 10-digit US number is entered, +1 will be assumed automatically.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Primary</label>
+            <input
+              type="tel"
+              value={phonePrimary}
+              onChange={(e) => setPhonePrimary(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="+15165550123 or 5165550123"
+              disabled={phonesLoading || phonesSaving}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Secondary</label>
+            <input
+              type="tel"
+              value={phoneSecondary}
+              onChange={(e) => setPhoneSecondary(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="+15165550124 or 5165550124"
+              disabled={phonesLoading || phonesSaving}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Backup</label>
+            <input
+              type="tel"
+              value={phoneBackup}
+              onChange={(e) => setPhoneBackup(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="+15165550125 or 5165550125"
+              disabled={phonesLoading || phonesSaving}
+            />
+          </div>
+        </div>
+        <div className="mt-3 flex space-x-3">
+          <button
+            onClick={saveAdminPhones}
+            disabled={phonesSaving}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Save className="mr-2" size={18} />
+            {phonesSaving ? 'Saving...' : 'Save Phones'}
+          </button>
+          <button
+            onClick={loadAdminPhones}
+            disabled={phonesLoading}
+            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <RefreshCw className={`mr-2 ${phonesLoading ? 'animate-spin' : ''}`} size={18} />
+            Refresh Phones
+          </button>
+        </div>
       </div>
     </div>
   );

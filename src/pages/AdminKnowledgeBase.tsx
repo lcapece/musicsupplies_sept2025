@@ -26,6 +26,8 @@ const AdminKnowledgeBase: React.FC = () => {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('');
   const [voiceName, setVoiceName] = useState('');
+  // Local UI helper for robust keyword entry
+  const [keywordsText, setKeywordsText] = useState('');
 
   // Check if user is admin
   useEffect(() => {
@@ -141,6 +143,7 @@ const AdminKnowledgeBase: React.FC = () => {
       }
 
       await loadKnowledgeBase();
+      alert('Saved successfully!');
       setEditingItem(null);
       setIsAddingNew(false);
     } catch (error) {
@@ -205,6 +208,7 @@ const AdminKnowledgeBase: React.FC = () => {
                   priority: 0,
                   is_active: true
                 });
+                setKeywordsText('');
               }}
               className="px-8 py-4 bg-green-600 text-white text-xl font-semibold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all"
               aria-label="Add new knowledge item"
@@ -368,11 +372,17 @@ const AdminKnowledgeBase: React.FC = () => {
                 <input
                   id="category"
                   type="text"
+                  list="kb-categories"
                   value={editingItem.category}
-                  onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
+                  onChange={(e) => setEditingItem(prev => ({ ...(prev as KnowledgeItem), category: e.target.value }))}
                   className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   placeholder="e.g., Hours, Shipping, Returns"
                 />
+                <datalist id="kb-categories">
+                  {categories.filter(c => c !== 'all').map(cat => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
@@ -382,7 +392,7 @@ const AdminKnowledgeBase: React.FC = () => {
                 <textarea
                   id="question"
                   value={editingItem.question}
-                  onChange={(e) => setEditingItem({...editingItem, question: e.target.value})}
+                  onChange={(e) => setEditingItem(prev => ({ ...(prev as KnowledgeItem), question: e.target.value }))}
                   className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   rows={2}
                   placeholder="What question will customers ask?"
@@ -396,7 +406,7 @@ const AdminKnowledgeBase: React.FC = () => {
                 <textarea
                   id="answer"
                   value={editingItem.answer}
-                  onChange={(e) => setEditingItem({...editingItem, answer: e.target.value})}
+                  onChange={(e) => setEditingItem(prev => ({ ...(prev as KnowledgeItem), answer: e.target.value }))}
                   className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   rows={4}
                   placeholder="The response to give to customers"
@@ -410,11 +420,8 @@ const AdminKnowledgeBase: React.FC = () => {
                 <input
                   id="keywords"
                   type="text"
-                  value={editingItem.keywords.join(', ')}
-                  onChange={(e) => setEditingItem({
-                    ...editingItem, 
-                    keywords: e.target.value.split(',').map(k => k.trim()).filter(k => k)
-                  })}
+                  value={keywordsText}
+                  onChange={(e) => setKeywordsText(e.target.value)}
                   className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   placeholder="e.g., hours, schedule, time, open"
                 />
@@ -431,7 +438,7 @@ const AdminKnowledgeBase: React.FC = () => {
                     min="0"
                     max="10"
                     value={editingItem.priority}
-                    onChange={(e) => setEditingItem({...editingItem, priority: parseInt(e.target.value) || 0})}
+                    onChange={(e) => setEditingItem(prev => ({ ...(prev as KnowledgeItem), priority: parseInt(e.target.value) || 0 }))}
                     className="px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -444,7 +451,7 @@ const AdminKnowledgeBase: React.FC = () => {
                     id="active"
                     type="checkbox"
                     checked={editingItem.is_active}
-                    onChange={(e) => setEditingItem({...editingItem, is_active: e.target.checked})}
+                    onChange={(e) => setEditingItem(prev => ({ ...(prev as KnowledgeItem), is_active: e.target.checked }))}
                     className="w-6 h-6"
                   />
                 </div>
@@ -452,7 +459,10 @@ const AdminKnowledgeBase: React.FC = () => {
 
               <div className="flex gap-4">
                 <button
-                  onClick={() => handleSave(editingItem)}
+                  onClick={() => {
+                    const parsed = (keywordsText || '').split(',').map(k => k.trim()).filter(Boolean);
+                    handleSave({ ...(editingItem as KnowledgeItem), keywords: parsed });
+                  }}
                   className="px-8 py-4 bg-blue-600 text-white text-xl font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300"
                   aria-label="Save changes"
                 >
@@ -520,7 +530,10 @@ const AdminKnowledgeBase: React.FC = () => {
                     
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setEditingItem(item)}
+                        onClick={() => {
+                          setEditingItem(item);
+                          setKeywordsText(item.keywords?.join(', ') || '');
+                        }}
                         className="p-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-4 focus:ring-blue-300"
                         aria-label={`Edit ${item.question}`}
                       >

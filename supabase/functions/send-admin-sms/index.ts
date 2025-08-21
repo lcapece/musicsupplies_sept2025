@@ -7,15 +7,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * Safe env accessor compatible with Edge runtime and TS editors without Deno types.
+ */
+const getEnv = (k: string): string | undefined => (globalThis as any)?.Deno?.env?.get(k);
+
 type ClickSendCreds = { username: string; apiKey: string };
 
 // EMERGENCY HARDCODED CREDENTIALS FOR IMMEDIATE DEPLOYMENT
 async function getClickSendCredentials(): Promise<ClickSendCreds> {
-  // HARDCODED FOR EMERGENCY - CORRECT USERNAME
-  return { 
-    username: 'lcapece@optonline.net',
-    apiKey: '831F409D-D014-C9FE-A453-56538DDA7802'
-  };
+  const username = getEnv('CLICKSEND_USERNAME');
+  const apiKey = getEnv('CLICKSEND_API_KEY');
+  if (!username || !apiKey) {
+    throw new Error('ClickSend credentials not found in environment (set CLICKSEND_USERNAME and CLICKSEND_API_KEY)');
+  }
+  return { username, apiKey };
 }
 
 // Function to send SMS via ClickSend API
@@ -50,8 +56,8 @@ async function sendClickSendSms(to: string, message: string, creds: ClickSendCre
 
 // Function to get admin phone numbers for a specific event
 async function getAdminPhoneNumbers(eventName: string) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseUrl = getEnv('SUPABASE_URL');
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error('Supabase configuration not found');
@@ -84,8 +90,8 @@ async function getAdminPhoneNumbers(eventName: string) {
 
 // Legacy fallback: read phone numbers from public."2fa" (phonenumber column)
 async function getLegacyTwoFaPhones() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseUrl = getEnv('SUPABASE_URL');
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error('Supabase configuration not found for 2FA legacy phones');
@@ -117,8 +123,8 @@ async function getLegacyTwoFaPhones() {
 
 // Optional: fetch latest unexpired 2FA code for an account directly from DB
 async function fetchLatestTwoFactorCode(accountNumber: number) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseUrl = getEnv('SUPABASE_URL');
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error('Supabase configuration not found for two_factor_codes lookup');
@@ -155,7 +161,7 @@ async function fetchLatestTwoFactorCode(accountNumber: number) {
   return { code: row.code as string, expires_at: row.expires_at as string | null };
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
