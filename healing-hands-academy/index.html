@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Who Wants to be a Massage Millionaire?</title>
+    
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen active">
+            <div class="loading-content">
+                <h1 class="game-logo">💰 Who Wants to be a<br>Massage Millionaire?</h1>
+                <div class="loading-spinner"></div>
+                <p>Preparing your journey to massage mastery...</p>
+            </div>
+        </div>
+
+        <!-- Main Menu -->
+        <div id="main-menu" class="screen">
+            <div class="main-menu-bg">
+                <h1 class="main-title">Who Wants to be a<br><span class="highlight">Massage Millionaire?</span></h1>
+                <p class="subtitle">Test your massage therapy knowledge and win virtual millions!</p>
+                
+                <div class="menu-buttons">
+                    <button id="new-game-btn" class="menu-btn primary">
+                        🎯 New Game
+                    </button>
+                    <button id="practice-mode-btn" class="menu-btn secondary">
+                        📚 Practice Mode
+                    </button>
+                    <button id="high-scores-btn" class="menu-btn secondary">
+                        🏆 High Scores
+                    </button>
+                    <button id="about-btn" class="menu-btn secondary">
+                        ℹ️ About
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Interface -->
+        <div id="game-screen" class="screen">
+            <!-- Money Ladder -->
+            <div id="money-ladder" class="money-ladder">
+                <div class="ladder-title">Prize Ladder</div>
+                <div class="money-list">
+                    <div class="money-amount" data-level="15">$1,000,000</div>
+                    <div class="money-amount" data-level="14">$500,000</div>
+                    <div class="money-amount" data-level="13">$250,000</div>
+                    <div class="money-amount" data-level="12">$125,000</div>
+                    <div class="money-amount" data-level="11">$64,000</div>
+                    <div class="money-amount safe-harbor" data-level="10">$32,000</div>
+                    <div class="money-amount" data-level="9">$16,000</div>
+                    <div class="money-amount" data-level="8">$8,000</div>
+                    <div class="money-amount" data-level="7">$4,000</div>
+                    <div class="money-amount" data-level="6">$2,000</div>
+                    <div class="money-amount safe-harbor" data-level="5">$1,000</div>
+                    <div class="money-amount" data-level="4">$500</div>
+                    <div class="money-amount" data-level="3">$300</div>
+                    <div class="money-amount" data-level="2">$200</div>
+                    <div class="money-amount" data-level="1">$100</div>
+                </div>
+            </div>
+
+            <!-- Main Game Area -->
+            <div id="game-area" class="game-area">
+                <!-- Question Display -->
+                <div id="question-display" class="question-display">
+                    <div class="question-header">
+                        <span id="question-number">Question 1</span>
+                        <span id="question-value">for $100</span>
+                    </div>
+                    <div id="question-text" class="question-text">
+                        Loading your first question...
+                    </div>
+                </div>
+
+                <!-- Answer Options -->
+                <div id="answer-options" class="answer-options">
+                    <div class="answer-row">
+                        <button class="answer-btn" data-answer="A">
+                            <span class="answer-letter">A:</span>
+                            <span class="answer-text">Answer A</span>
+                        </button>
+                        <button class="answer-btn" data-answer="B">
+                            <span class="answer-letter">B:</span>
+                            <span class="answer-text">Answer B</span>
+                        </button>
+                    </div>
+                    <div class="answer-row">
+                        <button class="answer-btn" data-answer="C">
+                            <span class="answer-letter">C:</span>
+                            <span class="answer-text">Answer C</span>
+                        </button>
+                        <button class="answer-btn" data-answer="D">
+                            <span class="answer-letter">D:</span>
+                            <span class="answer-text">Answer D</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Game Controls -->
+                <div id="game-controls" class="game-controls">
+                    <button id="final-answer-btn" class="control-btn final-answer" disabled>
+                        🎯 Final Answer
+                    </button>
+                    <button id="walk-away-btn" class="control-btn walk-away">
+                        🚶 Walk Away
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lifelines Panel -->
+            <div id="lifelines-panel" class="lifelines-panel">
+                <div class="lifelines-title">Lifelines</div>
+                <div class="lifelines-grid">
+                    <button id="fifty-fifty" class="lifeline-btn" data-lifeline="50-50">
+                        <div class="lifeline-icon">50:50</div>
+                        <div class="lifeline-label">50/50</div>
+                    </button>
+                    <button id="phone-friend" class="lifeline-btn" data-lifeline="phone">
+                        <div class="lifeline-icon">📞</div>
+                        <div class="lifeline-label">Phone a Friend</div>
+                    </button>
+                    <button id="ask-audience" class="lifeline-btn" data-lifeline="audience">
+                        <div class="lifeline-icon">👥</div>
+                        <div class="lifeline-label">Ask Audience</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <!-- Final Answer Confirmation -->
+        <div id="final-answer-modal" class="modal">
+            <div class="modal-content">
+                <h2>Final Answer Confirmation</h2>
+                <p>Are you sure you want to go with:</p>
+                <div id="selected-answer-display" class="selected-answer"></div>
+                <p><strong>This is your final answer?</strong></p>
+                <div class="modal-buttons">
+                    <button id="confirm-final" class="btn primary">Yes, Final Answer!</button>
+                    <button id="cancel-final" class="btn secondary">No, Let Me Reconsider</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phone a Friend Modal -->
+        <div id="phone-friend-modal" class="modal">
+            <div class="modal-content">
+                <h2>📞 Phone a Friend</h2>
+                <div class="friend-calling">
+                    <div class="friend-avatar">👨‍⚕️</div>
+                    <p>Calling Dr. Sarah Mitchell...</p>
+                    <div class="calling-animation"></div>
+                </div>
+                <div id="friend-response" class="friend-response" style="display: none;">
+                    <p><strong>Dr. Mitchell:</strong></p>
+                    <p id="friend-advice">Let me think about this...</p>
+                </div>
+                <button id="close-phone" class="btn primary" style="display: none;">Thank You!</button>
+            </div>
+        </div>
+
+        <!-- Ask Audience Modal -->
+        <div id="ask-audience-modal" class="modal">
+            <div class="modal-content">
+                <h2>👥 Ask the Audience</h2>
+                <p>100 massage therapy students have voted:</p>
+                <div id="audience-results" class="audience-results">
+                    <div class="audience-bar">
+                        <div class="answer-label">A:</div>
+                        <div class="bar-container">
+                            <div class="bar bar-a" style="width: 25%"></div>
+                            <span class="percentage">25%</span>
+                        </div>
+                    </div>
+                    <div class="audience-bar">
+                        <div class="answer-label">B:</div>
+                        <div class="bar-container">
+                            <div class="bar bar-b" style="width: 45%"></div>
+                            <span class="percentage">45%</span>
+                        </div>
+                    </div>
+                    <div class="audience-bar">
+                        <div class="answer-label">C:</div>
+                        <div class="bar-container">
+                            <div class="bar bar-c" style="width: 20%"></div>
+                            <span class="percentage">20%</span>
+                        </div>
+                    </div>
+                    <div class="audience-bar">
+                        <div class="answer-label">D:</div>
+                        <div class="bar-container">
+                            <div class="bar bar-d" style="width: 10%"></div>
+                            <span class="percentage">10%</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="close-audience" class="btn primary">Continue</button>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="modal">
+            <div class="modal-content">
+                <h2 id="game-over-title">Game Over!</h2>
+                <div id="game-over-content">
+                    <div id="final-score" class="final-score"></div>
+                    <div id="correct-answer" class="correct-answer"></div>
+                    <div id="explanation" class="explanation"></div>
+                </div>
+                <div class="modal-buttons">
+                    <button id="play-again-btn" class="btn primary">Play Again</button>
+                    <button id="main-menu-btn" class="btn secondary">Main Menu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="intro-music" preload="auto" loop>
+        <source src="assets/audio/intro.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="question-music" preload="auto" loop>
+        <source src="assets/audio/question.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="final-answer-sound" preload="auto">
+        <source src="assets/audio/final-answer.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="correct-sound" preload="auto">
+        <source src="assets/audio/correct.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="wrong-sound" preload="auto">
+        <source src="assets/audio/wrong.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="millionaire-sound" preload="auto">
+        <source src="assets/audio/millionaire.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Scripts -->
+    <script src="js/claude-api.js"></script>
+    <script src="js/question-generator.js"></script>
+    <script src="js/audio-manager.js"></script>
+    <script src="js/lifelines.js"></script>
+    <script src="js/game-logic.js"></script>
+    <script src="js/ui-controller.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

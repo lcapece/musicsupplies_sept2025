@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Test SMS - Frontend & Backend</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; }
+    label { display:block; margin-top:10px; }
+    input[type="text"], input[type="url"] { width: 100%; padding:8px; box-sizing: border-box; }
+    button { margin-top:10px; padding:10px 14px; }
+    pre { background:#f6f8fa; padding:10px; white-space:pre-wrap; max-height:300px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h1>Test SMS: Frontend then Backend</h1>
+  <p>This page helps you test sending an SMS from the browser (frontend ClickSend) and then via the backend function. It does NOT store any credentials — use temporary test keys and rotate them afterwards.</p>
+
+  <h2>Target</h2>
+  <label>Phone number to test (E.164)
+    <input id="phone" type="text" value="+15164550980" />
+  </label>
+
+  <h2>Frontend (ClickSend) — send directly from browser</h2>
+  <p>Provide ClickSend username & API key and click "Send Frontend SMS".</p>
+  <label>ClickSend Username
+    <input id="cs_user" type="text" placeholder="ClickSend Username" />
+  </label>
+  <label>ClickSend API Key
+    <input id="cs_key" type="text" placeholder="ClickSend API Key" />
+  </label>
+  <button id="send_front">Send Frontend SMS</button>
+  <div id="front_result"><pre></pre></div>
+
+  <h2>Backend (Edge function) — call your function endpoint</h2>
+  <p>Enter the backend function URL to call. In dev this was previously <code>/functions/v1/send-admin-sms</code> which can 404 if not proxied. If you have a deployed Supabase function use the full URL.</p>
+  <label>Backend function URL
+    <input id="backend_url" type="url" placeholder="/functions/v1/send-admin-sms" value="/functions/v1/send-admin-sms" />
+  </label>
+  <label>Message to send via backend
+    <input id="backend_msg" type="text" value="Test backend SMS from send-admin-sms function" />
+  </label>
+  <button id="send_back">Send Backend SMS</button>
+  <div id="back_result"><pre></pre></div>
+
+  <script>
+    function showResult(containerId, data) {
+      const el = document.querySelector('#' + containerId + ' pre');
+      el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+
+    async function sendFrontendSms() {
+      const user = document.getElementById('cs_user').value.trim();
+      const key = document.getElementById('cs_key').value.trim();
+      const to = document.getElementById('phone').value.trim();
+      if (!user || !key) {
+        alert('Provide ClickSend username and API key for frontend send.');
+        return;
+      }
+      if (!to) { alert('Provide phone number'); return; }
+
+      const auth = btoa(user + ':' + key);
+      const payload = {
+        messages: [
+          {
+            source: 'MusicSupplies-Frontend-Test',
+            body: 'Test Frontend SMS from browser — ignore',
+            to: to
+          }
+        ]
+      };
+
+      try {
+        const resp = await fetch('https://rest.clicksend.com/v3/sms/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic ' + auth
+          },
+          body: JSON.stringify(payload)
+        });
+        const text = await resp.text().catch(() => '');
+        let json;
+        try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+        if (!resp.ok) {
+          showResult('front_result', { status: resp.status, body: json || text });
+        } else {
+          showResult('front_result', { status: resp.status, body: json || text });
+        }
+      } catch (err) {
+        showResult('front_result', 'Error: ' + String(err));
+      }
+    }
+
+    async function sendBackendSms() {
+      const url = document.getElementById('backend_url').value.trim();
+      const to = document.getElementById('phone').value.trim();
+      const msg = document.getElementById('backend_msg').value.trim();
+      if (!url) { alert('Provide backend function URL'); return; }
+      if (!to) { alert('Provide phone number'); return; }
+
+      const body = {
+        eventName: 'TEST_SMS',
+        message: msg,
+        customPhones: [to]
+      };
+
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const text = await resp.text().catch(() => '');
+        let json;
+        try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+        showResult('back_result', { status: resp.status, body: json || text });
+      } catch (err) {
+        showResult('back_result', 'Error: ' + String(err));
+      }
+    }
+
+    document.getElementById('send_front').addEventListener('click', sendFrontendSms);
+    document.getElementById('send_back').addEventListener('click', sendBackendSms);
+  </script>
+</body>
+</html>

@@ -63,6 +63,33 @@ async function getAdminPhoneNumbers(eventName: string) {
     throw new Error('Supabase configuration not found');
   }
 
+  // First try to get from sms_admins table (new approach)
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/sms_admins?is_active=eq.true&select=phone_number`,
+      {
+        headers: {
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data
+          .map(row => row.phone_number)
+          .filter(phone => phone && typeof phone === 'string')
+          .map(phone => phone.trim());
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to fetch from sms_admins, trying sms_notification_settings:', err);
+  }
+
+  // Fallback to sms_notification_settings (legacy approach)
   const response = await fetch(
     `${supabaseUrl}/rest/v1/sms_notification_settings?event_name=eq.${eventName}&is_enabled=eq.true&select=notification_phones`,
     {
@@ -130,10 +157,35 @@ async function fetchLatestTwoFactorCode(accountNumber: number) {
     throw new Error('Supabase configuration not found for two_factor_codes lookup');
   }
 
-  const url = new URL(`${supabaseUrl}/rest/v1/two_factor_codes`);
+  // Check admin_logins table first (primary table for admin 2FA)
+  const adminUrl = new URL(`${supabaseUrl}/rest/v1/admin_logins`);
+  adminUrl.searchParams.set('account_number', `eq.${accountNumber}`);
+  adminUrl.searchParams.set('used', 'eq.false');
+  adminUrl.searchParams.set('expires_at', 'gt.' + new Date().toISOString());
+  adminUrl.searchParams.set('select', 'code,expires_at,created_at');
+  adminUrl.searchParams.set('order', 'created_at.desc');
+  adminUrl.searchParams.set('limit', '1');
+
+  const adminResp = await fetch(adminUrl.toString(), {
+    headers: {
+      'Authorization': `Bearer ${serviceRoleKey}`,
+      'apikey': serviceRoleKey,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (adminResp.ok) {
+    const adminRows = await adminResp.json();
+    if (Array.isArray(adminRows) && adminRows.length > 0) {
+      const row = adminRows[0];
+      return { code: row.code as string, expires_at: row.expires_at as string | null };
+    }
+  }
+
+  // Fallback to tbl_2fa_codes table (legacy)
+  const url = new URL(`${supabaseUrl}/rest/v1/tbl_2fa_codes`);
   url.searchParams.set('account_number', `eq.${accountNumber}`);
   url.searchParams.set('used', 'eq.false');
-  // Only consider unexpired codes
   url.searchParams.set('expires_at', 'gt.' + new Date().toISOString());
   url.searchParams.set('select', 'code,expires_at,created_at');
   url.searchParams.set('order', 'created_at.desc');
@@ -157,7 +209,6 @@ async function fetchLatestTwoFactorCode(accountNumber: number) {
   }
 
   const row = rows[0];
-  // Do not hard-fail on local time skew; DB validation will enforce expiry during code verification
   return { code: row.code as string, expires_at: row.expires_at as string | null };
 }
 

@@ -3,6 +3,7 @@ import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { sessionManager } from '../utils/sessionManager';
 import { logLoginSuccess, logLoginFailure, logSessionExpired } from '../utils/eventLogger';
+import { sendAdmin2faSmsFrontend } from '../utils/frontendSms';
 import { validateEmail, validateAccountNumber } from '../utils/validation';
 import { activityTracker } from '../services/activityTracker';
 // import { securityMonitor } from '../utils/securityMonitor'; // COMMENTED OUT - MODULE MISSING
@@ -527,59 +528,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // SECURE 2FA FLOW FOR ADMIN 999 (no frontend OTP generation; no secret leaks)
     if (idTrim === '999' && adminOk) {
       try {
-        // Request (or reuse) a single active code in the database (90s TTL, single active)
-        const { data: genData, error: genErr } = await supabase.rpc('generate_2fa_code', {
-          p_account_number: 999,
-          p_ip_address: ipAddress
+        // Generate and send 2FA code using the admin-2fa-handler Edge function
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        
+        // Call the generate endpoint with proper headers
+        const generateResp = await fetch(`${supabaseUrl}/functions/v1/admin-2fa-handler/generate`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ account_number: 999 })
         });
 
-        if (genErr) {
-          console.error('2FA: generate_2fa_code error:', genErr);
-        }
-
-        // Determine if we should send SMS (skip if function indicates reuse/active code)
-        let shouldSend = true;
-        try {
-          if (genData && typeof genData === 'object') {
-            const flags = ['reused', 'existing', 'already_active', 'active_exists', 'has_active', 'active'];
-            for (const k of flags) {
-              if (k in genData && genData[k] === true) {
-                shouldSend = false;
-                break;
-              }
-            }
-            if (shouldSend && typeof genData.message === 'string' && /reuse|existing/i.test(genData.message)) {
-              shouldSend = false;
-            }
+        if (generateResp.ok) {
+          const generateData = await generateResp.json();
+          console.log('2FA: Code generation response:', generateData);
+          
+          if (generateData.success && generateData.sent_to > 0) {
+            setError('A verification code has been sent to all admin phones. Please enter the 6-digit code to continue.');
+            return '2FA_REQUIRED';
+          } else if (generateData.error) {
+            console.error('2FA: Generation error:', generateData.error);
+            setError('Failed to send verification code. Please contact support.');
+            return false;
           }
-        } catch (_e) {
-          // default to sending if we cannot determine
+        } else {
+          console.error('2FA: HTTP error:', generateResp.status, generateResp.statusText);
+          const errorText = await generateResp.text();
+          console.error('2FA: Error response:', errorText);
+          setError('Failed to send verification code. Please contact support.');
+          return false;
         }
 
-        // Only send via Edge Function when a new code was generated
-        if (shouldSend) {
-          try {
-            await fetch('/functions/v1/send-admin-sms', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                eventName: '2FA_LOGIN',
-                lookupLatest2faCode: true,
-                accountNumber: 999
-              })
-            });
-          } catch (e) {
-            console.error('2FA: send-admin-sms invocation failed:', e);
-            // Continue; user can still input code if already active
-          }
-        }
-
-        // Prompt user for the code (never show or log the OTP)
-        setError('A verification code has been sent. Please enter the 6-digit code to continue.');
         return '2FA_REQUIRED';
       } catch (e) {
-        console.error('2FA: Unexpected error starting 2FA flow:', e);
-        setError('A verification code has been sent. Please enter the 6-digit code to continue.');
+        console.error('2FA: Error in 2FA flow:', e);
+        setError('Failed to send verification code. Please contact support.');
         return '2FA_REQUIRED';
       }
     }

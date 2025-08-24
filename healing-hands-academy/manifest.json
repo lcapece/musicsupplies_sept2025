@@ -1,0 +1,43 @@
+{
+  "name": "Who Wants to be a Massage Millionaire",
+  "short_name": "Massage Millionaire",
+  "description": "Test your massage therapy knowledge and win virtual millions! Perfect for MBLEX exam preparation.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a2e",
+  "theme_color": "#ffd700",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/images/icon-512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["education", "games", "medical"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "assets/images/screenshot-game.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Game in progress showing question and lifelines"
+    },
+    {
+      "src": "assets/images/screenshot-menu.png", 
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Main menu with game options"
+    }
+  ]
+}

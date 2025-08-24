@@ -50,7 +50,19 @@
       "Bash(supabase functions deploy:*)",
       "Bash(start direct_clicksend_test.html)",
       "Bash(echo $SUPABASE_URL)",
-      "Bash(start test_auth_direct.html)"
+      "Bash(start test_auth_direct.html)",
+      "Bash(pwsh scripts/check_2fa_config.ps1)",
+      "Bash(chmod:*)",
+      "Bash(./fix-2fa.sh:*)",
+      "Bash(start test_2fa_system.html)",
+      "Bash(supabase functions:*)",
+      "Bash(supabase:*)",
+      "Bash(./deploy-function.bat)",
+      "Bash(supabase functions:*)",
+      "Bash(start test-2fa-browser.html)",
+      "Bash(env)",
+      "Bash(echo:*)",
+      "Bash(./test-2fa-curl.sh)"
     ],
     "deny": []
   }
