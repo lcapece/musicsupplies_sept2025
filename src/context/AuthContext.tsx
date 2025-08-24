@@ -3,7 +3,6 @@ import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { sessionManager } from '../utils/sessionManager';
 import { logLoginSuccess, logLoginFailure, logSessionExpired } from '../utils/eventLogger';
-import { sendAdmin2faSmsFrontend } from '../utils/frontendSms';
 import { validateEmail, validateAccountNumber } from '../utils/validation';
 import { activityTracker } from '../services/activityTracker';
 // import { securityMonitor } from '../utils/securityMonitor'; // COMMENTED OUT - MODULE MISSING
@@ -525,48 +524,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // SECURE 2FA FLOW FOR ADMIN 999 (no frontend OTP generation; no secret leaks)
+    // ADMIN 999 LOGIN - PIN REQUIRED (NO SMS)
     if (idTrim === '999' && adminOk) {
-      try {
-        // Generate and send 2FA code using the admin-2fa-handler Edge function
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        
-        // Call the generate endpoint with proper headers
-        const generateResp = await fetch(`${supabaseUrl}/functions/v1/admin-2fa-handler/generate`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({ account_number: 999 })
-        });
-
-        if (generateResp.ok) {
-          const generateData = await generateResp.json();
-          console.log('2FA: Code generation response:', generateData);
-          
-          if (generateData.success && generateData.sent_to > 0) {
-            setError('A verification code has been sent to all admin phones. Please enter the 6-digit code to continue.');
-            return '2FA_REQUIRED';
-          } else if (generateData.error) {
-            console.error('2FA: Generation error:', generateData.error);
-            setError('Failed to send verification code. Please contact support.');
-            return false;
-          }
-        } else {
-          console.error('2FA: HTTP error:', generateResp.status, generateResp.statusText);
-          const errorText = await generateResp.text();
-          console.error('2FA: Error response:', errorText);
-          setError('Failed to send verification code. Please contact support.');
-          return false;
-        }
-
-        return '2FA_REQUIRED';
-      } catch (e) {
-        console.error('2FA: Error in 2FA flow:', e);
-        setError('Failed to send verification code. Please contact support.');
-        return '2FA_REQUIRED';
-      }
+      // Admin 999 requires PIN verification (no SMS)
+      setError('Please enter your admin PIN to continue.');
+      return '2FA_REQUIRED'; // Reuse 2FA flow but for PIN instead of SMS
     }
 
     console.log('2FA: THIS SHOULD NOT RUN IF 2FA WAS TRIGGERED!!!');
@@ -856,19 +818,101 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const idTrim = identifier.trim();
     const pwdTrim = password.trim();
 
-    // Get user's IP (best-effort)
-    let ipAddress = 'Unknown';
     try {
-      const ipResponse = await fetch('https://api.ipify.org?format=json');
-      if (ipResponse.ok) {
-        const ipData = await ipResponse.json();
-        ipAddress = ipData.ip;
-      }
-    } catch (_e) {
-      // continue
-    }
+      // For admin 999, verify PIN directly (no SMS)
+      if (idTrim === '999') {
+        console.log('[AuthContext] Starting PIN verification for admin 999');
+        
+        // Verify PIN using backend function
+        const { data: isPinValid, error: pinError } = await supabase.rpc('verify_admin_pin', { 
+          p_pin: twoFactorCode.trim() 
+        });
 
-    try {
+        console.log('[AuthContext] PIN verification response:', { isPinValid, pinError });
+
+        if (pinError) {
+          console.error('PIN verification error:', pinError);
+          setError('PIN verification failed. Please try again.');
+          return false;
+        }
+
+        // Check if PIN is valid (the function returns boolean true/false)
+        if (isPinValid !== true) {
+          console.log('[AuthContext] PIN verification failed, invalid PIN');
+          setError('Invalid PIN. Please try again.');
+          return false;
+        }
+
+        console.log('[AuthContext] PIN verification successful, completing admin login');
+
+        // PIN is valid, complete admin login
+        const userData: User = {
+          accountNumber: '999',
+          acctName: 'System Administrator',
+          address: '',
+          city: '',
+          state: '',
+          zip: '',
+          id: 999,
+          email: 'admin@musicsupplies.com',
+          phone: '',
+          mobile_phone: '',
+          requires_password_change: false,
+          is_special_admin: true
+        };
+
+        setUser(userData);
+        setIsAuthenticated(true);
+        setIsSpecialAdmin(true);
+        sessionManager.setSession(userData);
+
+        console.log('[AuthContext] Admin 999 user context set');
+
+        // Set JWT claims for admin access
+        try {
+          await supabase.rpc('set_admin_jwt_claims', {
+            p_account_number: 999
+          });
+          console.log('[AuthContext] JWT claims set for admin 999 after PIN verification');
+        } catch (claimsError) {
+          console.error('[AuthContext] Failed to set JWT claims for admin 999:', claimsError);
+          // Don't fail login if JWT claims fail - continue
+        }
+
+        try {
+          await calculateBestDiscount('999');
+          console.log('[AuthContext] Discount calculation completed for admin 999');
+        } catch (discountError) {
+          console.error('[AuthContext] Discount calculation failed for admin 999:', discountError);
+          // Don't fail login if discount calculation fails
+        }
+        
+        // Initialize activity tracking session
+        try {
+          await activityTracker.initSession(999, '999');
+          console.log('[AuthContext] Activity tracker initialized for admin 999');
+        } catch (trackerError) {
+          console.error('[AuthContext] Activity tracker failed for admin 999:', trackerError);
+          // Don't fail login if activity tracker fails
+        }
+        
+        console.log('[AuthContext] Admin 999 PIN login completed successfully');
+        return true;
+      }
+
+      // For non-admin accounts, use the original 2FA flow
+      // Get user's IP (best-effort)
+      let ipAddress = 'Unknown';
+      try {
+        const ipResponse = await fetch('https://api.ipify.org?format=json');
+        if (ipResponse.ok) {
+          const ipData = await ipResponse.json();
+          ipAddress = ipData.ip;
+        }
+      } catch (_e) {
+        // continue
+      }
+
       // Validate using backend RPC that accepts 2FA code (no frontend comparisons)
       const { data: authFunctionResponse, error: rpcError } = await supabase.rpc('authenticate_user', {
         p_identifier: idTrim,
@@ -950,8 +994,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return true;
     } catch (err) {
-      console.error('2FA verification error:', err);
-      setError('2FA verification failed. Please try again.');
+      console.error('PIN/2FA verification error:', err);
+      setError('PIN/2FA verification failed. Please try again.');
       return false;
     }
   };

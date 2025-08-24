@@ -13,6 +13,7 @@ import SmsFailureNotificationModal from '../components/SmsFailureNotificationMod
 import AdminChatManagementPage from './AdminChatManagementPage';
 import SimplePasswordChanger from '../components/admin/SimplePasswordChanger';
 import AdminPasswordManager from '../components/AdminPasswordManager';
+import AdminPinManager from '../components/admin/AdminPinManager';
 
 type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus' | 'chat' | 'security';
 
@@ -111,7 +112,10 @@ const AdminDashboard: React.FC = () => {
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Security Settings</h2>
-            <AdminPasswordManager />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AdminPasswordManager />
+              <AdminPinManager />
+            </div>
             <div className="mt-8">
               <SimplePasswordChanger />
             </div>
