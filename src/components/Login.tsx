@@ -39,9 +39,9 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [bannedPasswordError, setBannedPasswordError] = useState(false);
-  const [show2FAInput, setShow2FAInput] = useState(false);
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [is2FALoading, setIs2FALoading] = useState(false);
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [pinCode, setPinCode] = useState('');
+  const [isPinLoading, setIsPinLoading] = useState(false);
   const [showPinCode, setShowPinCode] = useState(false);
   const { 
     login, 
@@ -74,9 +74,6 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, user, navigate, showPasswordChangeModal]);
 
-
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -96,13 +93,12 @@ const Login: React.FC = () => {
       return; // Block submission completely
     }
     
-    
     setIsLoading(true);
     try {
       const loginResult = await login(identifier, password);
       if (loginResult === '2FA_REQUIRED') {
-        // Show 2FA input
-        setShow2FAInput(true);
+        // Show PIN input for admin 999 (reuses 2FA flow)
+        setShowPinInput(true);
         setIsLoading(false);
         return;
       }
@@ -115,24 +111,25 @@ const Login: React.FC = () => {
     }
   };
 
-  const handle2FASubmit = async (e: React.FormEvent) => {
+  const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!twoFactorCode || twoFactorCode.length !== 6) {
+    // Validate PIN length (4-8 digits for admin)
+    if (!pinCode || pinCode.length < 4 || pinCode.length > 8) {
       return;
     }
     
-    setIs2FALoading(true);
+    setIsPinLoading(true);
     try {
-      const loginSuccess = await loginWith2FA(identifier, password, twoFactorCode);
+      const loginSuccess = await loginWith2FA(identifier, password, pinCode);
       if (loginSuccess) {
-        setShow2FAInput(false);
-        setTwoFactorCode('');
+        setShowPinInput(false);
+        setPinCode('');
       }
     } catch (err) {
-      console.error("2FA submit error", err);
+      console.error("PIN submit error", err);
     } finally {
-      setIs2FALoading(false);
+      setIsPinLoading(false);
     }
   };
 
@@ -169,7 +166,7 @@ const Login: React.FC = () => {
 
             {/* Right Column */}
             <div className="w-full md:w-1/2 flex flex-col items-end">
-              {!show2FAInput ? (
+              {!showPinInput ? (
                 <form onSubmit={handleSubmit} className="w-full max-w-[clamp(20rem,35vw,28rem)]">
                 {bannedPasswordError && (
                   <div className="bg-red-600 border-2 border-red-800 text-white px-[1.5vw] py-[1vh] rounded mb-[2vh] text-[clamp(0.875rem,1.2vw,1rem)] font-semibold">
@@ -240,19 +237,10 @@ const Login: React.FC = () => {
                 </div>
               </form>
               ) : (
-                <form onSubmit={handle2FASubmit} className="w-full max-w-[clamp(20rem,35vw,28rem)]">
+                <form onSubmit={handlePinSubmit} className="w-full max-w-[clamp(20rem,35vw,28rem)]">
                   <div className="bg-blue-50 border border-blue-200 text-blue-700 px-[1.5vw] py-[2vh] rounded mb-[2vh] text-[clamp(0.875rem,1.2vw,1rem)]">
-                    {identifier.trim() === '999' ? (
-                      <>
-                        <div className="font-semibold mb-1">Admin PIN Required</div>
-                        <div>Please enter your admin PIN to continue.</div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="font-semibold mb-1">Two-Factor Authentication Required</div>
-                        <div>A 6-digit verification code has been sent via SMS. Please enter it below.</div>
-                      </>
-                    )}
+                    <div className="font-semibold mb-1">Admin PIN Required</div>
+                    <div>Please enter your admin PIN to continue.</div>
                   </div>
                   {error && (
                     <div className="bg-red-100 border border-red-400 text-red-700 px-[1.5vw] py-[1vh] rounded mb-[2vh] text-[clamp(0.875rem,1.2vw,1rem)]">
@@ -260,47 +248,45 @@ const Login: React.FC = () => {
                     </div>
                   )}
                   <div className="mb-[2vh]">
-                    <label htmlFor="twoFactorCode" className="block text-[clamp(0.875rem,1.2vw,1rem)] font-medium text-gray-700 mb-[0.5vh]">
-                      {identifier.trim() === '999' ? 'Admin PIN' : 'Verification Code'}
+                    <label htmlFor="pinCode" className="block text-[clamp(0.875rem,1.2vw,1rem)] font-medium text-gray-700 mb-[0.5vh]">
+                      Admin PIN
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-[1vw] flex items-center pointer-events-none">
                         <KeyRound size={Math.max(16, Math.min(24, window.innerWidth * 0.015))} className="text-gray-400" />
                       </div>
                       <input
-                        type={identifier.trim() === '999' ? (showPinCode ? "text" : "password") : "text"}
-                        id="twoFactorCode"
+                        type={showPinCode ? "text" : "password"}
+                        id="pinCode"
                         className="w-full pl-[3vw] pr-[3vw] py-[1.2vh] text-[clamp(1rem,1.4vw,1.125rem)] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center tracking-wider"
-                        placeholder={identifier.trim() === '999' ? "Enter PIN" : "000000"}
-                        value={twoFactorCode}
-                        onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
-                        maxLength={6}
+                        placeholder="Enter PIN"
+                        value={pinCode}
+                        onChange={(e) => setPinCode(e.target.value.replace(/\D/g, '').substring(0, 8))}
+                        maxLength={8}
                         required
                       />
-                      {identifier.trim() === '999' && (
-                        <button
-                          type="button"
-                          className="absolute inset-y-0 right-0 pr-[1vw] flex items-center"
-                          onClick={() => setShowPinCode(!showPinCode)}
-                        >
-                          {showPinCode ? <EyeOff size={Math.max(18, Math.min(24, window.innerWidth * 0.018))} className="text-gray-500" /> : <Eye size={Math.max(18, Math.min(24, window.innerWidth * 0.018))} className="text-gray-500" />}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-[1vw] flex items-center"
+                        onClick={() => setShowPinCode(!showPinCode)}
+                      >
+                        {showPinCode ? <EyeOff size={Math.max(18, Math.min(24, window.innerWidth * 0.018))} className="text-gray-500" /> : <Eye size={Math.max(18, Math.min(24, window.innerWidth * 0.018))} className="text-gray-500" />}
+                      </button>
                     </div>
                   </div>
                   <button
                     type="submit"
                     className="w-full bg-blue-600 text-white py-[1.5vh] px-[2vw] text-[clamp(1rem,1.4vw,1.125rem)] font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors duration-200"
-                    disabled={is2FALoading}
+                    disabled={isPinLoading}
                   >
-                    {is2FALoading ? 'Verifying...' : 'Verify Code'}
+                    {isPinLoading ? 'Verifying...' : 'Verify PIN'}
                   </button>
                   <div className="text-center mt-[2vh]">
                     <button
                       type="button"
                       onClick={() => {
-                        setShow2FAInput(false);
-                        setTwoFactorCode('');
+                        setShowPinInput(false);
+                        setPinCode('');
                       }}
                       className="text-gray-600 hover:underline text-[clamp(0.875rem,1.2vw,1rem)]"
                     >
