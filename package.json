@@ -13,6 +13,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
     "@tanstack/react-table": "^8.21.3",
+    "ag-grid-community": "^34.1.2",
+    "ag-grid-react": "^34.1.2",
     "dotenv": "^17.2.1",
     "lucide-react": "^0.344.0",
     "openai": "^5.1.0",

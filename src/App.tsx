@@ -1,4 +1,4 @@
-// Music Supplies App - Version 813.2020 - Voice Chat Update
+// Music Supplies App - Version 824.848p - Account 99 Admin Backend
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -25,6 +25,7 @@ import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import update pa
 import SmsConsentPreviewPage from './pages/SmsConsentPreviewPage'; // Import SMS consent preview page
 import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
+import Account99Dashboard from './pages/Account99Dashboard'; // Import Account 99 admin dashboard
 import EnhancedChatWidget from './components/EnhancedChatWidget';
 import ChatPage from './pages/ChatPage';
 import AdminKnowledgeBase from './pages/AdminKnowledgeBase'; // Admin knowledge base management
@@ -247,6 +248,15 @@ function AppContent() {
           element={
             <SpecialAdminProtectedRoute>
               <SkuImportPage />
+            </SpecialAdminProtectedRoute>
+          }
+        />
+        {/* Account 99 Admin Dashboard */}
+        <Route 
+          path="/admin99"
+          element={
+            <SpecialAdminProtectedRoute>
+              <Account99Dashboard />
             </SpecialAdminProtectedRoute>
           }
         />
