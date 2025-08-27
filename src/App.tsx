@@ -7,6 +7,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import ActiveDiscountDisplayModal from './components/ActiveDiscountDisplayModal';
 import LoginFixBanner from './components/LoginFixBanner';
 import Login from './components/Login';
+import Login2 from './components/Login2';
 import Dashboard from './pages/Dashboard';
 import SiteStatusOffline from './components/SiteStatusOffline';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -60,7 +61,7 @@ const AdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   // Check for admin account 999
-  const isAdmin = user?.accountNumber === '999' || user?.accountNumber === 999;
+  const isAdmin = user?.accountNumber === '999';
   return isAdmin ? children : <Navigate to="/" replace />; // Redirect non-admins to dashboard
 };
 
@@ -76,11 +77,17 @@ const SpecialAdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children })
     return <Navigate to="/login" replace />;
   }
 
+  // Check if user is account 99 specifically or has special admin flag
+  const isAccount99 = user?.accountNumber === '99';
+  const hasAccess = isSpecialAdmin || isAccount99;
+
   // Only log once during development, not on every render
   React.useEffect(() => {
     console.log('SpecialAdminProtectedRoute mounted: ', { 
       accountNumber: user?.accountNumber, 
       isSpecialAdmin, 
+      isAccount99,
+      hasAccess,
       user
     });
   }, []);
@@ -89,19 +96,19 @@ const SpecialAdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children })
   const [redirectAttempted, setRedirectAttempted] = React.useState(false);
   
   React.useEffect(() => {
-    // Reset redirect flag if user or isSpecialAdmin changes
-    if (user?.accountNumber || isSpecialAdmin !== undefined) {
+    // Reset redirect flag if user or access status changes
+    if (user?.accountNumber || hasAccess !== undefined) {
       setRedirectAttempted(false);
     }
-  }, [user?.accountNumber, isSpecialAdmin]);
+  }, [user?.accountNumber, hasAccess]);
 
-  // If not a special admin and haven't attempted redirect yet
-  if (!isSpecialAdmin && !redirectAttempted) {
+  // If user doesn't have access and haven't attempted redirect yet
+  if (!hasAccess && !redirectAttempted) {
     setRedirectAttempted(true);
     return <Navigate to="/" replace />;
   }
 
-  return isSpecialAdmin ? children : <div>Redirecting...</div>;
+  return hasAccess ? children : <div>Redirecting...</div>;
 };
 
 
@@ -196,6 +203,7 @@ function AppContent() {
       
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/login2" element={<Login2 />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/update-password" element={<UpdatePasswordPage />} />
         {/* Admin Dashboard via /5150 bypass */}
@@ -221,9 +229,11 @@ function AppContent() {
           path="/" 
           element={
             <ProtectedRoute>
-              {(user?.accountNumber === '999' || user?.accountNumber === 999) ? (
+              {user?.accountNumber === '999' ? (
                 <AdminDashboard />
-              ) : user?.accountNumber === '99' || isSpecialAdmin ? (
+              ) : user?.accountNumber === '99' ? (
+                <Navigate to="/admin99" replace />
+              ) : isSpecialAdmin ? (
                 <Navigate to="/sku-import" replace />
               ) : (
                 <Dashboard />

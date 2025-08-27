@@ -25,6 +25,7 @@ const AccountsTab: React.FC = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showForcePasswordModal, setShowForcePasswordModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -335,6 +336,86 @@ const AccountsTab: React.FC = () => {
     }
   };
 
+  const handleForcePasswordChange = async (accountNumber: number, newPassword: string) => {
+    try {
+      console.log(`🚨 ADMIN FORCE: Starting FORCE password change for account ${accountNumber}`);
+      
+      // STEP 1: Delete any existing record from USER_PASSWORDS
+      console.log(`🗑️ ADMIN FORCE: Deleting existing password record for account ${accountNumber}`);
+      const { error: deleteError } = await supabase
+        .from('user_passwords')
+        .delete()
+        .eq('account_number', accountNumber);
+
+      if (deleteError) {
+        console.error('❌ ADMIN FORCE: Error deleting existing password:', deleteError);
+        alert('Error removing existing password: ' + deleteError.message);
+        return;
+      }
+      console.log(`✅ ADMIN FORCE: Successfully deleted existing password record for account ${accountNumber}`);
+
+      // STEP 2: Hash the new password
+      console.log(`🔐 ADMIN FORCE: Hashing FORCED password for account ${accountNumber}`);
+      const { data: hashResult, error: hashError } = await supabase.rpc('hash_password', {
+        plain_password: newPassword
+      });
+
+      if (hashError || !hashResult) {
+        console.error('❌ ADMIN FORCE: Error hashing FORCED password:', hashError);
+        alert('Error hashing FORCED password: ' + (hashError?.message || 'Unknown error'));
+        return;
+      }
+      console.log(`✅ ADMIN FORCE: Successfully hashed FORCED password for account ${accountNumber}`);
+
+      // STEP 3: Insert new hashed password record
+      console.log(`💾 ADMIN FORCE: Inserting FORCED password record for account ${accountNumber}`);
+      const { data: insertData, error: insertError } = await supabase
+        .from('user_passwords')
+        .insert({
+          account_number: accountNumber,
+          password_hash: hashResult,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select();
+
+      if (insertError) {
+        console.error('❌ ADMIN FORCE: Error inserting FORCED password:', insertError);
+        alert('Error setting FORCED password: ' + insertError.message);
+        return;
+      }
+
+      console.log(`✅ ADMIN FORCE: Successfully inserted FORCED password record:`, insertData);
+
+      // STEP 4: Verify the record was created
+      console.log(`🔍 ADMIN FORCE: Verifying FORCED password record was created for account ${accountNumber}`);
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('user_passwords')
+        .select('account_number, password_hash, created_at, updated_at')
+        .eq('account_number', accountNumber)
+        .single();
+
+      if (verifyError || !verifyData) {
+        console.error('❌ ADMIN FORCE: Error verifying FORCED password record:', verifyError);
+        alert('FORCED password may not have been set correctly. Please check and try again.');
+        return;
+      }
+
+      console.log(`✅ ADMIN FORCE: FORCED password record verification successful:`, verifyData);
+
+      // Close modal and refresh
+      setShowForcePasswordModal(false);
+      console.log(`🔄 ADMIN FORCE: Refreshing accounts list to reflect FORCED changes`);
+      await fetchAccounts();
+      
+      alert(`🚨 EMERGENCY PASSWORD FORCE COMPLETED! 🚨\n\nAccount ${accountNumber} password has been FORCIBLY set!\n\n⚠️ FOR EMERGENCY/TESTING USE ONLY ⚠️\n\nUser can now log in with the forced password.\n\nRecord ID: ${verifyData.account_number}\nForced At: ${new Date(verifyData.created_at).toLocaleString()}`);
+      
+    } catch (error) {
+      console.error('💥 ADMIN FORCE: Unexpected error in handleForcePasswordChange:', error);
+      alert('Unexpected error in FORCE password change: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
   const getDefaultPasswordDisplay = (account: Account) => {
     return getDefaultPassword(account.acct_name, account.zip) || 'N/A';
   };
@@ -488,6 +569,111 @@ const AccountsTab: React.FC = () => {
     );
   };
 
+  const ForcePasswordModal: React.FC<{
+    account: Account;
+    onClose: () => void;
+    onForce: (accountNumber: number, password: string) => void;
+  }> = ({ account, onClose, onForce }) => {
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+
+    const handleSubmit = () => {
+      if (!password.trim()) {
+        alert('Please enter a password to force');
+        return;
+      }
+      if (password !== confirmPassword) {
+        alert('Passwords do not match');
+        return;
+      }
+      
+      // Additional confirmation for force password change
+      if (window.confirm(
+        `🚨 EMERGENCY FORCE PASSWORD CHANGE 🚨\n\n` +
+        `Are you ABSOLUTELY SURE you want to FORCE the password for:\n\n` +
+        `Account: ${account.account_number}\n` +
+        `Company: ${account.acct_name}\n\n` +
+        `⚠️ FOR EMERGENCY AND TESTING PURPOSES ONLY ⚠️\n\n` +
+        `This will immediately set the password without user consent.\n\n` +
+        `Click OK to proceed with FORCE password change.`
+      )) {
+        onForce(account.account_number, password);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8 w-full max-w-2xl border-4 border-orange-500">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-2">🚨</div>
+            <h3 className="text-2xl font-bold text-orange-600 mb-2">
+              EMERGENCY FORCE PASSWORD CHANGE
+            </h3>
+            <div className="bg-orange-100 border border-orange-400 rounded-md p-4 mb-4">
+              <p className="text-lg font-semibold text-orange-800 mb-2">
+                ⚠️ FOR EMERGENCY AND TESTING PURPOSES ONLY ⚠️
+              </p>
+              <p className="text-sm text-orange-700">
+                This will forcibly set a password without user consent or notification.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <p className="text-lg text-gray-600 mb-3">
+              <strong>Account:</strong> {account.account_number} - {account.acct_name}
+            </p>
+            <p className="text-lg text-gray-600 mb-6">
+              <strong>Current Zip Code:</strong> {getDefaultPasswordDisplay(account)}
+            </p>
+          </div>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-lg font-medium text-orange-700 mb-2">
+                Force New Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password to force..."
+                className="w-full border-2 border-orange-300 rounded-md px-4 py-3 text-lg focus:border-orange-500"
+              />
+            </div>
+            <div>
+              <label className="block text-lg font-medium text-orange-700 mb-2">
+                Confirm Forced Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm forced password..."
+                className="w-full border-2 border-orange-300 rounded-md px-4 py-3 text-lg focus:border-orange-500"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-4 mt-8">
+            <button
+              onClick={onClose}
+              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="px-6 py-3 text-lg font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md border-2 border-orange-700"
+            >
+              🚨 FORCE PASSWORD CHANGE
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 
   return (
     <div>
@@ -560,6 +746,9 @@ const AccountsTab: React.FC = () => {
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-20" onClick={() => handleSort('zip')}>
                     Zip Code {sortColumn === 'zip' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-20">
+                    User Pwd?
+                  </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-48">
                     Actions
                   </th>
@@ -589,23 +778,38 @@ const AccountsTab: React.FC = () => {
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
                       {formatZipCode(account.zip)}
                     </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                      <span className={account.has_custom_password ? 'font-bold text-green-700' : 'text-gray-600'}>
+                        {account.has_custom_password ? 'YES' : 'NO'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex space-x-2">
+                      <div className="flex flex-wrap gap-1">
                         <button
                           onClick={() => {
                             setSelectedAccount(account);
                             setShowResetConfirmModal(true);
                           }}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-medium"
+                          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium"
                         >
                           Reset Password
                         </button>
                         <button
                           onClick={() => {
                             setSelectedAccount(account);
+                            setShowForcePasswordModal(true);
+                          }}
+                          className="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-xs font-medium"
+                          title="Force Password Change - For Emergency and Testing Purposes"
+                        >
+                          Force Password
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAccount(account);
                             setShowContactModal(true);
                           }}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium"
+                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium"
                         >
                           Contact Info
                         </button>
@@ -668,6 +872,15 @@ const AccountsTab: React.FC = () => {
           account={selectedAccount}
           onClose={() => setShowResetConfirmModal(false)}
           onConfirm={handleResetPassword}
+        />
+      )}
+
+      {/* Force Password Modal */}
+      {showForcePasswordModal && selectedAccount && (
+        <ForcePasswordModal
+          account={selectedAccount}
+          onClose={() => setShowForcePasswordModal(false)}
+          onForce={handleForcePasswordChange}
         />
       )}
 
