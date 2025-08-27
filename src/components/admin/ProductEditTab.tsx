@@ -27,7 +27,7 @@ const ProductEditTab: React.FC = () => {
   });
   const [filteredData, setFilteredData] = useState<ProductManagerRow[]>([]);
 
-  // Column definitions with Excel-like editing
+  // Column definitions with Excel-like editing using ACTUAL database columns
   const columnDefs: ColDef[] = useMemo(() => [
     {
       field: 'partnumber',
@@ -35,7 +35,7 @@ const ProductEditTab: React.FC = () => {
       editable: true,
       width: 150,
       pinned: 'left',
-      cellStyle: { fontWeight: 'bold' }
+      cellStyle: { fontWeight: 'bold', backgroundColor: '#f0f8ff' }
     },
     {
       field: 'description',
@@ -57,13 +57,7 @@ const ProductEditTab: React.FC = () => {
       field: 'brand',
       headerName: 'Brand',
       editable: true,
-      width: 120
-    },
-    {
-      field: 'image',
-      headerName: 'Image',
-      editable: true,
-      width: 200
+      width: 150
     },
     {
       field: 'price',
@@ -72,7 +66,7 @@ const ProductEditTab: React.FC = () => {
       width: 100,
       cellEditor: 'agNumberCellEditor',
       valueFormatter: (params: any) => params.value != null ? `$${params.value.toFixed(2)}` : '',
-      valueParser: (params: any) => parseFloat(params.newValue)
+      valueParser: (params: any) => parseFloat(params.newValue) || null
     },
     {
       field: 'listprice',
@@ -81,7 +75,7 @@ const ProductEditTab: React.FC = () => {
       width: 100,
       cellEditor: 'agNumberCellEditor',
       valueFormatter: (params: any) => params.value != null ? `$${params.value.toFixed(2)}` : '',
-      valueParser: (params: any) => parseFloat(params.newValue)
+      valueParser: (params: any) => parseFloat(params.newValue) || null
     },
     {
       field: 'map',
@@ -90,7 +84,19 @@ const ProductEditTab: React.FC = () => {
       width: 100,
       cellEditor: 'agNumberCellEditor',
       valueFormatter: (params: any) => params.value != null ? `$${params.value.toFixed(2)}` : '',
-      valueParser: (params: any) => parseFloat(params.newValue)
+      valueParser: (params: any) => parseFloat(params.newValue) || null
+    },
+    {
+      field: 'image',
+      headerName: 'Image',
+      editable: true,
+      width: 200,
+      cellRenderer: (params: any) => {
+        if (params.value) {
+          return `<span title="${params.value}">${params.value.substring(0, 30)}${params.value.length > 30 ? '...' : ''}</span>`;
+        }
+        return '';
+      }
     },
     {
       field: 'dstamp',
@@ -100,7 +106,7 @@ const ProductEditTab: React.FC = () => {
       valueFormatter: (params: any) => {
         if (params.value) {
           const date = new Date(params.value);
-          return date.toLocaleDateString();
+          return date.toLocaleString();
         }
         return '';
       }
@@ -128,13 +134,16 @@ const ProductEditTab: React.FC = () => {
 
       if (error) {
         console.error('Error fetching products:', error);
+        alert(`Error fetching products: ${error.message}`);
         return;
       }
 
+      console.log(`Loaded ${data?.length || 0} products from database`);
       setRowData(data || []);
       setFilteredData(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+      alert('Failed to load products. Please refresh and try again.');
     } finally {
       setLoading(false);
     }
@@ -152,8 +161,9 @@ const ProductEditTab: React.FC = () => {
     if (searchTerms.primary) {
       const primaryLower = searchTerms.primary.toLowerCase();
       filtered = filtered.filter(product => 
-        product.partnumber.toLowerCase().includes(primaryLower) ||
+        product.partnumber?.toLowerCase().includes(primaryLower) ||
         product.description?.toLowerCase().includes(primaryLower) ||
+        product.longdescription?.toLowerCase().includes(primaryLower) ||
         product.brand?.toLowerCase().includes(primaryLower)
       );
     }
@@ -162,8 +172,9 @@ const ProductEditTab: React.FC = () => {
     if (searchTerms.additional) {
       const additionalLower = searchTerms.additional.toLowerCase();
       filtered = filtered.filter(product => 
-        product.partnumber.toLowerCase().includes(additionalLower) ||
+        product.partnumber?.toLowerCase().includes(additionalLower) ||
         product.description?.toLowerCase().includes(additionalLower) ||
+        product.longdescription?.toLowerCase().includes(additionalLower) ||
         product.brand?.toLowerCase().includes(additionalLower)
       );
     }
@@ -172,8 +183,9 @@ const ProductEditTab: React.FC = () => {
     if (searchTerms.exclude) {
       const excludeLower = searchTerms.exclude.toLowerCase();
       filtered = filtered.filter(product => 
-        !product.partnumber.toLowerCase().includes(excludeLower) &&
+        !product.partnumber?.toLowerCase().includes(excludeLower) &&
         !product.description?.toLowerCase().includes(excludeLower) &&
+        !product.longdescription?.toLowerCase().includes(excludeLower) &&
         !product.brand?.toLowerCase().includes(excludeLower)
       );
     }
@@ -188,10 +200,15 @@ const ProductEditTab: React.FC = () => {
     if (newValue === oldValue) return;
 
     try {
-      // Update the database
+      console.log(`Updating ${data.partnumber} - ${colDef.field}: "${oldValue}" → "${newValue}"`);
+      
+      // Update the database using partnumber as primary key
       const { error } = await supabase
         .from('products_manager')
-        .update({ [colDef.field!]: newValue })
+        .update({ 
+          [colDef.field!]: newValue,
+          dstamp: new Date().toISOString() // Update timestamp
+        })
         .eq('partnumber', data.partnumber);
 
       if (error) {
@@ -199,19 +216,19 @@ const ProductEditTab: React.FC = () => {
         // Revert the change in the grid
         data[colDef.field!] = oldValue;
         event.api.refreshCells({ rowNodes: [event.node!], force: true });
-        alert('Failed to update product. Please try again.');
+        alert(`Failed to update product: ${error.message}`);
         return;
       }
 
       // Update local data
       const updatedRowData = rowData.map(row => 
         row.partnumber === data.partnumber 
-          ? { ...row, [colDef.field!]: newValue }
+          ? { ...row, [colDef.field!]: newValue, dstamp: new Date().toISOString() }
           : row
       );
       setRowData(updatedRowData);
 
-      console.log(`Updated ${data.partnumber} - ${colDef.field}: ${oldValue} → ${newValue}`);
+      console.log(`✅ Successfully updated ${data.partnumber}`);
     } catch (error) {
       console.error('Error updating product:', error);
       // Revert the change in the grid
@@ -229,10 +246,55 @@ const ProductEditTab: React.FC = () => {
     setSearchTerms({ primary: '', additional: '', exclude: '' });
   };
 
+  const addNewProduct = () => {
+    const newPartnumber = prompt('Enter new part number:');
+    if (!newPartnumber) return;
+    
+    // Check if part number already exists
+    if (rowData.some(row => row.partnumber === newPartnumber)) {
+      alert('Part number already exists!');
+      return;
+    }
+
+    const newProduct: ProductManagerRow = {
+      partnumber: newPartnumber,
+      description: 'New Product',
+      longdescription: null,
+      map: null,
+      brand: null,
+      image: null,
+      price: null,
+      listprice: null,
+      dstamp: new Date().toISOString()
+    };
+
+    // Add to database
+    supabase
+      .from('products_manager')
+      .insert(newProduct)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error adding product:', error);
+          alert(`Failed to add product: ${error.message}`);
+        } else {
+          console.log('Product added successfully');
+          fetchProducts(); // Refresh data
+        }
+      });
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Product Manager - Excel-like Editor</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-gray-900">Products Manager - Excel Editor</h2>
+          <button
+            onClick={addNewProduct}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            + Add New Product
+          </button>
+        </div>
         
         {/* Search Section */}
         <div className="bg-gray-50 p-4 rounded-lg border mb-4">
@@ -296,7 +358,7 @@ const ProductEditTab: React.FC = () => {
       <div className="flex-1" style={{ minHeight: '600px' }}>
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-500">Loading products...</div>
+            <div className="text-xl text-gray-500">Loading products from database...</div>
           </div>
         ) : (
           <div className="ag-theme-alpine h-full">
@@ -306,27 +368,39 @@ const ProductEditTab: React.FC = () => {
               defaultColDef={defaultColDef}
               onCellValueChanged={onCellValueChanged}
               animateRows={true}
-              rowSelection="single"
+              rowSelection="multiple"
               enableCellTextSelection={true}
               suppressRowClickSelection={true}
               stopEditingWhenCellsLoseFocus={true}
               undoRedoCellEditing={true}
-              undoRedoCellEditingLimit={10}
+              undoRedoCellEditingLimit={20}
               enableRangeSelection={true}
               singleClickEdit={false}
+              getRowId={(params) => params.data.partnumber}
             />
           </div>
         )}
       </div>
 
-      <div className="mt-4 text-sm text-gray-600">
-        <p><strong>Instructions:</strong></p>
-        <ul className="list-disc list-inside space-y-1">
-          <li>Double-click cells to edit • Use arrow keys to navigate</li>
-          <li>Press Enter to confirm edits and move to next row</li>
-          <li>Changes are automatically saved to database</li>
-          <li>Use Ctrl+Z to undo recent changes</li>
-        </ul>
+      <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+        <p className="text-lg font-semibold text-blue-800 mb-2">📋 Excel-like Editor Instructions:</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Edit:</strong> Double-click any cell to edit</li>
+            <li><strong>Navigate:</strong> Use arrow keys to move between cells</li>
+            <li><strong>Save:</strong> Press Enter or Tab to save changes</li>
+            <li><strong>Undo:</strong> Use Ctrl+Z to undo recent changes</li>
+          </ul>
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Search:</strong> Use Search A + B for AND logic</li>
+            <li><strong>Exclude:</strong> Use Search NOT to exclude terms</li>
+            <li><strong>Select:</strong> Click row numbers to select multiple rows</li>
+            <li><strong>Auto-Save:</strong> Changes saved automatically to database</li>
+          </ul>
+        </div>
+        <div className="mt-2 text-xs text-blue-600">
+          💡 <strong>Tip:</strong> All edits are immediately saved to the Supabase database. Part Number (partnumber) is the primary key.
+        </div>
       </div>
     </div>
   );
