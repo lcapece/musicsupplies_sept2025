@@ -639,87 +639,94 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                 ) : orderConfirmationDetails ? (
                   <OrderConfirmationModal orderDetails={orderConfirmationDetails} onClose={handleCloseConfirmationModal} />
                 ) : isCheckingOut ? (
-                  <div className="mt-8">
-                    <h3 className="text-3xl font-semibold text-gray-900 mb-6">Checkout</h3>
-                    <div className="space-y-6">
-                      <div>
-                        <label htmlFor="email" className={`block text-base font-medium ${validationErrors.email ? 'text-red-700' : 'text-gray-700'}`}>
-                          E-mail Address (required)
-                          {isLoadingContactInfo && <span className="ml-2 text-sm text-blue-500">Loading...</span>}
-                        </label>
-                        <input
-                          type="email"
-                          name="email"
-                          id="email"
-                          value={email}
-                          onChange={(e) => {
-                            setEmail(e.target.value);
-                            if (e.target.value && (validationErrors.email || validationErrors.emailFormat)) {
-                              setValidationErrors(prev => ({ ...prev, email: false, emailFormat: false }));
-                            }
-                          }}
-                          className={`mt-1 block w-full px-3 py-2 border ${(validationErrors.email || validationErrors.emailFormat) ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                          placeholder="you@example.com"
-                          disabled={isLoadingContactInfo}
-                        />
-                        {email && !validationErrors.email && !validationErrors.emailFormat && (
-                          <p className="mt-1 text-sm text-green-600">✓ Email address loaded from your account</p>
-                        )}
-                        {validationErrors.email && (
-                          <p className="mt-1 text-sm text-red-600">Email address is required for order processing</p>
-                        )}
-                        {validationErrors.emailFormat && (
-                          <p className="mt-1 text-sm text-red-600">Please enter a valid email address</p>
-                        )}
+                  <div className="mt-4">
+                    <h3 className="text-2xl font-semibold text-gray-900 mb-4">Checkout</h3>
+                    <div className="space-y-4">
+                      {/* Email and Phone - Side by Side */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="email" className={`block text-sm font-medium ${validationErrors.email ? 'text-red-700' : 'text-gray-700'}`}>
+                            E-mail Address (required)
+                            {isLoadingContactInfo && <span className="ml-1 text-xs text-blue-500">Loading...</span>}
+                          </label>
+                          <input
+                            type="email"
+                            name="email"
+                            id="email"
+                            value={email}
+                            onChange={(e) => {
+                              setEmail(e.target.value);
+                              if (e.target.value && (validationErrors.email || validationErrors.emailFormat)) {
+                                setValidationErrors(prev => ({ ...prev, email: false, emailFormat: false }));
+                              }
+                            }}
+                            className={`mt-1 block w-full px-3 py-2 border ${(validationErrors.email || validationErrors.emailFormat) ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                            placeholder="xxx@ssss.sss"
+                            disabled={isLoadingContactInfo}
+                          />
+                          {email && !validationErrors.email && !validationErrors.emailFormat && (
+                            <p className="mt-1 text-xs text-green-600">✓ Email address loaded from your account</p>
+                          )}
+                          {validationErrors.email && (
+                            <p className="mt-1 text-xs text-red-600">Email address is required</p>
+                          )}
+                          {validationErrors.emailFormat && (
+                            <p className="mt-1 text-xs text-red-600">Please enter a valid email address</p>
+                          )}
+                        </div>
+                        <div>
+                          <label htmlFor="phone" className={`block text-sm font-medium ${validationErrors.phone ? 'text-red-700' : 'text-gray-700'}`}>
+                            Phone Number (required) - <span className="mobile-preferred-flash">Mobile Preferred</span>
+                            {isLoadingContactInfo && <span className="ml-1 text-xs text-blue-500">Loading...</span>}
+                          </label>
+                          <input
+                            ref={phoneInputRef}
+                            type="tel"
+                            name="phone"
+                            id="phone"
+                            value={phone}
+                            onChange={(e) => {
+                              setPhone(formatPhoneNumber(e.target.value));
+                              if (e.target.value && validationErrors.phone) {
+                                setValidationErrors(prev => ({ ...prev, phone: false, emailFormat: false }));
+                              }
+                            }}
+                            className={`mt-1 block w-full px-3 py-2 border ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                            placeholder="516-433-6969"
+                            maxLength={12}
+                            disabled={isLoadingContactInfo}
+                          />
+                          {phone && !validationErrors.phone && (
+                            <p className="mt-1 text-xs text-green-600">✓ Phone number loaded from your account</p>
+                          )}
+                          {validationErrors.phone && (
+                            <p className="mt-1 text-xs text-red-600">Phone number is required</p>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Payment Method - Compact */}
                       <div>
-                        <label htmlFor="phone" className={`block text-base font-medium ${validationErrors.phone ? 'subtle-required-pulse' : 'text-gray-700'}`}>
-                          Phone Number (required) - <span className="mobile-preferred-flash">Mobile Preferred</span>
-                          {isLoadingContactInfo && <span className="ml-2 text-sm text-blue-500">Loading...</span>}
-                        </label>
-                        <input
-                          ref={phoneInputRef}
-                          type="tel"
-                          name="phone"
-                          id="phone"
-                          value={phone}
-                          onChange={(e) => {
-                            setPhone(formatPhoneNumber(e.target.value));
-                            if (e.target.value && validationErrors.phone) {
-                              setValidationErrors(prev => ({ ...prev, phone: false, emailFormat: false }));
-                            }
-                          }}
-                          className={`mt-1 block w-full px-3 py-2 border ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-base`}
-                          placeholder="999-999-9999"
-                          maxLength={12}
-                          disabled={isLoadingContactInfo}
-                        />
-                        {phone && !validationErrors.phone && (
-                          <p className="mt-1 text-sm text-green-600">✓ Phone number loaded from your account</p>
-                        )}
-                        {validationErrors.phone && (
-                          <p className="mt-1 text-sm text-red-600">Phone number is required for order processing</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-base font-medium text-gray-700">Payment Method</label>
-                        <div className="mt-2 flex space-x-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                        <div className="flex space-x-3">
                           <button
                             onClick={() => setPaymentMethod('net10')}
-                            className={`px-4 py-2 border rounded-md text-base font-medium ${paymentMethod === 'net10' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            className={`px-4 py-2 border rounded-md text-sm font-medium ${paymentMethod === 'net10' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                           >
                             Net-10 Open Account
                           </button>
                           <button
                             onClick={() => setPaymentMethod('credit')}
-                            className={`px-4 py-2 border rounded-md text-base font-medium ${paymentMethod === 'credit' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            className={`px-4 py-2 border rounded-md text-sm font-medium ${paymentMethod === 'credit' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                           >
                             Existing Terms on File
                           </button>
                         </div>
                       </div>
+
+                      {/* PO Reference - Compact */}
                       <div>
-                        <label htmlFor="poReference" className="block text-base font-medium text-gray-700">Your PO Reference (optional)</label>
+                        <label htmlFor="poReference" className="block text-sm font-medium text-gray-700">Your PO Reference (optional)</label>
                         <input
                           type="text"
                           name="poReference"
@@ -730,17 +737,19 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                           placeholder="Enter your PO reference number"
                         />
                       </div>
+
+                      {/* Special Instructions - Compact */}
                       <div>
-                        <label htmlFor="specialInstructions" className="block text-base font-medium text-gray-700">
+                        <label htmlFor="specialInstructions" className="block text-sm font-medium text-gray-700">
                           Special Instructions or Comment (optional)
-                          <span className="text-sm text-gray-500 ml-2">
+                          <span className="text-xs text-gray-500 ml-2">
                             {specialInstructions.length}/140 characters
                           </span>
                         </label>
                         <textarea
                           name="specialInstructions"
                           id="specialInstructions"
-                          rows={3}
+                          rows={2}
                           value={specialInstructions}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -754,8 +763,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                         />
                       </div>
 
-                      {/* Shipping Address Section */}
-                      <div className="border-t border-gray-200 pt-6">
+                      {/* Shipping Address Checkbox - Compact */}
+                      <div className="pt-2">
                         <div className="flex items-center">
                           <input
                             id="shippingDifferent"
@@ -765,17 +774,17 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                             onChange={(e) => setShippingDifferent(e.target.checked)}
                             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                           />
-                          <label htmlFor="shippingDifferent" className="ml-2 block text-base font-medium text-gray-700">
+                          <label htmlFor="shippingDifferent" className="ml-2 block text-sm font-medium text-gray-700">
                             Shipping Address is Different than Bill-To Address
                           </label>
                         </div>
 
                         {shippingDifferent && (
-                          <div className="mt-4 space-y-4 p-4 bg-gray-50 rounded-md">
-                            <h4 className="text-lg font-medium text-gray-900">Shipping Address</h4>
+                          <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-md">
+                            <h4 className="text-sm font-medium text-gray-900">Shipping Address</h4>
                             
                             <div>
-                              <label htmlFor="shippingContactName" className="block text-sm font-medium text-gray-700">
+                              <label htmlFor="shippingContactName" className="block text-xs font-medium text-gray-700">
                                 Contact Name
                               </label>
                               <input
@@ -784,13 +793,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 id="shippingContactName"
                                 value={shippingContactName}
                                 onChange={(e) => setShippingContactName(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                 placeholder="Contact name for shipping"
                               />
                             </div>
 
                             <div>
-                              <label htmlFor="shippingAddress" className="block text-sm font-medium text-gray-700">
+                              <label htmlFor="shippingAddress" className="block text-xs font-medium text-gray-700">
                                 Street Address
                               </label>
                               <input
@@ -799,14 +808,14 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 id="shippingAddress"
                                 value={shippingAddress}
                                 onChange={(e) => setShippingAddress(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                 placeholder="Street address"
                               />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label htmlFor="shippingCity" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingCity" className="block text-xs font-medium text-gray-700">
                                   City
                                 </label>
                                 <input
@@ -815,13 +824,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingCity"
                                   value={shippingCity}
                                   onChange={(e) => setShippingCity(e.target.value)}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                   placeholder="City"
                                 />
                               </div>
 
                               <div>
-                                <label htmlFor="shippingState" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingState" className="block text-xs font-medium text-gray-700">
                                   State
                                 </label>
                                 <input
@@ -830,15 +839,15 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingState"
                                   value={shippingState}
                                   onChange={(e) => setShippingState(e.target.value)}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                   placeholder="State"
                                 />
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label htmlFor="shippingZip" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingZip" className="block text-xs font-medium text-gray-700">
                                   ZIP Code
                                 </label>
                                 <input
@@ -847,13 +856,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingZip"
                                   value={shippingZip}
                                   onChange={(e) => setShippingZip(e.target.value)}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                   placeholder="ZIP Code"
                                 />
                               </div>
 
                               <div>
-                                <label htmlFor="shippingPhone" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingPhone" className="block text-xs font-medium text-gray-700">
                                   Phone Number
                                 </label>
                                 <input
@@ -862,7 +871,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingPhone"
                                   value={shippingPhone}
                                   onChange={(e) => setShippingPhone(formatPhoneNumber(e.target.value))}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                   placeholder="999-999-9999"
                                   maxLength={12}
                                 />
