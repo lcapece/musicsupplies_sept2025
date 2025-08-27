@@ -36,11 +36,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const [orderConfirmationDetails, setOrderConfirmationDetails] = useState<OrderConfirmationDetails | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'net10'>('net10');
   const { user } = useAuth();
-  const [email, setEmail] = useState(user?.email || user?.email_address || '');
-  const [phone, setPhone] = useState(user?.mobile_phone || '');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [isLoadingContactInfo, setIsLoadingContactInfo] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     phone?: boolean;
     email?: boolean;
+    emailFormat?: boolean;
   }>({});
   const phoneInputRef = React.useRef<HTMLInputElement>(null);
   const [poReference, setPoReference] = useState('');
@@ -55,21 +57,27 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const [shippingPhone, setShippingPhone] = useState('');
   const [shippingContactName, setShippingContactName] = useState('');
 
-  // Format phone number as (999) 999-9999
+  // Format phone number as 999-999-9999
   const formatPhoneNumber = (value: string): string => {
     // Strip all non-numeric characters
     const phoneNumber = value.replace(/\D/g, '');
     
-    // Format the phone number
+    // Format the phone number as 999-999-9999
     if (phoneNumber.length === 0) {
       return '';
     } else if (phoneNumber.length <= 3) {
-      return `(${phoneNumber}`;
+      return phoneNumber;
     } else if (phoneNumber.length <= 6) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`;
     } else {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
     }
+  };
+  
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
   };
   
   // Promo code states
@@ -121,12 +129,81 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     }
   }, [isDragging, dragStart, modalPosition]);
   
+  // Enhanced contact info loading from multiple sources
   useEffect(() => {
-    if (isOpen && user) {
-      setEmail(user.email || user.email_address || '');
-      setPhone(user.mobile_phone || '');
-    }
-    if (!isOpen) {
+    const loadContactInfo = async () => {
+      if (isOpen && user && user.accountNumber) {
+        setIsLoadingContactInfo(true);
+        
+        try {
+          // First, use data from user object
+          let bestEmail = user.email || user.email_address || '';
+          let bestPhone = user.mobile_phone || user.phone || '';
+          
+          // Then, try to get more current contact info from contactinfo table
+          const { data: contactInfo, error: contactError } = await supabase
+            .from('contactinfo')
+            .select('email_address, business_phone, mobile_phone')
+            .eq('account_number', parseInt(user.accountNumber, 10))
+            .single();
+          
+          if (!contactError && contactInfo) {
+            // Use contactinfo table data if available and not empty
+            if (contactInfo.email_address && contactInfo.email_address.trim()) {
+              bestEmail = contactInfo.email_address.trim();
+            }
+            
+            // Prefer mobile_phone over business_phone for checkout
+            if (contactInfo.mobile_phone && contactInfo.mobile_phone.trim()) {
+              bestPhone = contactInfo.mobile_phone.trim();
+            } else if (contactInfo.business_phone && contactInfo.business_phone.trim() && !bestPhone) {
+              bestPhone = contactInfo.business_phone.trim();
+            }
+          }
+          
+          // Also check accounts_lcmd table for most current data
+          const { data: accountData, error: accountError } = await supabase
+            .from('accounts_lcmd')
+            .select('email_address, phone, mobile_phone')
+            .eq('account_number', parseInt(user.accountNumber, 10))
+            .single();
+          
+          if (!accountError && accountData) {
+            // Use the most recent data from accounts_lcmd if available
+            if (accountData.email_address && accountData.email_address.trim()) {
+              bestEmail = accountData.email_address.trim();
+            }
+            
+            // Prefer mobile_phone for checkout
+            if (accountData.mobile_phone && accountData.mobile_phone.trim()) {
+              bestPhone = accountData.mobile_phone.trim();
+            } else if (accountData.phone && accountData.phone.trim() && !bestPhone) {
+              bestPhone = accountData.phone.trim();
+            }
+          }
+          
+          console.log('Contact info loaded:', { bestEmail, bestPhone });
+          setEmail(bestEmail);
+          setPhone(bestPhone ? formatPhoneNumber(bestPhone) : '');
+          
+        } catch (error) {
+          console.error('Error loading contact info:', error);
+          // Fallback to user object data
+          setEmail(user.email || user.email_address || '');
+          setPhone(user.mobile_phone || user.phone || '');
+        } finally {
+          setIsLoadingContactInfo(false);
+        }
+      } else if (isOpen && user) {
+        // No account number, just use user object data
+        setEmail(user.email || user.email_address || '');
+        setPhone(user.mobile_phone || user.phone || '');
+      }
+    };
+    
+    if (isOpen) {
+      loadContactInfo();
+    } else {
       setIsCheckingOut(false);
       setOrderPlaced(false);
     }
@@ -241,6 +318,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     if (!email) {
       setValidationErrors(prev => ({ ...prev, email: true }));
       hasErrors = true;
+    } else if (!validateEmail(email)) {
+      setValidationErrors(prev => ({ ...prev, emailFormat: true }));
+      hasErrors = true;
     }
     
     if (hasErrors) {
@@ -337,7 +417,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
             body: {
               customerPhone: phone,
               orderNumber: newOrderNumber,
-              customerName: user?.acctName || email.split('@')[0]
+              customerName: user?.acctName || email.split('@')[0],
+              orderAmount: displayGrandTotal.toFixed(2)
             }
           });
 
@@ -562,20 +643,39 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     <h3 className="text-3xl font-semibold text-gray-900 mb-6">Checkout</h3>
                     <div className="space-y-6">
                       <div>
-                        <label htmlFor="email" className="block text-base font-medium text-gray-700">E-mail Address (required)</label>
+                        <label htmlFor="email" className={`block text-base font-medium ${validationErrors.email ? 'text-red-700' : 'text-gray-700'}`}>
+                          E-mail Address (required)
+                          {isLoadingContactInfo && <span className="ml-2 text-sm text-blue-500">Loading...</span>}
+                        </label>
                         <input
                           type="email"
                           name="email"
                           id="email"
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (e.target.value && (validationErrors.email || validationErrors.emailFormat)) {
+                              setValidationErrors(prev => ({ ...prev, email: false, emailFormat: false }));
+                            }
+                          }}
+                          className={`mt-1 block w-full px-3 py-2 border ${(validationErrors.email || validationErrors.emailFormat) ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
                           placeholder="you@example.com"
+                          disabled={isLoadingContactInfo}
                         />
+                        {email && !validationErrors.email && !validationErrors.emailFormat && (
+                          <p className="mt-1 text-sm text-green-600">✓ Email address loaded from your account</p>
+                        )}
+                        {validationErrors.email && (
+                          <p className="mt-1 text-sm text-red-600">Email address is required for order processing</p>
+                        )}
+                        {validationErrors.emailFormat && (
+                          <p className="mt-1 text-sm text-red-600">Please enter a valid email address</p>
+                        )}
                       </div>
                       <div>
                         <label htmlFor="phone" className={`block text-base font-medium ${validationErrors.phone ? 'subtle-required-pulse' : 'text-gray-700'}`}>
-                          Phone Number (required) - Mobile Preferred
+                          Phone Number (required) - <span className="mobile-preferred-flash">Mobile Preferred</span>
+                          {isLoadingContactInfo && <span className="ml-2 text-sm text-blue-500">Loading...</span>}
                         </label>
                         <input
                           ref={phoneInputRef}
@@ -586,13 +686,20 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                           onChange={(e) => {
                             setPhone(formatPhoneNumber(e.target.value));
                             if (e.target.value && validationErrors.phone) {
-                              setValidationErrors(prev => ({ ...prev, phone: false }));
+                              setValidationErrors(prev => ({ ...prev, phone: false, emailFormat: false }));
                             }
                           }}
                           className={`mt-1 block w-full px-3 py-2 border ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-base`}
-                          placeholder="(999) 999-9999"
-                          maxLength={14}
+                          placeholder="999-999-9999"
+                          maxLength={12}
+                          disabled={isLoadingContactInfo}
                         />
+                        {phone && !validationErrors.phone && (
+                          <p className="mt-1 text-sm text-green-600">✓ Phone number loaded from your account</p>
+                        )}
+                        {validationErrors.phone && (
+                          <p className="mt-1 text-sm text-red-600">Phone number is required for order processing</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-base font-medium text-gray-700">Payment Method</label>
@@ -607,7 +714,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                             onClick={() => setPaymentMethod('credit')}
                             className={`px-4 py-2 border rounded-md text-base font-medium ${paymentMethod === 'credit' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                           >
-                            Credit Card on File
+                            Existing Terms on File
                           </button>
                         </div>
                       </div>
@@ -756,8 +863,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   value={shippingPhone}
                                   onChange={(e) => setShippingPhone(formatPhoneNumber(e.target.value))}
                                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                  placeholder="(999) 999-9999"
-                                  maxLength={14}
+                                  placeholder="999-999-9999"
+                                  maxLength={12}
                                 />
                               </div>
                             </div>

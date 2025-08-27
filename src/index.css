@@ -315,3 +315,37 @@ img[alt*="logo"]::after {
   cursor: not-allowed !important;
   pointer-events: none !important;
 }
+
+/* Mobile Preferred red flashing animation - 5 second cycles from red to white */
+@keyframes mobilePreferredFlash {
+  0% {
+    color: #dc2626; /* Deep red */
+    opacity: 1;
+  }
+  25% {
+    color: #f87171; /* Medium red */
+    opacity: 0.8;
+  }
+  50% {
+    color: #fca5a5; /* Light red */
+    opacity: 0.6;
+  }
+  75% {
+    color: #fecaca; /* Very light red */
+    opacity: 0.4;
+  }
+  90% {
+    color: #ffffff; /* White */
+    opacity: 0.2;
+  }
+  100% {
+    color: #dc2626; /* Back to deep red */
+    opacity: 1;
+  }
+}
+
+.mobile-preferred-flash {
+  animation: mobilePreferredFlash 5s ease-in-out infinite;
+  color: #dc2626;
+  font-weight: 600;
+}
