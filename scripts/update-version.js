@@ -1,50 +1,63 @@
 #!/usr/bin/env node
 
+/**
+ * Unified Version Update Script
+ * Updates both package.json and public/version.json simultaneously
+ * Usage: node scripts/update-version.js [new-version]
+ */
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
 
-function generateVersion() {
-  const now = new Date();
-  const month = now.getMonth() + 1; // getMonth() returns 0-11, we want 1-12
-  const day = now.getDate().toString().padStart(2, '0');
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  
-  // For months 1-9, use single digit. For 10-12, use double digit
-  const monthStr = month < 10 ? month.toString() : month.toString();
-  
-  return `RC${monthStr}${day}.${hours}${minutes}`;
-}
+function updateVersion(newVersion) {
+  if (!newVersion) {
+    console.error('Error: Version number is required');
+    console.log('Usage: node scripts/update-version.js [new-version]');
+    console.log('Example: node scripts/update-version.js 827.256');
+    process.exit(1);
+  }
 
-function updatePackageJson(filePath) {
+  const timestamp = new Date().toISOString();
+  const buildNumber = Date.now();
+
   try {
-    const packageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const newVersion = generateVersion();
+    // Update package.json
+    const packageJsonPath = path.join(projectRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     packageJson.version = newVersion;
-    
-    fs.writeFileSync(filePath, JSON.stringify(packageJson, null, 2) + '\n');
-    console.log(`Updated ${filePath} to version: ${newVersion}`);
-    return newVersion;
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
+    console.log(`✅ Updated package.json version to ${newVersion}`);
+
+    // Update public/version.json
+    const versionJsonPath = path.join(projectRoot, 'public', 'version.json');
+    const versionData = {
+      version: newVersion,
+      timestamp: timestamp,
+      build: buildNumber
+    };
+    fs.writeFileSync(versionJsonPath, JSON.stringify(versionData, null, 2) + '\n');
+    console.log(`✅ Updated public/version.json to ${newVersion}`);
+
+    console.log('');
+    console.log(`🎉 Version successfully updated to ${newVersion}`);
+    console.log(`   📦 package.json: ${newVersion}`);
+    console.log(`   🌐 public/version.json: ${newVersion}`);
+    console.log(`   ⏰ Timestamp: ${timestamp}`);
+    console.log(`   🔨 Build: ${buildNumber}`);
+    console.log('');
+    console.log('💡 The version will be visible in the lower-left corner after page refresh.');
+
   } catch (error) {
-    console.error(`Error updating ${filePath}:`, error.message);
-    return null;
+    console.error('❌ Error updating version files:', error.message);
+    process.exit(1);
   }
 }
 
-// Update main package.json
-const mainPackage = path.join(process.cwd(), 'package.json');
-const version = updatePackageJson(mainPackage);
-
-// Update mobile package.json if it exists
-const mobilePackage = path.join(process.cwd(), 'musicsupplies_mobile', 'package.json');
-if (fs.existsSync(mobilePackage)) {
-  updatePackageJson(mobilePackage);
-}
-
-// VERSION IS NOW ONLY IN PACKAGE.JSON - NO OTHER FILES NEEDED
-
-console.log(`Version update complete: ${version}`);
+// Get version from command line argument
+const newVersion = process.argv[2];
+updateVersion(newVersion);

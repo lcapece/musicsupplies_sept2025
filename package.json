@@ -1,14 +1,15 @@
 {
   "name": "vite-react-typescript-starter",
   "private": true,
-  "version": "RC820.1516",
+  "version": "827.256",
   "type": "module",
   "scripts": {
     "dev": "npx vite",
     "build": "npx vite build",
     "lint": "eslint .",
     "preview": "npx vite preview",
-    "update-version": "node scripts/update-version.js"
+    "version:update": "node scripts/update-version.js",
+    "version:set": "node scripts/update-version.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
