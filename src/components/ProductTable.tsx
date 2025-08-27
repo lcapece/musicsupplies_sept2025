@@ -250,8 +250,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {/* Font Size Toggle - Only show on bottom */}
-        {position === 'bottom' && onFontSizeChange && (
+        {/* Font Size Toggle - Show on both top and bottom for accessibility */}
+        {onFontSizeChange && (
           <div className="flex items-center gap-1 mr-4 border border-gray-300 rounded-lg overflow-hidden">
             <button
               onClick={() => onFontSizeChange('smaller')}
@@ -342,11 +342,14 @@ const ProductTable: React.FC<ProductTableProps> = ({
     >
       {products && products.length > 0 ? (
         <>
+          {/* Top Pagination */}
+          <PaginationControls position="top" />
+          
           {/* Scrollable table container with fixed height and visible scrollbar */}
           <div 
             className="flex-1 overflow-y-auto overflow-x-auto product-table-scroll"
             style={{ 
-              maxHeight: 'calc(100vh - 400px)', // Constrain height to force scrolling
+              maxHeight: 'calc(100vh - 500px)', // Adjusted for top pagination
               minHeight: '300px' // Minimum height to show scrollbar area
             }}
           >

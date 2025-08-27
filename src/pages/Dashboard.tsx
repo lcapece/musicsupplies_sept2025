@@ -15,6 +15,7 @@ import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/Pr
 import PromoCodePopup from '../components/PromoCodePopup'; // Import the PromoCodePopup component
 import { logKeywordSearch, logNavTreeSearch } from '../utils/eventLogger';
 import { activityTracker } from '../services/activityTracker';
+import { logSearchActivity, getSessionId, buildSearchQuery } from '../utils/performantLogger';
 import DemoModeBanner from '../components/DemoModeBanner';
 import { useNavigate } from 'react-router-dom';
 import { useAutoVersionCheck } from '../hooks/useAutoVersionCheck';
@@ -629,6 +630,19 @@ const Dashboard: React.FC = () => {
               inStockOnly: inStockOnly || undefined
             }
           });
+          
+          // NEW: High-performance search logging
+          logSearchActivity({
+            account_number: isNaN(acctNum) ? null : acctNum,
+            session_id: getSessionId(),
+            search_term_1: searchTerms.primary || undefined,
+            search_term_2: searchTerms.additional || undefined,
+            exclusion_term: searchTerms.exclude || undefined,
+            search_query_full: buildSearchQuery(searchTerms.primary, searchTerms.additional, searchTerms.exclude),
+            results_count: resultsCount,
+            results_clicked: false, // Will be updated when user clicks on results
+            user_email: email || undefined
+          });
         }
         // Log nav tree search when browsing by categories (no search terms)
         else if ((selectedMainCategoryName || selectedSubCategoryName) && !(searchTerms.primary || searchTerms.additional || searchTerms.exclude)) {
@@ -650,6 +664,19 @@ const Dashboard: React.FC = () => {
               subCategory: selectedSubCategoryName,
               inStockOnly: inStockOnly || undefined
             }
+          });
+          
+          // NEW: High-performance search logging for category navigation
+          logSearchActivity({
+            account_number: isNaN(acctNum) ? null : acctNum,
+            session_id: getSessionId(),
+            search_term_1: selectedMainCategoryName || undefined,
+            search_term_2: selectedSubCategoryName || undefined,
+            exclusion_term: undefined, // No exclusion in category navigation
+            search_query_full: path.join(' > '),
+            results_count: resultsCount,
+            results_clicked: false, // Will be updated when user clicks on results
+            user_email: email || undefined
           });
         }
       } catch (_e) {}

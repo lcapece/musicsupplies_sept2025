@@ -440,68 +440,7 @@ const OrderHistoryTab: React.FC = () => {
   };
 
   const handlePurgeOrder = async (order: WebOrder) => {
-    if (!confirm(`Are you sure you want to permanently delete order number ${order.order_number}? This action cannot be undone and will completely remove the order from the system.`)) {
-      return;
-    }
-
-    setPurgingOrder(order.id);
-    try {
-      // First free up the promo code if it was used
-      if (order.promo_code_used) {
-        // Free up the promo code by resetting its usage
-        const { error: promoError } = await supabase
-          .from('promo_codes')
-          .update({ 
-            used: false,
-            used_by_account: null,
-            used_at: null
-          })
-          .eq('code', order.promo_code_used);
-
-        if (promoError) {
-          console.error('Error freeing up promo code:', promoError);
-          // Continue with order deletion even if promo cleanup fails
-        }
-
-        // Delete the promo code usage record
-        const { error: promoUsageError } = await supabase
-          .from('promo_code_usage')
-          .delete()
-          .eq('order_id', order.id);
-
-        if (promoUsageError) {
-          console.error('Error deleting promo code usage:', promoUsageError);
-          // Continue with order deletion even if promo cleanup fails
-        }
-      }
-
-      // Delete the order permanently
-      const { error: deleteError } = await supabase
-        .from('web_orders')
-        .delete()
-        .eq('id', order.id);
-
-      if (deleteError) {
-        console.error('Error purging order:', deleteError);
-        alert('Failed to purge order. Please try again.');
-        return;
-      }
-
-      // Remove the order from local state immediately
-      setOrders(prevOrders => prevOrders.filter(o => o.id !== order.id));
-
-      // Also refresh the orders list from database to ensure consistency
-      await fetchOrders();
-      
-      alert(`Order ${order.order_number} has been permanently deleted.`);
-    } catch (error) {
-      console.error('Error purging order:', error);
-      alert('Failed to purge order. Please try again.');
-      // Refresh from database on error
-      fetchOrders();
-    } finally {
-      setPurgingOrder(null);
-    }
+    alert('Purging orders is no longer supported due to the need to maintain order number synchronization with the backend legacy system');
   };
 
   const getStatusBadge = (status: string) => {
@@ -738,37 +677,37 @@ const OrderHistoryTab: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200" style={{ minWidth: '1400px' }}>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" style={{ minWidth: '120px' }}>
                     Order Number
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" style={{ minWidth: '100px' }}>
                     Backend
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>
                     Date/Time
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '200px' }}>
                     Customer
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '100px' }}>
                     Promo Code
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '120px' }}>
                     Status
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '100px' }}>
                     Total
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '100px' }}>
                     Discount
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '120px' }}>
                     Payment
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '260px' }}>
                     Actions
                   </th>
                 </tr>

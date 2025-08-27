@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { logItemAddedToCart, logItemRemovedFromCart, logCheckoutStarted, logCheckoutCompleted, logCheckoutFailed } from '../utils/eventLogger';
 import { activityTracker } from '../services/activityTracker';
+import { logCartActivity, getCartSessionId } from '../utils/performantLogger';
 
 interface ShippingAddress {
   shippingDifferent: boolean;
@@ -274,7 +275,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return newItems;
     });
 
-    // Log event (fire-and-forget)
+    // Log event (fire-and-forget) - Keep existing logging for compatibility
     try {
       const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
       const email = (user as any)?.email || null;
@@ -299,6 +300,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cartTotalAfter: newCartTotal,
         cartItemsCountAfter: newItemsCount,
         sourcePage: window.location.pathname
+      });
+      
+      // NEW: High-performance cart activity logging
+      logCartActivity({
+        account_number: isNaN(acctNum) ? null : acctNum,
+        cart_session_id: getCartSessionId(),
+        activity_type: 'add_item',
+        item_partnumber: product.partnumber,
+        item_description: product.description || undefined,
+        quantity_change: quantity,
+        quantity_after: newQuantity,
+        unit_price: product.price ?? 0,
+        cart_total_after: newCartTotal,
+        cart_items_count_after: newItemsCount,
+        user_email: email
       });
     } catch (_e) {
       // ignore logging errors
@@ -337,6 +353,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cartTotalAfter: newCartTotal,
           cartItemsCountAfter: newItemsCount,
           sourcePage: window.location.pathname
+        });
+        
+        // NEW: High-performance cart activity logging
+        logCartActivity({
+          account_number: isNaN(acctNum) ? null : acctNum,
+          cart_session_id: getCartSessionId(),
+          activity_type: 'remove_item',
+          item_partnumber: partnumber,
+          item_description: existing.description || undefined,
+          quantity_change: -existing.quantity, // Negative for removal
+          quantity_after: 0, // Item is completely removed
+          unit_price: existing.price ?? 0,
+          cart_total_after: newCartTotal,
+          cart_items_count_after: newItemsCount,
+          user_email: email
         });
       } catch (_e) {
         // ignore logging errors
@@ -391,6 +422,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cartItemsCountAfter: newItemsCount,
           sourcePage: window.location.pathname
         });
+        
+        // NEW: High-performance cart activity logging
+        logCartActivity({
+          account_number: isNaN(acctNum) ? null : acctNum,
+          cart_session_id: getCartSessionId(),
+          activity_type: 'update_quantity',
+          item_partnumber: partnumber,
+          item_description: prev.description || undefined,
+          quantity_change: delta,
+          quantity_after: quantity,
+          unit_price: prev.price ?? 0,
+          cart_total_after: newCartTotal,
+          cart_items_count_after: newItemsCount,
+          user_email: email
+        });
       } catch (_e) {
         // ignore
       }
@@ -400,6 +446,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Track clear action before clearing
     if (items.length > 0) {
       try {
+        const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
+        const email = (user as any)?.email || null;
+        
         activityTracker.trackCartAction({
           actionType: 'clear',
           sku: 'ALL',
@@ -409,6 +458,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cartTotalAfter: 0,
           cartItemsCountAfter: 0,
           sourcePage: window.location.pathname
+        });
+        
+        // NEW: High-performance cart activity logging
+        logCartActivity({
+          account_number: isNaN(acctNum) ? null : acctNum,
+          cart_session_id: getCartSessionId(),
+          activity_type: 'clear_cart',
+          item_partnumber: 'ALL_ITEMS', // Special identifier for cart clear
+          item_description: 'Cart cleared - all items removed',
+          quantity_change: -totalItems, // Negative for removal of all items
+          quantity_after: 0,
+          unit_price: 0, // N/A for clear operation
+          cart_total_after: 0,
+          cart_items_count_after: 0,
+          user_email: email
         });
       } catch (_e) {
         // ignore tracking errors
@@ -545,14 +609,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const orderNumberGenerated = `WB${orderNumberForDb}`;
     console.log('Reserved order number:', orderNumberGenerated, 'Order ID:', orderId);
     
-    // Log checkout started (fire-and-forget)
+    // Log checkout started (fire-and-forget) - Keep existing logging for compatibility
     try {
+      const email = (user as any)?.email || null;
       await logCheckoutStarted({
         accountNumber: accountNumberInt,
-        emailAddress: (user as any)?.email || null,
+        emailAddress: email,
         cartId: getCartId(),
         paymentMethod,
         step: 'submit'
+      });
+      
+      // NEW: High-performance cart activity logging
+      logCartActivity({
+        account_number: accountNumberInt,
+        cart_session_id: getCartSessionId(),
+        activity_type: 'checkout_started',
+        item_partnumber: 'CHECKOUT', // Special identifier for checkout
+        item_description: `Checkout started - ${paymentMethod} payment`,
+        quantity_change: 0, // No quantity change
+        quantity_after: totalItems,
+        unit_price: 0, // N/A for checkout operations
+        cart_total_after: totalPrice,
+        cart_items_count_after: totalItems,
+        user_email: email
       });
     } catch (_e) {
       // ignore
@@ -649,15 +729,31 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const insertedOrder = { id: completionResult[0].order_id };
       
       console.log('Order saved successfully:', insertedOrder);
-      // Log checkout completed (fire-and-forget)
+      // Log checkout completed (fire-and-forget) - Keep existing logging for compatibility
       try {
+        const email = (user as any)?.email || null;
         await logCheckoutCompleted({
           accountNumber: accountNumberInt,
-          emailAddress: (user as any)?.email || null,
+          emailAddress: email,
           cartId: getCartId(),
           orderId: insertedOrder.id,
           total: grandTotal,
           currency: 'USD'
+        });
+        
+        // NEW: High-performance cart activity logging
+        logCartActivity({
+          account_number: accountNumberInt,
+          cart_session_id: getCartSessionId(),
+          activity_type: 'checkout_completed',
+          item_partnumber: 'ORDER_COMPLETE', // Special identifier for completion
+          item_description: `Order ${orderNumberGenerated} completed successfully`,
+          quantity_change: 0, // No quantity change
+          quantity_after: 0, // Cart is now empty
+          unit_price: grandTotal, // Store final order total
+          cart_total_after: 0, // Cart cleared after order
+          cart_items_count_after: 0,
+          user_email: email
         });
       } catch (_e) {
         // ignore
@@ -686,13 +782,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return orderNumberGenerated;
     } catch (error: any) {
       console.error('Order placement error:', error);
-      // Log checkout failed (fire-and-forget)
+      // Log checkout failed (fire-and-forget) - Keep existing logging for compatibility
       try {
+        const email = (user as any)?.email || null;
         await logCheckoutFailed({
           accountNumber: accountNumberInt,
-          emailAddress: (user as any)?.email || null,
+          emailAddress: email,
           cartId: getCartId(),
           reason: error?.message || 'unknown'
+        });
+        
+        // NEW: High-performance cart activity logging
+        logCartActivity({
+          account_number: accountNumberInt,
+          cart_session_id: getCartSessionId(),
+          activity_type: 'checkout_failed',
+          item_partnumber: 'CHECKOUT_FAILED', // Special identifier for failure
+          item_description: `Checkout failed: ${error?.message || 'Unknown error'}`,
+          quantity_change: 0, // No quantity change
+          quantity_after: totalItems, // Cart remains unchanged
+          unit_price: totalPrice, // Store attempted order total
+          cart_total_after: totalPrice, // Cart total unchanged
+          cart_items_count_after: totalItems,
+          user_email: email
         });
       } catch (_e) {
         // ignore
