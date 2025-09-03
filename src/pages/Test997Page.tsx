@@ -19,37 +19,50 @@ interface CellPosition {
 
 const Test997Page: React.FC = () => {
   const { user } = useAuth();
-  const [staffData, setStaffData] = useState<StaffMember[]>([]);
+  const [productData, setProductData] = useState<ProductMember[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [filteredColumns, setFilteredColumns] = useState<string[]>([]);
+  const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditableCell | null>(null);
   const [saveStatus, setSaveStatus] = useState<{ [key: string]: 'saving' | 'saved' | 'error' }>({});
-  const [newRow, setNewRow] = useState<{ account_number: string; privs: string }>({
-    account_number: '',
-    privs: '0'
-  });
   const [selectedCell, setSelectedCell] = useState<CellPosition | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   // Debounce timer for auto-save
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Define editable columns (account_number and privs)
-  const editableColumns = ['account_number', 'privs'];
+  // Column mapping with ordinal, field name, and display name
+  const columnMapping = [
+    { ordinal: 1, fieldName: 'partnumber', displayName: 'Part Number' },
+    { ordinal: 2, fieldName: 'description', displayName: 'Short Description' },
+    { ordinal: 3, fieldName: 'price', displayName: 'Price' },
+    { ordinal: 4, fieldName: 'listprice', displayName: 'MSRP' },
+    { ordinal: 5, fieldName: 'map', displayName: 'MAP' },
+    { ordinal: 6, fieldName: 'prdmaincat', displayName: 'Category: Main' },
+    { ordinal: 7, fieldName: 'prdsubcat', displayName: 'Category: Sub' },
+    { ordinal: 8, fieldName: 'upc', displayName: 'UPC' },
+    { ordinal: 9, fieldName: 'brand', displayName: 'Brand' },
+    { ordinal: 10, fieldName: 'image', displayName: 'Image File' },
+    { ordinal: 11, fieldName: 'inv_max', displayName: 'Inv: Max' },
+    { ordinal: 12, fieldName: 'inv_min', displayName: 'Inv: Min' },
+    { ordinal: 13, fieldName: 'date_created', displayName: 'Created' },
+    { ordinal: 14, fieldName: 'date_edited', displayName: 'Edited' },
+    { ordinal: 15, fieldName: 'vendor', displayName: 'Vendor' },
+    { ordinal: 16, fieldName: 'vendor_part_number', displayName: 'Vendor Part' }
+  ];
 
-  // Fetch staff data
-  const fetchStaffData = useCallback(async () => {
+  // Fetch product data
+  const fetchProductData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // First, let's try to get the current user session
-      const { data: session } = await supabase.auth.getSession();
-      console.log('Current session:', session);
-      
       const { data, error } = await supabase
-        .from('staff')
+        .from('pre_products_supabase')
         .select('*')
+        .limit(100)
         .order('id', { ascending: true });
 
       if (error) {
@@ -57,32 +70,118 @@ const Test997Page: React.FC = () => {
         throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
       }
       
-      console.log('Staff data fetched:', data);
-      setStaffData(data || []);
+      console.log('Product data fetched:', data);
+      setProductData(data || []);
+      
+      // Extract column names from first row
+      if (data && data.length > 0) {
+        const allCols = Object.keys(data[0]);
+        setColumns(allCols);
+        
+        // Filter columns based on mapping and availability
+        const filtered = columnMapping
+          .filter(mapping => allCols.includes(mapping.fieldName))
+          .sort((a, b) => a.ordinal - b.ordinal)
+          .map(mapping => mapping.fieldName);
+        
+        setFilteredColumns(filtered);
+        
+        // Initialize column widths
+        const initialWidths: { [key: string]: number } = {};
+        filtered.forEach(col => {
+          initialWidths[col] = 120; // Default width
+        });
+        setColumnWidths(initialWidths);
+      }
     } catch (err) {
       console.error('Fetch error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch staff data';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch product data';
       setError(`${errorMessage}. Please check the console for more details.`);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Get display name for a field
+  const getDisplayName = useCallback((fieldName: string) => {
+    const mapping = columnMapping.find(m => m.fieldName === fieldName);
+    return mapping ? mapping.displayName : fieldName;
+  }, []);
+
+  // Auto-size columns based on content
+  const autoSizeColumns = useCallback(() => {
+    const newWidths: { [key: string]: number } = {};
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    
+    context.font = '12px Poppins, sans-serif'; // Match our font
+    
+    filteredColumns.forEach(col => {
+      const displayName = getDisplayName(col);
+      let maxWidth = context.measureText(displayName).width + 20; // Header width + padding
+      
+      // Check first 50 rows for content width
+      const rowsToCheck = Math.min(50, productData.length);
+      for (let i = 0; i < rowsToCheck; i++) {
+        const value = String(productData[i][col] || '');
+        const textWidth = context.measureText(value).width + 20; // Content + padding
+        maxWidth = Math.max(maxWidth, textWidth);
+      }
+      
+      // Set minimum and maximum widths
+      newWidths[col] = Math.max(80, Math.min(300, maxWidth));
+    });
+    
+    setColumnWidths(newWidths);
+  }, [filteredColumns, productData, getDisplayName]);
+
+  // Minimize columns - set width to average of first 50 rows, with header consideration
+  const minimizeColumns = useCallback(() => {
+    const newWidths: { [key: string]: number } = {};
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    
+    context.font = '12px Poppins, sans-serif'; // Match our font
+    
+    filteredColumns.forEach(col => {
+      const displayName = getDisplayName(col);
+      const headerWidth = context.measureText(displayName).width + 20;
+      
+      // Calculate average width from first 50 rows
+      let totalWidth = 0;
+      const rowsToCheck = Math.min(50, productData.length);
+      
+      for (let i = 0; i < rowsToCheck; i++) {
+        const value = String(productData[i][col] || '');
+        totalWidth += context.measureText(value).width + 20;
+      }
+      
+      const avgWidth = rowsToCheck > 0 ? totalWidth / rowsToCheck : 80;
+      
+      // If header is greater than average, set to 10% more than header width
+      if (headerWidth > avgWidth) {
+        newWidths[col] = Math.max(60, headerWidth * 1.1);
+      } else {
+        newWidths[col] = Math.max(60, avgWidth);
+      }
+    });
+    
+    setColumnWidths(newWidths);
+  }, [filteredColumns, productData, getDisplayName]);
+
   // Auto-save function with debouncing
-  const autoSave = useCallback(async (id: number, field: 'account_number' | 'privs', value: string) => {
+  const autoSave = useCallback(async (id: string, field: string, value: string) => {
     const key = `${id}-${field}`;
     setSaveStatus(prev => ({ ...prev, [key]: 'saving' }));
 
     try {
       const updateData: any = {};
-      if (field === 'account_number') {
-        updateData.account_number = parseInt(value);
-      } else if (field === 'privs') {
-        updateData.privs = parseInt(value);
-      }
+      updateData[field] = value;
 
       const { error } = await supabase
-        .from('staff')
+        .from('pre_products_supabase')
         .update(updateData)
         .eq('id', id);
 
@@ -100,8 +199,8 @@ const Test997Page: React.FC = () => {
       }, 2000);
 
       // Update local data
-      setStaffData(prev => prev.map(staff => 
-        staff.id === id ? { ...staff, [field]: field === 'account_number' ? parseInt(value) : parseInt(value) } : staff
+      setProductData(prev => prev.map(product => 
+        product.id === id ? { ...product, [field]: value } : product
       ));
 
     } catch (err) {
@@ -111,7 +210,7 @@ const Test997Page: React.FC = () => {
   }, []);
 
   // Handle cell edit
-  const handleCellEdit = (id: number, field: 'account_number' | 'privs', value: string) => {
+  const handleCellEdit = (id: string, field: string, value: string) => {
     setEditingCell({ id, field, value });
 
     // Clear existing timer
@@ -132,8 +231,8 @@ const Test997Page: React.FC = () => {
     if (!selectedCell || isEditing) return;
 
     const { rowIndex, colIndex } = selectedCell;
-    const maxRow = staffData.length - 1;
-    const maxCol = editableColumns.length - 1;
+    const maxRow = productData.length - 1;
+    const maxCol = filteredColumns.length - 1;
 
     switch (e.key) {
       case 'ArrowUp':
@@ -171,7 +270,7 @@ const Test997Page: React.FC = () => {
         setIsEditing(false);
         break;
     }
-  }, [selectedCell, isEditing, staffData.length, editableColumns.length]);
+  }, [selectedCell, isEditing, productData.length, filteredColumns.length]);
 
   // Handle cell click
   const handleCellClick = (rowIndex: number, colIndex: number) => {
@@ -185,64 +284,41 @@ const Test997Page: React.FC = () => {
     setIsEditing(true);
   };
 
+  // Format currency values
+  const formatCurrency = (value: any) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
+  };
+
   // Get cell value for editing
-  const getCellValue = (staff: StaffMember, colIndex: number) => {
-    const field = editableColumns[colIndex] as 'account_number' | 'privs';
-    if (editingCell?.id === staff.id && editingCell?.field === field) {
+  const getCellValue = (product: ProductMember, colIndex: number) => {
+    const field = filteredColumns[colIndex];
+    if (editingCell?.id === product.id && editingCell?.field === field) {
       return editingCell.value;
     }
-    return staff[field].toString();
+    return String(product[field] || '');
   };
 
-  // Handle adding new staff member
-  const handleAddStaff = async () => {
-    if (!newRow.account_number.trim()) {
-      setError('Account number is required');
-      return;
+  // Get formatted cell value for display
+  const getFormattedCellValue = (product: ProductMember, field: string) => {
+    const value = product[field];
+    const fieldLower = field.toLowerCase();
+    if (['price', 'listprice', 'map', 'webmsrp'].includes(fieldLower)) {
+      return formatCurrency(value);
     }
-
-    try {
-      const { data, error } = await supabase
-        .from('staff')
-        .insert([{
-          account_number: parseInt(newRow.account_number),
-          privs: parseInt(newRow.privs)
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setStaffData(prev => [...prev, data]);
-      setNewRow({ account_number: '', privs: '0' });
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add staff member');
-    }
-  };
-
-  // Handle delete staff member
-  const handleDeleteStaff = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this staff member?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('staff')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setStaffData(prev => prev.filter(staff => staff.id !== id));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete staff member');
-    }
+    return String(value || '');
   };
 
   // Load data on component mount
   useEffect(() => {
-    fetchStaffData();
-  }, [fetchStaffData]);
+    fetchProductData();
+  }, [fetchProductData]);
 
   // Add keyboard event listener
   useEffect(() => {
@@ -266,209 +342,143 @@ const Test997Page: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading staff data...</p>
+          <p className="mt-4 text-gray-600">Loading product data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Staff Management - Test997</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Google Sheets-style editing with auto-save functionality
+    <div className="h-screen bg-gray-50 flex flex-col" style={{ fontFamily: 'Poppins, sans-serif' }}>
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-2 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">Products Spreadsheet - Test997</h1>
+            <p className="text-xs text-gray-600">
+              {productData.length} rows × {filteredColumns.length} columns
             </p>
           </div>
+          <div className="flex gap-2">
+            <button
+              onClick={autoSizeColumns}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors"
+            >
+              Auto-Size Columns
+            </button>
+            <button
+              onClick={minimizeColumns}
+              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors"
+            >
+              Minimize Columns
+            </button>
+          </div>
         </div>
+      </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-              <div className="ml-auto pl-3">
-                <button
-                  onClick={() => setError(null)}
-                  className="text-red-400 hover:text-red-600"
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex-shrink-0">
+          <div className="flex items-center">
+            <svg className="h-4 w-4 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <p className="text-xs text-red-800">{error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="ml-auto text-red-400 hover:text-red-600"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Spreadsheet Table */}
+      <div className="flex-1 overflow-auto bg-white">
+        <table className="border-collapse w-full">
+          <thead className="bg-red-100 sticky top-0 z-10">
+            <tr>
+              {filteredColumns.map((col, colIndex) => (
+                <th
+                  key={col}
+                  className="border border-gray-300 px-1 py-0.5 text-center text-xs font-medium text-red-700 uppercase tracking-wider"
+                  style={{ width: columnWidths[col] || 120, minWidth: columnWidths[col] || 120 }}
                 >
-                  <span className="sr-only">Dismiss</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Staff Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border-r border-gray-200">
-                    Account Number
-                  </th>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border-r border-gray-200">
-                    Privileges
-                  </th>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border-r border-gray-200">
-                    Created At
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white">
-                {staffData.map((staff, rowIndex) => (
-                  <tr key={staff.id} className={`border-b border-gray-100 ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    {editableColumns.map((column, colIndex) => {
-                      const field = column as 'account_number' | 'privs';
-                      const isSelected = selectedCell?.rowIndex === rowIndex && selectedCell?.colIndex === colIndex;
-                      const isCurrentlyEditing = isEditing && isSelected;
-                      
-                      return (
-                        <td 
-                          key={colIndex}
-                          className={`px-1 py-0.5 border-r border-gray-200 relative ${
-                            isSelected ? 'ring-1 ring-blue-400 bg-blue-50' : 'hover:bg-gray-100'
-                          }`}
-                          onClick={() => handleCellClick(rowIndex, colIndex)}
-                          onDoubleClick={() => handleCellDoubleClick(rowIndex, colIndex)}
-                        >
-                          {isCurrentlyEditing ? (
-                            <input
-                              type="number"
-                              value={getCellValue(staff, colIndex)}
-                              onChange={(e) => handleCellEdit(staff.id, field, e.target.value)}
-                              onBlur={() => setIsEditing(false)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === 'Tab') {
-                                  setIsEditing(false);
-                                  e.preventDefault();
-                                }
-                                if (e.key === 'Escape') {
-                                  setIsEditing(false);
-                                  e.preventDefault();
-                                }
-                              }}
-                              className="w-full h-4 px-1 border-0 outline-none bg-white font-mono text-xs"
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="h-4 px-1 flex items-center font-mono text-xs cursor-cell">
-                              {staff[field]}
-                            </div>
-                          )}
-                          
-                          {saveStatus[`${staff.id}-${field}`] && (
-                            <div className="absolute right-0.5 top-0.5">
-                              {saveStatus[`${staff.id}-${field}`] === 'saving' && (
-                                <div className="animate-spin h-2 w-2 border border-blue-500 border-t-transparent rounded-full"></div>
-                              )}
-                              {saveStatus[`${staff.id}-${field}`] === 'saved' && (
-                                <svg className="h-2 w-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                              {saveStatus[`${staff.id}-${field}`] === 'error' && (
-                                <svg className="h-2 w-2 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="px-1 py-0.5 text-xs text-gray-500 border-r border-gray-200 font-mono">
-                      {new Date(staff.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-                
-                {/* Add New Row */}
-                <tr className="bg-blue-100 border-t border-blue-300">
-                  <td className="px-1 py-0.5">
-                    <input
-                      type="number"
-                      placeholder="Account Number"
-                      value={newRow.account_number}
-                      onChange={(e) => setNewRow(prev => ({ ...prev, account_number: e.target.value }))}
-                      className="w-full h-4 px-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    />
-                  </td>
-                  <td className="px-1 py-0.5">
-                    <input
-                      type="number"
-                      placeholder="Privileges"
-                      value={newRow.privs}
-                      onChange={(e) => setNewRow(prev => ({ ...prev, privs: e.target.value }))}
-                      className="w-full h-4 px-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    />
-                  </td>
-                  <td className="px-1 py-0.5 text-center">
-                    <button
-                      onClick={handleAddStaff}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-0.5 rounded text-xs transition-colors"
+                  {getDisplayName(col)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {productData.map((product, rowIndex) => (
+              <tr key={product.id} className={`${rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                {filteredColumns.map((col, colIndex) => {
+                  const isSelected = selectedCell?.rowIndex === rowIndex && selectedCell?.colIndex === colIndex;
+                  const isCurrentlyEditing = isEditing && isSelected;
+                  
+                  return (
+                    <td 
+                      key={col}
+                      className={`border border-gray-300 px-1 py-0.5 relative ${
+                        isSelected ? 'ring-1 ring-blue-400 bg-blue-50' : 'hover:bg-gray-100'
+                      }`}
+                      style={{ width: columnWidths[col] || 120, minWidth: columnWidths[col] || 120 }}
+                      onClick={() => handleCellClick(rowIndex, colIndex)}
+                      onDoubleClick={() => handleCellDoubleClick(rowIndex, colIndex)}
                     >
-                      Add
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Info Panel */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-800 mb-2">Spreadsheet Navigation & Controls:</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
-            <div>
-              <h4 className="font-medium mb-1">Mouse Controls:</h4>
-              <ul className="space-y-1">
-                <li>• Click any cell to select it</li>
-                <li>• Double-click to start editing</li>
-                <li>• Changes auto-save after 500ms</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-medium mb-1">Keyboard Navigation:</h4>
-              <ul className="space-y-1">
-                <li>• Arrow keys to navigate cells</li>
-                <li>• Enter or F2 to start editing</li>
-                <li>• Escape to exit selection/editing</li>
-                <li>• Tab/Enter to finish editing</li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-blue-200">
-            <p className="text-xs text-blue-600">
-              💡 Status indicators: ⟳ saving | ✓ saved | ✗ error
-            </p>
-          </div>
-        </div>
-
-        {/* Current User Info */}
-        {user && (
-          <div className="mt-4 bg-gray-100 border border-gray-300 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-800 mb-2">Current User:</h3>
-            <p className="text-sm text-gray-600">
-              Account: {user.accountNumber} | Name: {user.acctName || 'N/A'}
-            </p>
-          </div>
-        )}
+                      {isCurrentlyEditing ? (
+                        <input
+                          type="text"
+                          value={getCellValue(product, colIndex)}
+                          onChange={(e) => handleCellEdit(product.id, col, e.target.value)}
+                          onBlur={() => setIsEditing(false)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === 'Tab') {
+                              setIsEditing(false);
+                              e.preventDefault();
+                            }
+                            if (e.key === 'Escape') {
+                              setIsEditing(false);
+                              e.preventDefault();
+                            }
+                          }}
+                          className="w-full h-4 px-1 border-0 outline-none bg-white text-xs"
+                          style={{ fontFamily: 'Poppins, sans-serif' }}
+                          autoFocus
+                        />
+                      ) : (
+                        <div className={`h-4 px-1 flex items-center text-xs cursor-cell truncate ${
+                          ['price', 'listprice', 'map', 'webmsrp'].includes(col.toLowerCase()) ? 'justify-end' : ''
+                        }`} style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          {getFormattedCellValue(product, col)}
+                        </div>
+                      )}
+                      
+                      {saveStatus[`${product.id}-${col}`] && (
+                        <div className="absolute right-0.5 top-0.5">
+                          {saveStatus[`${product.id}-${col}`] === 'saving' && (
+                            <div className="animate-spin h-2 w-2 border border-blue-500 border-t-transparent rounded-full"></div>
+                          )}
+                          {saveStatus[`${product.id}-${col}`] === 'saved' && (
+                            <svg className="h-2 w-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          {saveStatus[`${product.id}-${col}`] === 'error' && (
+                            <svg className="h-2 w-2 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
