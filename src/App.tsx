@@ -30,6 +30,7 @@ import Account99Dashboard from './pages/Account99Dashboard'; // Import Account 9
 import EnhancedChatWidget from './components/EnhancedChatWidget';
 import ChatPage from './pages/ChatPage';
 import AdminKnowledgeBase from './pages/AdminKnowledgeBase'; // Admin knowledge base management
+import Test997Page from './pages/Test997Page'; // Test997 staff management page
 import { useLocation } from 'react-router-dom';
 import { VersionCheck } from './components/VersionCheck';
 
@@ -294,6 +295,15 @@ function AppContent() {
         />
         {/* Chat route - accessible to everyone */}
         <Route path="/chat" element={<ChatPage />} />
+        {/* Test997 Staff Management - Protected route */}
+        <Route 
+          path="/test997" 
+          element={
+            <ProtectedRoute>
+              <Test997Page />
+            </ProtectedRoute>
+          } 
+        />
          {/* Redirect any unmatched routes to the home page */}
          <Route path="*" element={<Navigate to="/" />} />
       </Routes>

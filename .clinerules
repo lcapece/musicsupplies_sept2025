@@ -1,6 +1,14 @@
 # Project-Specific Cline Rules
 
+
+## CRITICAL REMINDER: DO NOT RUN ANY "TESTS" SUCH AS BROWSER USE, ETC THAT REQUIRE INVOKING 'NPM RUN DEV'
+
+## CRITICAL: DO NOT RUN PLAYWRIGHT MCP UNLESS GIVEN PERMISSON IN ADVANCE!
+
 ## CRITICAL REMINDER: SUPABASE MCP IS AVAILABLE!
+
+
+
 
 Before attempting ANY Supabase-related task:
 1. CHECK if there's an MCP tool that can do it directly

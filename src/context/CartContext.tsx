@@ -22,6 +22,7 @@ interface CartContextType {
   removeFromCart: (partnumber: string) => void;
   updateQuantity: (partnumber: string, quantity: number) => void;
   clearCart: () => void;
+  emptyEntireCart: () => Promise<void>;
   totalItems: number;
   totalPrice: number;
   placeOrder: (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string, shippingAddress?: ShippingAddress) => Promise<string>;
@@ -35,6 +36,11 @@ interface CartContextType {
   isPromoCodeAutoApplied: boolean;
   // CRITICAL FIX: Add cart readiness state
   isCartReady: boolean;
+  // Cart restoration features
+  showCartRestorationModal: boolean;
+  restoreCartFromDatabase: () => Promise<void>;
+  dismissCartRestoration: () => void;
+  inventoryIssues: { [partnumber: string]: { available: number; requested: number } };
 }
 
 const CartContext = createContext<CartContextType>({
@@ -43,6 +49,7 @@ const CartContext = createContext<CartContextType>({
   removeFromCart: () => {},
   updateQuantity: () => {},
   clearCart: () => {},
+  emptyEntireCart: async () => {},
   totalItems: 0,
   totalPrice: 0,
   placeOrder: async () => '',
@@ -55,7 +62,12 @@ const CartContext = createContext<CartContextType>({
   isLoadingPromoCodes: false,
   isPromoCodeAutoApplied: false,
   // CRITICAL FIX: Add default cart readiness state
-  isCartReady: false
+  isCartReady: false,
+  // Cart restoration features
+  showCartRestorationModal: false,
+  restoreCartFromDatabase: async () => {},
+  dismissCartRestoration: () => {},
+  inventoryIssues: {}
 });
 
 export const useCart = () => useContext(CartContext);

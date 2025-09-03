@@ -14,8 +14,9 @@ import AdminChatManagementPage from './AdminChatManagementPage';
 import SimplePasswordChanger from '../components/admin/SimplePasswordChanger';
 import AdminPasswordManager from '../components/AdminPasswordManager';
 import AdminPinManager from '../components/admin/AdminPinManager';
+import SystemLogTab from '../components/admin/SystemLogTab';
 
-type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus' | 'chat' | 'security';
+type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus' | 'chat' | 'security' | 'systemlog';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -75,6 +76,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
     { id: 'sitestatus', label: 'Site Status', icon: '⚠️' },
     { id: 'security', label: 'Security', icon: '🔐' },
+    { id: 'systemlog', label: 'System Log', icon: '📋' },
   ];
 
   const renderTabContent = () => {
@@ -121,6 +123,8 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         );
+      case 'systemlog':
+        return <SystemLogTab />;
       default:
         return <AccountsTab />;
     }

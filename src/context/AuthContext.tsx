@@ -335,13 +335,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    // NUCLEAR BLOCK - ABSOLUTELY NO MUSIC123 but allow admin passwords
-    if ((password.toLowerCase().includes('music') || 
-        password.includes('123') ||
-        password.toLowerCase() === 'music123' ||
-        password === 'Music123' ||
-        password.toUpperCase() === 'MUSIC123') &&
-        password !== '2750GroveAvenue' && password.toLowerCase() !== 'devil') {
+    // NUCLEAR BLOCK - ONLY block the specific "Music123" password pattern
+    const normalizedPwd = password.toLowerCase();
+    if (normalizedPwd === 'music123') {
       console.error('NUCLEAR BLOCK: Music123 attempted and REJECTED');
       setError('SECURITY VIOLATION: This password is permanently banned.');
       
@@ -473,13 +469,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    // NUCLEAR BLOCK - ABSOLUTELY NO MUSIC123 UNDER ANY CIRCUMSTANCES but allow admin passwords
-    if ((password.toLowerCase().includes('music') || 
-        password.includes('123') ||
-        password.toLowerCase() === 'music123' ||
-        password === 'Music123' ||
-        password.toUpperCase() === 'MUSIC123') &&
-        password !== '2750GroveAvenue' && password.toLowerCase() !== 'devil') {
+    // SECOND CHECK - Only block the exact Music123 password
+    if (password.toLowerCase() === 'music123') {
       console.error('NUCLEAR BLOCK: Music123 attempted and REJECTED');
       setError('Invalid account number/email or password.');
       
