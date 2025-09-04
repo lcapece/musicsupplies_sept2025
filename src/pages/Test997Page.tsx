@@ -489,11 +489,6 @@ const Test997Page: React.FC = () => {
       <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-600">
-              {filteredProductData.length} rows × {filteredColumns.length} columns
-              {(partNumberFilter || descriptionFilter1 || descriptionFilter2 || descriptionFilterNot) && 
-                ` (filtered from ${productData.length} total)`}
-            </p>
             {(partNumberFilter || descriptionFilter1 || descriptionFilter2 || descriptionFilterNot) && (
               <p className="text-xs text-blue-600 mt-1">
                 Active filters: 
@@ -504,38 +499,39 @@ const Test997Page: React.FC = () => {
               </p>
             )}
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={autoSizeColumns}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors"
-            >
-              Auto-Size Columns
-            </button>
-            <button
-              onClick={minimizeColumns}
-              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors"
-            >
-              Minimize Columns
-            </button>
-          </div>
         </div>
       </div>
 
       {/* Product Count Display */}
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <p className="text-lg font-medium text-gray-800" style={{ fontSize: '13.5pt' }}>
-            {(partNumberFilter || descriptionFilter1 || descriptionFilter2 || descriptionFilterNot) 
-              ? `Showing ${filteredProductData.length.toLocaleString()} products (based on filter)`
-              : `Showing all ${productData.length.toLocaleString()} Products (unfiltered)`
-            }
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-lg font-medium text-gray-800" style={{ fontSize: '13.5pt' }}>
+              {(partNumberFilter || descriptionFilter1 || descriptionFilter2 || descriptionFilterNot) 
+                ? `Showing ${filteredProductData.length.toLocaleString()} products (based on filter)`
+                : `Showing all ${productData.length.toLocaleString()} Products (unfiltered)`
+              }
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={autoSizeColumns}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors"
+              >
+                Auto-Size Columns
+              </button>
+              <button
+                onClick={minimizeColumns}
+                className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors"
+              >
+                Minimize Columns
+              </button>
+            </div>
+          </div>
           
           {/* Enhanced Pagination Controls */}
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-600">
-              Page {currentPage + 1} of {Math.ceil(filteredProductData.length / rowsPerPage)} 
-              (Rows {currentPage * rowsPerPage + 1}-{Math.min((currentPage + 1) * rowsPerPage, filteredProductData.length)})
+              Page {currentPage + 1} of {Math.ceil(filteredProductData.length / rowsPerPage)}
             </span>
             
             {/* First Page */}
