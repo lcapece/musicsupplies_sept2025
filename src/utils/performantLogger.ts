@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 interface CartActivityLogEntry {
   account_number?: number | null;
   cart_session_id: string;
-  activity_type: 'add_item' | 'remove_item' | 'update_quantity' | 'clear_cart' | 'checkout_started' | 'checkout_completed' | 'checkout_failed';
+  activity_type: 'add_item' | 'remove_item' | 'update_quantity' | 'clear_cart' | 'checkout_started' | 'checkout_completed' | 'checkout_failed' | 'add_backorder';
   item_partnumber?: string;
   item_description?: string;
   quantity_change?: number;

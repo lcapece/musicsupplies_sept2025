@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Minus, ShoppingCart, Check, AlertCircle } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Check, AlertCircle, Clock } from 'lucide-react';
 
 interface QuantitySelectorProps {
   product: {
@@ -9,6 +9,7 @@ interface QuantitySelectorProps {
     inventory: number | null;
   };
   onAddToCart: (product: any, quantity: number) => void;
+  onAddToBackorder?: (product: any, quantity: number) => void;
   disabled?: boolean;
   isAdding?: boolean;
   fontSize?: 'smaller' | 'standard' | 'larger';
@@ -17,6 +18,7 @@ interface QuantitySelectorProps {
 const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   product,
   onAddToCart,
+  onAddToBackorder,
   disabled = false,
   isAdding = false,
   fontSize = 'standard'
@@ -33,6 +35,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   const maxQuantity = product.inventory || 0;
   const isOutOfStock = !product.inventory || product.inventory <= 0;
   const isLowStock = product.inventory && product.inventory <= 2;
+  const isBackorderOnly = product.inventory !== null && product.inventory <= 1; // 0 or 1 inventory
 
   // Font size classes
   const getFontSizeClass = (element: 'button' | 'input' | 'text') => {
@@ -128,10 +131,18 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
 
   // Handle add to cart with success feedback
   const handleAddToCart = async () => {
-    if (isOutOfStock || validationError || isAdding) return;
+    if (validationError || isAdding) return;
 
     try {
-      onAddToCart(product, quantity);
+      if (isBackorderOnly && onAddToBackorder) {
+        // For items with ≤1 inventory, add to backorder
+        onAddToBackorder(product, quantity);
+      } else if (!isOutOfStock) {
+        // For items with >1 inventory, add to cart normally
+        onAddToCart(product, quantity);
+      } else {
+        return; // Should not happen, but safety check
+      }
       
       // Show success animation
       setShowSuccess(true);
@@ -144,7 +155,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
         setIsExpanded(false);
       }, 1200);
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      console.error('Error adding to cart/backorder:', error);
     }
   };
 
@@ -187,14 +198,16 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
       <div className="flex items-center gap-2 animate-pulse">
         <div className="flex items-center gap-1 text-green-600 font-medium">
           <Check size={16} />
-          <span className={getFontSizeClass('text')}>Added!</span>
+          <span className={getFontSizeClass('text')}>
+            {isBackorderOnly ? 'Added to Backorder!' : 'Added!'}
+          </span>
         </div>
       </div>
     );
   }
 
-  // Out of stock state
-  if (isOutOfStock) {
+  // Out of stock state - only show for items with no inventory AND no backorder function
+  if (isOutOfStock && !onAddToBackorder) {
     return (
       <div className="flex items-center gap-2 opacity-60">
         <div className="flex items-center gap-1 text-red-600">
@@ -213,16 +226,19 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
           onClick={handleInitialClick}
           disabled={disabled || isAdding}
           className={`
-            inline-flex items-center gap-1.5 border border-gray-300 rounded-lg
-            bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-            transition-all duration-200 font-medium text-gray-700
+            inline-flex items-center gap-1.5 border rounded-lg
+            transition-all duration-200 font-medium
             ${getFontSizeClass('button')}
             ${disabled || isAdding ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-sm'}
-            ${isLowStock ? 'border-yellow-400 bg-yellow-50' : ''}
+            ${isBackorderOnly 
+              ? 'border-orange-400 bg-orange-50 text-orange-700 hover:bg-orange-100 focus:ring-2 focus:ring-orange-500 focus:border-orange-500' 
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            }
+            ${isLowStock && !isBackorderOnly ? 'border-yellow-400 bg-yellow-50' : ''}
           `}
         >
-          <ShoppingCart size={14} />
-          <span>Add to Cart</span>
+          {isBackorderOnly ? <Clock size={14} /> : <ShoppingCart size={14} />}
+          <span>{isBackorderOnly ? 'Add to Backorder' : 'Add to Cart'}</span>
         </button>
       </div>
     );
@@ -280,7 +296,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
         </button>
       </div>
 
-      {/* Add to Cart Button */}
+      {/* Add to Cart/Backorder Button */}
       <button
         onClick={handleAddToCart}
         disabled={disabled || isAdding || !!validationError}
@@ -291,12 +307,19 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
           ${
             disabled || isAdding || validationError
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : isBackorderOnly
+              ? 'bg-orange-600 text-white hover:bg-orange-700 focus:ring-orange-500 hover:shadow-sm'
               : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 hover:shadow-sm'
           }
         `}
       >
-        <ShoppingCart size={14} />
-        <span>{isAdding ? 'Adding...' : 'Add'}</span>
+        {isBackorderOnly ? <Clock size={14} /> : <ShoppingCart size={14} />}
+        <span>
+          {isAdding 
+            ? (isBackorderOnly ? 'Adding to Backorder...' : 'Adding...') 
+            : (isBackorderOnly ? 'Add to Backorder' : 'Add')
+          }
+        </span>
       </button>
 
       {/* Stock Warning */}

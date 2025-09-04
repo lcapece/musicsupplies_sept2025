@@ -13,8 +13,7 @@ export interface Product {
   inventory: number | null;
   image?: string; // Add optional image property
   groupedimage?: string; // Grouped image field from products_supabase
-  prdmaincat?: string; // Product main category (level 1)
-  prdsubcat?: string; // Product sub category (level 2)
+  category?: number | null; // Product category (INTEGER foreign key)
   webmsrp?: number | null; // List price (corrected spelling)
   longdescription?: string; // Long description that may contain HTML
   brand?: string; // Manufacturer/brand name
@@ -24,6 +23,7 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+  qtyBackordered?: number;
 }
 
 export interface Account {

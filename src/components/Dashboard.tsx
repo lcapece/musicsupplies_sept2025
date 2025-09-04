@@ -198,12 +198,14 @@ const Dashboard: React.FC = () => {
       let filteredProducts = allProducts || [];
 
       // Apply filters client-side since RPC returns all products
-      if (selectedMainCategory) {
-        filteredProducts = filteredProducts.filter((product: Product) => product.prdmaincat === selectedMainCategory);
-      }
-      if (selectedSubCategory) {
-        filteredProducts = filteredProducts.filter((product: Product) => product.prdsubcat === selectedSubCategory);
-      }
+      // Note: Category filtering logic will need to be updated once database migration is complete
+      // For now, we'll comment out the old category filtering
+      // if (selectedMainCategory) {
+      //   filteredProducts = filteredProducts.filter((product: Product) => product.category === selectedMainCategory);
+      // }
+      // if (selectedSubCategory) {
+      //   filteredProducts = filteredProducts.filter((product: Product) => product.category === selectedSubCategory);
+      // }
 
       // Filter out test products
       filteredProducts = filteredProducts.filter((product: Product) => 

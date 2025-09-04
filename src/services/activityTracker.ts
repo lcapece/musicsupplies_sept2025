@@ -15,7 +15,7 @@ interface SearchActivityData {
 }
 
 interface CartActivityData {
-  actionType: 'add' | 'remove' | 'update_quantity' | 'clear' | 'view';
+  actionType: 'add' | 'remove' | 'update_quantity' | 'clear' | 'view' | 'add_backorder';
   sku: string;
   productName?: string;
   quantity?: number;

@@ -241,12 +241,11 @@ const Dashboard: React.FC = () => {
 
       // Helper function to get fallback image from database
       const getFallbackImageFromDatabase = async (): Promise<string | null> => {
-        if (!selectedProductForImage?.brand || !selectedProductForImage?.prdmaincat || !selectedProductForImage?.prdsubcat) {
+        if (!selectedProductForImage?.brand || !selectedProductForImage?.category) {
           console.log('[Dashboard] Missing required fields for fallback:', {
             partnumber: selectedProductForImage?.partnumber,
             brand: selectedProductForImage?.brand,
-            prdmaincat: selectedProductForImage?.prdmaincat,
-            prdsubcat: selectedProductForImage?.prdsubcat
+            category: selectedProductForImage?.category
           });
           return null;
         }
@@ -254,16 +253,14 @@ const Dashboard: React.FC = () => {
         console.log('[Dashboard] Calling fallback function with:', {
           input_partnumber: selectedProductForImage.partnumber,
           input_brand: selectedProductForImage.brand,
-          input_prdmaincat: selectedProductForImage.prdmaincat,
-          input_prdsubcat: selectedProductForImage.prdsubcat
+          input_category: selectedProductForImage.category
         });
 
         try {
-          const { data, error } = await supabase.rpc('get_fallback_image_for_product', {
+          const { data, error } = await supabase.rpc('get_fallback_image_for_product_v2', {
             input_partnumber: selectedProductForImage.partnumber,
             input_brand: selectedProductForImage.brand,
-            input_prdmaincat: selectedProductForImage.prdmaincat,
-            input_prdsubcat: selectedProductForImage.prdsubcat
+            input_category: selectedProductForImage.category
           });
 
           if (error) {
@@ -517,14 +514,13 @@ const Dashboard: React.FC = () => {
       console.log('Category filters being applied:', { mainCategory: selectedMainCategory, subCategory: selectedSubCategory }); // Added for debugging
       let query = supabase.from('products_supabase').select('*, groupedimage');
 
-      // Re-enabling filters after fixing category mapping
-      // Construct filter string manually to ensure exact matching
-      if (selectedMainCategory && selectedSubCategory) {
-        query = query.filter('prdmaincat', 'ilike', selectedMainCategory)
-                     .filter('prdsubcat', 'eq', selectedSubCategory);
-      } else if (selectedMainCategory) {
-        query = query.filter('prdmaincat', 'ilike', selectedMainCategory);
-      }
+      // Category filtering logic will need to be updated once database migration is complete
+      // For now, we'll comment out the old category filtering
+      // if (selectedMainCategory && selectedSubCategory) {
+      //   query = query.filter('category', 'eq', selectedSubCategory);
+      // } else if (selectedMainCategory) {
+      //   query = query.filter('category', 'eq', selectedMainCategory);
+      // }
 
       // Filter out test products - COMMENTED OUT to allow TEST products in search results
       // query = query.not('partnumber', 'ilike', 'TEST-%');

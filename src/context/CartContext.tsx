@@ -18,9 +18,11 @@ interface ShippingAddress {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  addToCart: (product: Product, quantity?: number, isBackorder?: boolean) => void;
+  addToBackorder: (product: Product, quantity?: number) => void;
   removeFromCart: (partnumber: string) => void;
   updateQuantity: (partnumber: string, quantity: number) => void;
+  updateBackorderQuantity: (partnumber: string, qtyBackordered: number) => void;
   clearCart: () => void;
   emptyEntireCart: () => Promise<void>;
   totalItems: number;
@@ -46,8 +48,10 @@ interface CartContextType {
 const CartContext = createContext<CartContextType>({
   items: [],
   addToCart: () => {},
+  addToBackorder: () => {},
   removeFromCart: () => {},
   updateQuantity: () => {},
+  updateBackorderQuantity: () => {},
   clearCart: () => {},
   emptyEntireCart: async () => {},
   totalItems: 0,
@@ -110,6 +114,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [availablePromoCodes, setAvailablePromoCodes] = useState<AvailablePromoCode[]>([]);
   const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState<boolean>(false);
   const [isPromoCodeAutoApplied, setIsPromoCodeAutoApplied] = useState<boolean>(false);
+  
+  // Cart restoration state
+  const [showCartRestorationModal, setShowCartRestorationModal] = useState(false);
+  const [inventoryIssues, setInventoryIssues] = useState<{ [partnumber: string]: { available: number; requested: number } }>({});
   
   useEffect(() => {
     // Use sessionStorage for better security
@@ -586,6 +594,130 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAppliedPromoCode(null);
   };
 
+  // Add item to backorder (separate from regular cart)
+  const addToBackorder = (product: Product, quantity: number = 1) => {
+    console.log('CartContext: Adding to backorder:', product.partnumber, 'quantity:', quantity);
+    
+    // Validate product data before adding
+    if (!product.partnumber) {
+      console.error('CartContext: Cannot add product without partnumber');
+      return;
+    }
+    
+    // Calculate new cart totals for tracking
+    const existingItem = items.find(item => item.partnumber === product.partnumber);
+    const newBackorderQuantity = existingItem ? (existingItem.qtyBackordered || 0) + quantity : quantity;
+    
+    // Update items - add backorder quantity to existing item or create new item with backorder quantity
+    setItems(prevItems => {
+      const existingItem = prevItems.find(item => item.partnumber === product.partnumber);
+      let newItems;
+      if (existingItem) {
+        console.log('CartContext: Updating existing item backorder quantity');
+        newItems = prevItems.map(item => 
+          item.partnumber === product.partnumber 
+            ? { ...item, qtyBackordered: (item.qtyBackordered || 0) + quantity } 
+            : item
+        );
+      } else {
+        console.log('CartContext: Adding new item to cart with backorder quantity');
+        newItems = [...prevItems, { 
+          ...product, 
+          inventory: product.inventory ?? null, 
+          price: product.price ?? 0, 
+          quantity: 0, // No regular quantity for backorder-only items
+          qtyBackordered: quantity
+        }];
+      }
+      console.log('CartContext: Cart updated with backorder, new item count:', newItems.length);
+      return newItems;
+    });
+
+    // Log backorder event (fire-and-forget)
+    try {
+      const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
+      const email = (user as any)?.email || null;
+      
+      // Track backorder activity
+      activityTracker.trackCartAction({
+        actionType: 'add_backorder',
+        sku: product.partnumber,
+        productName: product.description,
+        quantity: quantity,
+        unitPrice: product.price ?? 0,
+        totalPrice: (product.price ?? 0) * quantity,
+        cartTotalAfter: totalPrice, // Backorder doesn't affect cart total
+        cartItemsCountAfter: totalItems, // Backorder doesn't affect regular item count
+        sourcePage: window.location.pathname
+      });
+      
+      // NEW: High-performance cart activity logging
+      logCartActivity({
+        account_number: isNaN(acctNum) ? null : acctNum,
+        cart_session_id: getCartSessionId(),
+        activity_type: 'add_backorder',
+        item_partnumber: product.partnumber,
+        item_description: product.description || undefined,
+        quantity_change: quantity,
+        quantity_after: newBackorderQuantity,
+        unit_price: product.price ?? 0,
+        cart_total_after: totalPrice, // Backorder doesn't affect pricing
+        cart_items_count_after: totalItems,
+        user_email: email
+      });
+    } catch (_e) {
+      // ignore logging errors
+    }
+  };
+
+  // Update backorder quantity for a specific item
+  const updateBackorderQuantity = (partnumber: string, qtyBackordered: number) => {
+    setItems(prevItems => 
+      prevItems.map(item => 
+        item.partnumber === partnumber 
+          ? { ...item, qtyBackordered: Math.max(0, qtyBackordered) }
+          : item
+      )
+    );
+  };
+
+  // Empty entire cart and save to database
+  const emptyEntireCart = async () => {
+    if (user && user.accountNumber) {
+      try {
+        await supabase.rpc('clear_user_cart', {
+          p_account_number: parseInt(user.accountNumber, 10)
+        });
+      } catch (error) {
+        console.error('Error clearing cart in database:', error);
+      }
+    }
+    clearCart();
+  };
+
+  // Restore cart from database
+  const restoreCartFromDatabase = async () => {
+    if (!user || !user.accountNumber) return;
+    
+    try {
+      const { data } = await supabase.rpc('get_user_cart', {
+        p_account_number: parseInt(user.accountNumber, 10)
+      });
+      
+      if (data && Array.isArray(data)) {
+        setItems(data);
+        setShowCartRestorationModal(false);
+      }
+    } catch (error) {
+      console.error('Error restoring cart from database:', error);
+    }
+  };
+
+  // Dismiss cart restoration modal
+  const dismissCartRestoration = () => {
+    setShowCartRestorationModal(false);
+  };
+
   const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string, shippingAddress?: ShippingAddress): Promise<string> => {
     // Get session ID for order pre-allocation
     const sessionId = sessionStorage.getItem('sessionId') || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -828,11 +960,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <CartContext.Provider value={{
-      items, addToCart, removeFromCart, updateQuantity, clearCart,
+      items, addToCart, addToBackorder, removeFromCart, updateQuantity, updateBackorderQuantity, clearCart, emptyEntireCart,
       totalItems, totalPrice, placeOrder,
       applyPromoCode, removePromoCode, appliedPromoCode,
       availablePromoCodes, fetchAvailablePromoCodes, isLoadingPromoCodes,
-      isPromoCodeAutoApplied, isCartReady
+      isPromoCodeAutoApplied, isCartReady,
+      showCartRestorationModal, restoreCartFromDatabase, dismissCartRestoration, inventoryIssues
     }}>
       {children}
     </CartContext.Provider>

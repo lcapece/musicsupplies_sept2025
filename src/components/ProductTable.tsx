@@ -34,7 +34,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   onFontSizeChange,
   enableFiltering = true // Default to true
 }) => {
-  const { addToCart, isCartReady } = useCart();
+  const { addToCart, addToBackorder, isCartReady } = useCart();
   const { isDemoMode } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -754,6 +754,17 @@ const ProductTable: React.FC<ProductTableProps> = ({
                           <QuantitySelector
                             product={product}
                             onAddToCart={handleAddToCart}
+                            onAddToBackorder={(product, quantity) => {
+                              console.log('ProductTable: Adding to backorder:', product.partnumber, 'quantity:', quantity);
+                              if (addToBackorder) {
+                                addToBackorder({
+                                  partnumber: product.partnumber,
+                                  description: product.description,
+                                  price: product.price,
+                                  inventory: product.inventory
+                                }, quantity);
+                              }
+                            }}
                             disabled={!isCartReady}
                             isAdding={addingToCart === product.partnumber}
                             fontSize={fontSize}

@@ -18,6 +18,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     items, 
     removeFromCart, 
     updateQuantity, 
+    updateBackorderQuantity,
     totalItems, 
     totalPrice, 
     clearCart, 
@@ -909,29 +910,59 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 <p className="mt-1 text-base text-gray-500">{item.description}</p>
                               </div>
                               <div className="flex flex-1 items-center justify-between text-sm mt-2">
-                                {/* Quantity controls */}
-                                <div className="flex items-center">
-                                  <button
-                                    onClick={() => updateQuantity(item.partnumber, Math.max(1, item.quantity - 1))}
-                                    className="p-1 text-gray-500 hover:text-indigo-600"
-                                    aria-label="Decrease quantity"
-                                  >
-                                    <Minus size={16} />
-                                  </button>
-                                  <input
-                                    type="number"
-                                    value={item.quantity}
-                                    onChange={(e) => updateQuantity(item.partnumber, parseInt(e.target.value) || 1)}
-                                    className="w-16 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-base mx-2"
-                                    min="1"
-                                  />
-                                  <button
-                                    onClick={() => updateQuantity(item.partnumber, item.quantity + 1)}
-                                    className="p-1 text-gray-500 hover:text-indigo-600"
-                                    aria-label="Increase quantity"
-                                  >
-                                    <Plus size={16} />
-                                  </button>
+                                {/* Quantity controls - Regular and Backorder */}
+                                <div className="flex flex-col space-y-2">
+                                  {/* Regular Quantity Row */}
+                                  <div className="flex items-center">
+                                    <span className="text-xs font-medium text-gray-700 w-20">Qty Ordered:</span>
+                                    <button
+                                      onClick={() => updateQuantity(item.partnumber, Math.max(0, item.quantity - 1))}
+                                      className="p-1 text-gray-500 hover:text-indigo-600"
+                                      aria-label="Decrease quantity"
+                                    >
+                                      <Minus size={14} />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={item.quantity}
+                                      onChange={(e) => updateQuantity(item.partnumber, Math.max(0, parseInt(e.target.value) || 0))}
+                                      className="w-14 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm mx-1"
+                                      min="0"
+                                    />
+                                    <button
+                                      onClick={() => updateQuantity(item.partnumber, item.quantity + 1)}
+                                      className="p-1 text-gray-500 hover:text-indigo-600"
+                                      aria-label="Increase quantity"
+                                    >
+                                      <Plus size={14} />
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Backorder Quantity Row */}
+                                  <div className="flex items-center">
+                                    <span className="text-xs font-medium text-orange-700 w-20">Qty Backorder:</span>
+                                    <button
+                                      onClick={() => updateBackorderQuantity(item.partnumber, Math.max(0, (item.qtyBackordered || 0) - 1))}
+                                      className="p-1 text-orange-500 hover:text-orange-600"
+                                      aria-label="Decrease backorder quantity"
+                                    >
+                                      <Minus size={14} />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={item.qtyBackordered || 0}
+                                      onChange={(e) => updateBackorderQuantity(item.partnumber, Math.max(0, parseInt(e.target.value) || 0))}
+                                      className="w-14 text-center border-orange-300 rounded-md shadow-sm focus:border-orange-500 focus:ring-orange-500 text-sm mx-1 bg-orange-50"
+                                      min="0"
+                                    />
+                                    <button
+                                      onClick={() => updateBackorderQuantity(item.partnumber, (item.qtyBackordered || 0) + 1)}
+                                      className="p-1 text-orange-500 hover:text-orange-600"
+                                      aria-label="Increase backorder quantity"
+                                    >
+                                      <Plus size={14} />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 {/* Spacer to push prices and remove button to the right */}
@@ -942,6 +973,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   <div className="text-right">
                                     <p className="text-sm text-gray-500">${(item.price || 0).toFixed(2)} ea.</p>
                                     <p className="font-medium text-xl text-gray-900">${((item.price || 0) * item.quantity).toFixed(2)}</p>
+                                    {(item.qtyBackordered || 0) > 0 && (
+                                      <p className="text-xs text-orange-600">
+                                        +{item.qtyBackordered} backordered (${((item.price || 0) * (item.qtyBackordered || 0)).toFixed(2)})
+                                      </p>
+                                    )}
                                   </div>
                                   <button
                                     type="button"
