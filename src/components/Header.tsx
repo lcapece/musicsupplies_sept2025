@@ -49,13 +49,13 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
           {/* Left Section - Logo and Phone */}
           <div className="flex items-center space-x-6">
             <Link to="/" className="flex items-center">
-              <div className="text-4xl font-bold fixed-header-size">
+              <div className="font-bold fixed-header-size" style={{ fontSize: '27px' }}>
                 <span className="text-blue-600">Music</span>
                 <span className="text-red-600">Supplies</span>
                 <span className="text-black">.com</span>
               </div>
             </Link>
-            <div className="text-2xl font-bold text-gray-700 fixed-header-size">
+            <div className="font-bold text-gray-700 fixed-header-size" style={{ fontSize: '18px' }}>
               (800) 321-5584
             </div>
           </div>
@@ -71,7 +71,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
                 checked={activeView === 'products'}
                 onChange={() => onViewChange('products')}
               />
-              <span className="ml-2 text-gray-700 font-medium">Product Search</span>
+              <span className="ml-2 text-gray-700 font-medium" style={{ fontSize: '12px' }}>SHOPPING</span>
             </label>
             
             {!isDemoMode && (
@@ -84,7 +84,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
                   checked={activeView === 'orders'}
                   onChange={() => onViewChange('orders')}
                 />
-                <span className="ml-2 text-gray-700 font-medium">Order History</span>
+                <span className="ml-2 text-gray-700 font-medium" style={{ fontSize: '12px' }}>Order History</span>
               </label>
             )}
           </div>
@@ -95,7 +95,8 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
             {!isDemoMode ? (
               <button
                 onClick={openCart}
-                className="relative inline-flex items-center px-6 py-2 border border-green-500 text-lg font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 min-w-[120px]"
+                className="relative inline-flex items-center px-6 py-2 border border-green-500 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 min-w-[120px]"
+                style={{ fontSize: '13.5px' }}
               >
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 Cart
@@ -106,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
                 )}
               </button>
             ) : (
-              <div className="inline-flex items-center px-6 py-2 border border-gray-300 text-lg font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed min-w-[120px]">
+              <div className="inline-flex items-center px-6 py-2 border border-gray-300 font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed min-w-[120px]" style={{ fontSize: '13.5px' }}>
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 Cart Disabled
               </div>

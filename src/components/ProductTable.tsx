@@ -17,6 +17,7 @@ interface ProductTableProps {
   showMapPrice?: boolean; // Whether to display the MAP Price column
   fontSize?: 'smaller' | 'standard' | 'larger';
   onFontSizeChange?: (size: 'smaller' | 'standard' | 'larger') => void;
+  enableFiltering?: boolean; // Whether to show filtering controls
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
@@ -30,7 +31,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
   showMsrp = true, // Default to true
   showMapPrice = true, // Default to true
   fontSize = 'standard',
-  onFontSizeChange
+  onFontSizeChange,
+  enableFiltering = true // Default to true
 }) => {
   const { addToCart, isCartReady } = useCart();
   const { isDemoMode } = useAuth();
@@ -40,6 +42,121 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const [tableContainerRef, setTableContainerRef] = useState<HTMLDivElement | null>(null);
 
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    partnumber: '',
+    description: '',
+    brand: '',
+    upc: '',
+    priceMin: '',
+    priceMax: '',
+    msrpMin: '',
+    msrpMax: '',
+    mapMin: '',
+    mapMax: '',
+    inventoryMin: '',
+    inventoryMax: '',
+    inStockOnly: false
+  });
+
+  // Filtered products based on current filters
+  const filteredProducts = React.useMemo(() => {
+    if (!enableFiltering) return products;
+
+    return products.filter(product => {
+      // Part number filter
+      if (filters.partnumber && !product.partnumber?.toLowerCase().includes(filters.partnumber.toLowerCase())) {
+        return false;
+      }
+
+      // Description filter
+      if (filters.description && !product.description?.toLowerCase().includes(filters.description.toLowerCase())) {
+        return false;
+      }
+
+      // Brand filter
+      if (filters.brand && !product.brand?.toLowerCase().includes(filters.brand.toLowerCase())) {
+        return false;
+      }
+
+      // UPC filter
+      if (filters.upc && !product.upc?.toLowerCase().includes(filters.upc.toLowerCase())) {
+        return false;
+      }
+
+      // Price range filters
+      if (filters.priceMin && product.price && product.price < parseFloat(filters.priceMin)) {
+        return false;
+      }
+      if (filters.priceMax && product.price && product.price > parseFloat(filters.priceMax)) {
+        return false;
+      }
+
+      // MSRP range filters
+      if (filters.msrpMin && product.webmsrp && product.webmsrp < parseFloat(filters.msrpMin)) {
+        return false;
+      }
+      if (filters.msrpMax && product.webmsrp && product.webmsrp > parseFloat(filters.msrpMax)) {
+        return false;
+      }
+
+      // MAP range filters
+      if (filters.mapMin && product.map && product.map < parseFloat(filters.mapMin)) {
+        return false;
+      }
+      if (filters.mapMax && product.map && product.map > parseFloat(filters.mapMax)) {
+        return false;
+      }
+
+      // Inventory range filters
+      if (filters.inventoryMin && product.inventory && product.inventory < parseInt(filters.inventoryMin)) {
+        return false;
+      }
+      if (filters.inventoryMax && product.inventory && product.inventory > parseInt(filters.inventoryMax)) {
+        return false;
+      }
+
+      // In stock only filter
+      if (filters.inStockOnly && (!product.inventory || product.inventory <= 0)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [products, filters, enableFiltering]);
+
+  // Update filter function
+  const updateFilter = (key: keyof typeof filters, value: string | boolean) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({
+      partnumber: '',
+      description: '',
+      brand: '',
+      upc: '',
+      priceMin: '',
+      priceMax: '',
+      msrpMin: '',
+      msrpMax: '',
+      mapMin: '',
+      mapMax: '',
+      inventoryMin: '',
+      inventoryMax: '',
+      inStockOnly: false
+    });
+    setCurrentPage(1);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
+    if (key === 'inStockOnly') return value === true;
+    return value !== '';
+  });
 
   // Note: Removed dynamic pagination calculation that was interfering with user's selection
   // and preventing proper scrolling through products
@@ -54,10 +171,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setCurrentPage(1);
   }, [itemsPerPage]);
 
-  // Calculate pagination
-  const totalPages = Math.ceil(products.length / itemsPerPage);
+  // Calculate pagination using filtered products
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedProducts = products.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
 
   // Add keyboard navigation for pagination
   React.useEffect(() => {
@@ -232,7 +349,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
     }`}>
       <div className="flex items-center gap-4">
         <div className={`${fontSize === 'smaller' ? 'font-professional-smaller' : fontSize === 'larger' ? 'font-professional-larger' : 'font-professional-standard'} text-gray-700`}>
-          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, products.length)} of {products.length} products
+          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
+          {hasActiveFilters && (
+            <span className="text-blue-600 ml-1">(filtered from {products.length})</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor={`itemsPerPage-${position}`} className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>Show:</label>
@@ -246,6 +366,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
             <option value={20}>20</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
+            <option value={500}>500</option>
+            <option value={1000}>1000</option>
+            <option value={products.length}>All ({products.length})</option>
           </select>
         </div>
       </div>
@@ -344,6 +467,143 @@ const ProductTable: React.FC<ProductTableProps> = ({
         <>
           {/* Top Pagination */}
           <PaginationControls position="top" />
+          
+          {/* Filter Row */}
+          {enableFiltering && (
+            <div className="bg-blue-50 border-b border-gray-200 px-6 py-3 flex-shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} font-medium text-gray-900`}>
+                  Table Filters
+                </h3>
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <span className={`${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} text-blue-600 bg-blue-100 px-2 py-1 rounded`}>
+                      {Object.entries(filters).filter(([key, value]) => key === 'inStockOnly' ? value === true : value !== '').length} active
+                    </span>
+                  )}
+                  <button
+                    onClick={clearAllFilters}
+                    disabled={!hasActiveFilters}
+                    className={`${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} px-3 py-1 rounded transition-colors ${
+                      hasActiveFilters
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {/* Part Number Filter */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Part Number
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.partnumber}
+                    onChange={(e) => updateFilter('partnumber', e.target.value)}
+                    placeholder="Filter by part number..."
+                    className={`w-full px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                  />
+                </div>
+
+                {/* Description Filter */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.description}
+                    onChange={(e) => updateFilter('description', e.target.value)}
+                    placeholder="Filter by description..."
+                    className={`w-full px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                  />
+                </div>
+
+                {/* Brand Filter */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Brand
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.brand}
+                    onChange={(e) => updateFilter('brand', e.target.value)}
+                    placeholder="Filter by brand..."
+                    className={`w-full px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                  />
+                </div>
+
+                {/* Price Range */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Price Range
+                  </label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={filters.priceMin}
+                      onChange={(e) => updateFilter('priceMin', e.target.value)}
+                      placeholder="Min"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                    <input
+                      type="number"
+                      value={filters.priceMax}
+                      onChange={(e) => updateFilter('priceMax', e.target.value)}
+                      placeholder="Max"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                  </div>
+                </div>
+
+                {/* Inventory Range */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Inventory Range
+                  </label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={filters.inventoryMin}
+                      onChange={(e) => updateFilter('inventoryMin', e.target.value)}
+                      placeholder="Min"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                    <input
+                      type="number"
+                      value={filters.inventoryMax}
+                      onChange={(e) => updateFilter('inventoryMax', e.target.value)}
+                      placeholder="Max"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                  </div>
+                </div>
+
+                {/* In Stock Only Checkbox */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Stock Filter
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={filters.inStockOnly}
+                      onChange={(e) => updateFilter('inStockOnly', e.target.checked)}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label className={`ml-2 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} text-gray-700`}>
+                      In Stock Only
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Scrollable table container with fixed height and visible scrollbar */}
           <div 

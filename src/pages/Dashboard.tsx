@@ -890,6 +890,7 @@ const Dashboard: React.FC = () => {
                           className="h-full"
                           fontSize={fontSize}
                           onFontSizeChange={setFontSize}
+                          enableFiltering={false} // Disable table filters for customer interface
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (

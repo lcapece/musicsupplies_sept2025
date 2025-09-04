@@ -186,44 +186,58 @@ const Dashboard: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      let query = supabase.from('products_supabase').select('*');
-
-      if (selectedMainCategory) {
-        query = query.eq('prdmaincat', selectedMainCategory);
-      }
-      if (selectedSubCategory) {
-        query = query.eq('prdsubcat', selectedSubCategory);
-      }
-
-      // Filter out test products
-      query = query.not('partnumber', 'ilike', 'TEST-%');
-
-      // Apply search terms by checking partnumber and description
-      if (searchTerms.primary) {
-        query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);
-      }
-      if (searchTerms.additional) {
-        // This acts as an AND condition with the primary search due to sequential application
-        query = query.or(`partnumber.ilike.%${searchTerms.additional}%,description.ilike.%${searchTerms.additional}%`);
-      }
-      if (searchTerms.exclude) {
-        // Product must NOT contain the exclude term in partnumber AND must NOT contain it in description.
-        query = query.not('partnumber', 'ilike', `%${searchTerms.exclude}%`);
-        query = query.not('description', 'ilike', `%${searchTerms.exclude}%`);
-      }
-
-      if (inStockOnly) {
-        query = query.gt('inventory', 0);
-      }
-
-      const { data, error } = await query;
+      
+      // Use RPC function to get all products (bypasses 1000-row PostgREST limit)
+      const { data: allProducts, error } = await supabase.rpc('get_all_products');
 
       if (error) {
         console.error('Error fetching products:', error);
         return;
       }
 
-      setProducts(data || []);
+      let filteredProducts = allProducts || [];
+
+      // Apply filters client-side since RPC returns all products
+      if (selectedMainCategory) {
+        filteredProducts = filteredProducts.filter((product: Product) => product.prdmaincat === selectedMainCategory);
+      }
+      if (selectedSubCategory) {
+        filteredProducts = filteredProducts.filter((product: Product) => product.prdsubcat === selectedSubCategory);
+      }
+
+      // Filter out test products
+      filteredProducts = filteredProducts.filter((product: Product) => 
+        !product.partnumber?.toLowerCase().startsWith('test-')
+      );
+
+      // Apply search terms by checking partnumber and description
+      if (searchTerms.primary) {
+        const primaryTerm = searchTerms.primary.toLowerCase();
+        filteredProducts = filteredProducts.filter((product: Product) =>
+          product.partnumber?.toLowerCase().includes(primaryTerm) ||
+          product.description?.toLowerCase().includes(primaryTerm)
+        );
+      }
+      if (searchTerms.additional) {
+        const additionalTerm = searchTerms.additional.toLowerCase();
+        filteredProducts = filteredProducts.filter((product: Product) =>
+          product.partnumber?.toLowerCase().includes(additionalTerm) ||
+          product.description?.toLowerCase().includes(additionalTerm)
+        );
+      }
+      if (searchTerms.exclude) {
+        const excludeTerm = searchTerms.exclude.toLowerCase();
+        filteredProducts = filteredProducts.filter((product: Product) =>
+          !product.partnumber?.toLowerCase().includes(excludeTerm) &&
+          !product.description?.toLowerCase().includes(excludeTerm)
+        );
+      }
+
+      if (inStockOnly) {
+        filteredProducts = filteredProducts.filter((product: Product) => (product.inventory || 0) > 0);
+      }
+
+      setProducts(filteredProducts);
     } catch (error) {
       console.error('Error:', error);
     } finally {
