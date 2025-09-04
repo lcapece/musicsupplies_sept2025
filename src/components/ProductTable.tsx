@@ -739,7 +739,12 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       </td>
                     )}
                     <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center ${isDemoMode ? 'demo-mode-blur' : ''}`}>
-                      {getInventoryDisplay(product.inventory)}
+                      {/* Hide inventory display for backorder items (inventory ≤ 2) */}
+                      {product.inventory !== null && product.inventory <= 2 ? (
+                        <span className="text-gray-400">---</span>
+                      ) : (
+                        getInventoryDisplay(product.inventory)
+                      )}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center relative">
                       <div onClick={(e) => e.stopPropagation()}>

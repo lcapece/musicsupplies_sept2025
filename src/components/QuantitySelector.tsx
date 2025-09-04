@@ -35,7 +35,8 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   const maxQuantity = product.inventory || 0;
   const isOutOfStock = !product.inventory || product.inventory <= 0;
   const isLowStock = product.inventory && product.inventory <= 2;
-  const isBackorderOnly = product.inventory !== null && product.inventory <= 1; // 0 or 1 inventory
+  // Show backorder for "Low - Call" (≤2) or "Out of Stock" (≤0) when backorder function is available
+  const isBackorderOnly = onAddToBackorder && (product.inventory === null || product.inventory <= 2);
 
   // Font size classes
   const getFontSizeClass = (element: 'button' | 'input' | 'text') => {
@@ -62,6 +63,8 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   // Validate quantity against inventory
   const validateQuantity = (qty: number): string | null => {
     if (qty < 1) return 'Quantity must be at least 1';
+    // For backorder items, allow any quantity
+    if (isBackorderOnly) return null;
     if (qty > maxQuantity) return `Maximum available: ${maxQuantity}`;
     return null;
   };
@@ -218,7 +221,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
     );
   }
 
-  // Compact view (default)
+  // Compact view (default) - all items start compact, expand only when clicked
   if (!isExpanded) {
     return (
       <div ref={containerRef} className="flex items-center gap-1">
@@ -226,8 +229,8 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
           onClick={handleInitialClick}
           disabled={disabled || isAdding}
           className={`
-            inline-flex items-center gap-1.5 border rounded-lg
-            transition-all duration-200 font-medium
+            inline-flex items-center justify-center gap-1.5 border rounded-lg
+            transition-all duration-200 font-medium w-32
             ${getFontSizeClass('button')}
             ${disabled || isAdding ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-sm'}
             ${isBackorderOnly 
@@ -238,7 +241,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
           `}
         >
           {isBackorderOnly ? <Clock size={14} /> : <ShoppingCart size={14} />}
-          <span>{isBackorderOnly ? 'Add to Backorder' : 'Add to Cart'}</span>
+          <span>{isBackorderOnly ? 'Add Backorder' : 'Add to Cart'}</span>
         </button>
       </div>
     );
@@ -284,7 +287,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
         {/* Plus Button */}
         <button
           onClick={() => handleQuantityChange(quantity + 1)}
-          disabled={quantity >= maxQuantity || disabled}
+          disabled={(!isBackorderOnly && quantity >= maxQuantity) || disabled}
           className={`
             flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700
             hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed
@@ -317,13 +320,13 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
         <span>
           {isAdding 
             ? (isBackorderOnly ? 'Adding to Backorder...' : 'Adding...') 
-            : (isBackorderOnly ? 'Add to Backorder' : 'Add')
+            : (isBackorderOnly ? 'Add Backorder' : 'Add')
           }
         </span>
       </button>
 
-      {/* Stock Warning */}
-      {isLowStock && !validationError && (
+      {/* Stock Warning - only show for regular items, not backorder items */}
+      {isLowStock && !validationError && !isBackorderOnly && (
         <div className="flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-md">
           <AlertCircle size={12} />
           <span className={`${getFontSizeClass('text')} font-medium`}>Low Stock</span>
@@ -338,12 +341,6 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
         </div>
       )}
 
-      {/* Available Stock Info */}
-      {!validationError && !isLowStock && (
-        <span className={`${getFontSizeClass('text')} text-gray-500`}>
-          {maxQuantity} available
-        </span>
-      )}
     </div>
   );
 };
