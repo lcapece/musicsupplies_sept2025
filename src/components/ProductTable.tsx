@@ -117,9 +117,16 @@ const ProductTable: React.FC<ProductTableProps> = ({
         return false;
       }
 
-      // In stock only filter
-      if (filters.inStockOnly && (!product.inventory || product.inventory <= 0)) {
-        return false;
+      // In stock only filter - hide items with zero inventory, out of stock, or call for price
+      if (filters.inStockOnly) {
+        // Hide if inventory is null, zero, or negative
+        if (!product.inventory || product.inventory <= 0) {
+          return false;
+        }
+        // Hide if price is null (call for price items)
+        if (product.price === null) {
+          return false;
+        }
       }
 
       return true;
@@ -277,14 +284,14 @@ const ProductTable: React.FC<ProductTableProps> = ({
     if (price === null) {
       return <span className="text-gray-500 italic">Call for Price</span>;
     }
-    return `$${price.toFixed(2)}`;
+    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatListPrice = (msrp: number | null | undefined) => {
     if (msrp === null || msrp === undefined) {
       return <span className="text-gray-500">---</span>;
     }
-    return `$${msrp.toFixed(2)}`;
+    return `$${msrp.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatMapPrice = (map: number | null | undefined) => {
@@ -292,7 +299,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
       return <span className="text-gray-500">---</span>;
     }
     try {
-      return `$${map.toFixed(2)}`;
+      return `$${map.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     } catch (error) {
       console.error('Error formatting MAP price:', error, map);
       return <span className="text-gray-500">Error</span>;
@@ -373,42 +380,47 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {/* Font Size Toggle - Show on both top and bottom for accessibility */}
-        {onFontSizeChange && (
-          <div className="flex items-center gap-1 mr-4 border border-gray-300 rounded-lg overflow-hidden">
-            <button
-              onClick={() => onFontSizeChange('smaller')}
-              className={`px-3 py-1 text-sm font-medium transition-colors ${
-                fontSize === 'smaller'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Smaller text (original size)"
-            >
-              A-
-            </button>
-            <button
-              onClick={() => onFontSizeChange('standard')}
-              className={`px-3 py-1 text-sm font-medium transition-colors border-x border-gray-300 ${
-                fontSize === 'standard'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Standard text (50% larger)"
-            >
-              A
-            </button>
-            <button
-              onClick={() => onFontSizeChange('larger')}
-              className={`px-3 py-1 text-sm font-medium transition-colors ${
-                fontSize === 'larger'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Larger text (100% larger)"
-            >
-              A+
-            </button>
+        {/* Font Size Toggle - Show only on bottom for cleaner top layout */}
+        {onFontSizeChange && position === 'bottom' && (
+          <div className="flex flex-col items-center gap-1 mr-4">
+            <div className="text-xs text-gray-600" style={{ fontSize: '8pt' }}>
+              Adjust Readability
+            </div>
+            <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden" style={{ transform: 'scale(0.8)' }}>
+              <button
+                onClick={() => onFontSizeChange('smaller')}
+                className={`px-3 py-1 text-sm font-medium transition-colors ${
+                  fontSize === 'smaller'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Smaller text (30% smaller than previous smallest)"
+              >
+                A-
+              </button>
+              <button
+                onClick={() => onFontSizeChange('standard')}
+                className={`px-3 py-1 text-sm font-medium transition-colors border-x border-gray-300 ${
+                  fontSize === 'standard'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Standard text"
+              >
+                A
+              </button>
+              <button
+                onClick={() => onFontSizeChange('larger')}
+                className={`px-3 py-1 text-sm font-medium transition-colors ${
+                  fontSize === 'larger'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Larger text"
+              >
+                A+
+              </button>
+            </div>
           </div>
         )}
         <button

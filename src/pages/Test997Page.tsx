@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import PromoCodeManager from '../components/PromoCodeManager';
 
 interface ProductMember {
   [key: string]: any; // Dynamic interface for all columns
@@ -41,6 +42,7 @@ const Test997Page: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
   const [vendorOptions, setVendorOptions] = useState<string[]>([]);
+  const [editMode, setEditMode] = useState(false);
 
   // Debounce timer for auto-save
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
@@ -50,24 +52,26 @@ const Test997Page: React.FC = () => {
     { ordinal: 1, fieldName: 'partnumber', displayName: 'Part Number' },
     { ordinal: 2, fieldName: 'description', displayName: 'Short Description' },
     { ordinal: 3, fieldName: 'price', displayName: 'Price' },
-    { ordinal: 4, fieldName: 'listprice', displayName: 'MSRP' },
-    { ordinal: 5, fieldName: 'map', displayName: 'MAP' },
-    { ordinal: 6, fieldName: 'upc', displayName: 'UPC' },
-    { ordinal: 7, fieldName: 'category', displayName: 'Category' },
-    { ordinal: 8, fieldName: 'brand', displayName: 'Brand' },
-    { ordinal: 9, fieldName: 'image', displayName: 'Image File' },
-    { ordinal: 10, fieldName: 'inv_max', displayName: 'Inv: Max' },
-    { ordinal: 11, fieldName: 'inv_min', displayName: 'Inv: Min' },
-    { ordinal: 12, fieldName: 'date_created', displayName: 'Created' },
-    { ordinal: 13, fieldName: 'date_edited', displayName: 'Edited' },
-    { ordinal: 14, fieldName: 'vendor', displayName: 'Vendor' },
-    { ordinal: 15, fieldName: 'vendor_part_number', displayName: 'Vendor Part' }
+    { ordinal: 4, fieldName: 'master_carton_qty', displayName: 'MAST CART QTY' },
+    { ordinal: 5, fieldName: 'master_carton_price', displayName: 'MAST CART $' },
+    { ordinal: 6, fieldName: 'listprice', displayName: 'MSRP' },
+    { ordinal: 7, fieldName: 'map', displayName: 'MAP' },
+    { ordinal: 8, fieldName: 'upc', displayName: 'UPC' },
+    { ordinal: 9, fieldName: 'category', displayName: 'Category' },
+    { ordinal: 10, fieldName: 'brand', displayName: 'Brand' },
+    { ordinal: 11, fieldName: 'image', displayName: 'Image File' },
+    { ordinal: 12, fieldName: 'inv_max', displayName: 'Inv: Max' },
+    { ordinal: 13, fieldName: 'inv_min', displayName: 'Inv: Min' },
+    { ordinal: 14, fieldName: 'date_created', displayName: 'Created' },
+    { ordinal: 15, fieldName: 'date_edited', displayName: 'Edited' },
+    { ordinal: 16, fieldName: 'vendor', displayName: 'Vendor' },
+    { ordinal: 17, fieldName: 'vendor_part_number', displayName: 'Vendor Part' }
   ];
 
   // Tab configuration
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'products', label: 'Products', icon: '📦' },
-    { id: 'placeholder1', label: 'PLACEHOLDER1', icon: '🔧' },
+    { id: 'placeholder1', label: 'Promo Codes', icon: '🎟️' },
     { id: 'placeholder2', label: 'PLACEHOLDER2', icon: '⚙️' },
   ];
 
@@ -411,7 +415,12 @@ const Test997Page: React.FC = () => {
   // Handle cell click
   const handleCellClick = (rowIndex: number, colIndex: number) => {
     setSelectedCell({ rowIndex, colIndex });
-    setIsEditing(false);
+    // In edit mode, single click enters edit mode immediately
+    if (editMode) {
+      setIsEditing(true);
+    } else {
+      setIsEditing(false);
+    }
   };
 
   // Handle cell double click
@@ -445,7 +454,7 @@ const Test997Page: React.FC = () => {
   const getFormattedCellValue = (product: ProductMember, field: string) => {
     const value = product[field];
     const fieldLower = field.toLowerCase();
-    if (['price', 'listprice', 'map', 'webmsrp'].includes(fieldLower)) {
+    if (['price', 'listprice', 'map', 'webmsrp', 'master_carton_price'].includes(fieldLower)) {
       return formatCurrency(value);
     }
     return String(value || '');
@@ -492,16 +501,8 @@ const Test997Page: React.FC = () => {
     switch (activeTab) {
       case 'products':
         return renderProductsTab();
-      case 'placeholder1':
-        return (
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="text-6xl mb-4">🔧</div>
-              <h2 className="text-2xl font-bold text-gray-700 mb-2">PLACEHOLDER1</h2>
-              <p className="text-gray-500">This tab is currently empty and ready for future content.</p>
-            </div>
-          </div>
-        );
+    case 'placeholder1':
+        return <PromoCodeManager />;
       case 'placeholder2':
         return (
           <div className="flex items-center justify-center h-96">
@@ -543,6 +544,17 @@ const Test997Page: React.FC = () => {
                 }
               </p>
               <div className="flex gap-2">
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  className={`px-4 py-1 rounded text-xs font-medium transition-colors ${
+                    editMode 
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  }`}
+                  title={editMode ? 'Switch to View Mode' : 'Switch to Edit Mode'}
+                >
+                  {editMode ? '✏️ EDIT MODE' : '👁️ VIEW MODE'}
+                </button>
                 <button
                   onClick={autoSizeColumns}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors"
@@ -719,7 +731,7 @@ const Test997Page: React.FC = () => {
         </div>
 
         {/* Spreadsheet Table */}
-        <div className="flex-1 overflow-auto bg-white">
+        <div className={`flex-1 overflow-auto ${editMode ? 'bg-orange-50' : 'bg-white'}`}>
           <table className="border-collapse w-full">
             <thead className="bg-red-100 sticky top-0 z-10">
               <tr>
@@ -859,7 +871,7 @@ const Test997Page: React.FC = () => {
                               )
                             ) : (
                               <div className={`h-4 px-1 flex items-center text-xs cursor-cell truncate ${
-                                ['price', 'listprice', 'map', 'webmsrp'].includes(col.toLowerCase()) ? 'justify-end' : ''
+                                ['price', 'listprice', 'map', 'webmsrp', 'master_carton_price'].includes(col.toLowerCase()) ? 'justify-end' : ''
                               }`} style={{ fontFamily: 'Poppins, sans-serif' }}>
                                 {getFormattedCellValue(product, col)}
                               </div>

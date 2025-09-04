@@ -28,6 +28,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   const [showSuccess, setShowSuccess] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [backorderNetQuantity, setBackorderNetQuantity] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +38,11 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   const isLowStock = product.inventory && product.inventory <= 2;
   // Show backorder for "Low - Call" (≤2) or "Out of Stock" (≤0) when backorder function is available
   const isBackorderOnly = onAddToBackorder && (product.inventory === null || product.inventory <= 2);
+  
+  // Check if quantity exceeds available inventory (for split order feature)
+  const exceedsInventory = !isBackorderOnly && onAddToBackorder && product.inventory !== null && product.inventory > 0 && quantity > product.inventory;
+  const excessQuantity = exceedsInventory ? quantity - (product.inventory || 0) : 0;
+  const cartQuantity = exceedsInventory ? (product.inventory || 0) : quantity;
 
   // Font size classes
   const getFontSizeClass = (element: 'button' | 'input' | 'text') => {
@@ -65,7 +71,10 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
     if (qty < 1) return 'Quantity must be at least 1';
     // For backorder items, allow any quantity
     if (isBackorderOnly) return null;
-    if (qty > maxQuantity) return `Maximum available: ${maxQuantity}`;
+    // If backorder is available and quantity exceeds inventory, allow it (will show checkbox)
+    if (onAddToBackorder && qty > maxQuantity) return null;
+    // For regular items without backorder, enforce inventory limit
+    if (!onAddToBackorder && qty > maxQuantity) return `Maximum available: ${maxQuantity}`;
     return null;
   };
 

@@ -276,21 +276,21 @@ img[alt*="logo"]::after {
   line-height: 1.6 !important;
 }
 
-/* Product Table Specific Font Classes - 25% smaller than standard readable sizes */
+/* Product Table Specific Font Classes - A- increased by 20%, others scaled proportionately */
 .font-product-table-smaller {
-  font-size: 10.5px !important; /* 25% smaller than 14px */
+  font-size: 8.82px !important; /* 20% increase from 7.35px (7.35 * 1.2 = 8.82) */
   line-height: 1.4 !important;
   font-weight: 400;
 }
 
 .font-product-table-standard {
-  font-size: 12px !important; /* 25% smaller than 16px */
+  font-size: 12.6px !important; /* Proportional increase from 10.5px (10.5 * 1.2 = 12.6) */
   line-height: 1.4 !important;
   font-weight: 400;
 }
 
 .font-product-table-larger {
-  font-size: 13.5px !important; /* 25% smaller than 18px */
+  font-size: 14.4px !important; /* Proportional increase from 12px (12 * 1.2 = 14.4) */
   line-height: 1.4 !important;
   font-weight: 400;
 }

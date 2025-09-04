@@ -910,11 +910,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 <p className="mt-1 text-base text-gray-500">{item.description}</p>
                               </div>
                               <div className="flex flex-1 items-center justify-between text-sm mt-2">
-                                {/* Quantity controls - Regular and Backorder */}
-                                <div className="flex flex-col space-y-2">
+                                {/* Quantity controls - Regular and Backorder stacked left-to-right */}
+                                <div className="flex items-center space-x-6">
                                   {/* Regular Quantity Row */}
                                   <div className="flex items-center">
-                                    <span className="text-xs font-medium text-gray-700 w-20">Qty Ordered:</span>
+                                    <span className="text-xs font-medium text-gray-700 mr-2">Qty Ordered:</span>
                                     <button
                                       onClick={() => updateQuantity(item.partnumber, Math.max(0, item.quantity - 1))}
                                       className="p-1 text-gray-500 hover:text-indigo-600"
@@ -938,31 +938,33 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                     </button>
                                   </div>
                                   
-                                  {/* Backorder Quantity Row */}
-                                  <div className="flex items-center">
-                                    <span className="text-xs font-medium text-orange-700 w-20">Qty Backorder:</span>
-                                    <button
-                                      onClick={() => updateBackorderQuantity(item.partnumber, Math.max(0, (item.qtyBackordered || 0) - 1))}
-                                      className="p-1 text-orange-500 hover:text-orange-600"
-                                      aria-label="Decrease backorder quantity"
-                                    >
-                                      <Minus size={14} />
-                                    </button>
-                                    <input
-                                      type="number"
-                                      value={item.qtyBackordered || 0}
-                                      onChange={(e) => updateBackorderQuantity(item.partnumber, Math.max(0, parseInt(e.target.value) || 0))}
-                                      className="w-14 text-center border-orange-300 rounded-md shadow-sm focus:border-orange-500 focus:ring-orange-500 text-sm mx-1 bg-orange-50"
-                                      min="0"
-                                    />
-                                    <button
-                                      onClick={() => updateBackorderQuantity(item.partnumber, (item.qtyBackordered || 0) + 1)}
-                                      className="p-1 text-orange-500 hover:text-orange-600"
-                                      aria-label="Increase backorder quantity"
-                                    >
-                                      <Plus size={14} />
-                                    </button>
-                                  </div>
+                                  {/* Backorder Quantity Row - Only show if qty_backordered > 0 */}
+                                  {(item.qtyBackordered || 0) > 0 && (
+                                    <div className="flex items-center">
+                                      <span className="text-xs font-medium text-orange-700 mr-2">Qty Backorder:</span>
+                                      <button
+                                        onClick={() => updateBackorderQuantity(item.partnumber, Math.max(0, (item.qtyBackordered || 0) - 1))}
+                                        className="p-1 text-orange-500 hover:text-orange-600"
+                                        aria-label="Decrease backorder quantity"
+                                      >
+                                        <Minus size={14} />
+                                      </button>
+                                      <input
+                                        type="number"
+                                        value={item.qtyBackordered || 0}
+                                        onChange={(e) => updateBackorderQuantity(item.partnumber, Math.max(0, parseInt(e.target.value) || 0))}
+                                        className="w-14 text-center border-orange-300 rounded-md shadow-sm focus:border-orange-500 focus:ring-orange-500 text-sm mx-1 bg-orange-50"
+                                        min="0"
+                                      />
+                                      <button
+                                        onClick={() => updateBackorderQuantity(item.partnumber, (item.qtyBackordered || 0) + 1)}
+                                        className="p-1 text-orange-500 hover:text-orange-600"
+                                        aria-label="Increase backorder quantity"
+                                      >
+                                        <Plus size={14} />
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Spacer to push prices and remove button to the right */}

@@ -95,6 +95,10 @@ export interface PromoCode {
   updated_at?: string;
   max_uses_per_account?: number | null;
   uses_per_account_tracking?: boolean;
+  legacy_code?: string;
+  allow_concurrent?: boolean;
+  template?: string;
+  template_config?: Record<string, any>;
 }
 
 export interface PromoCodeUsage {
