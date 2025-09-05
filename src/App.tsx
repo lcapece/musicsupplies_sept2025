@@ -30,7 +30,7 @@ import Account99Dashboard from './pages/Account99Dashboard'; // Import Account 9
 import EnhancedChatWidget from './components/EnhancedChatWidget';
 import ChatPage from './pages/ChatPage';
 import AdminKnowledgeBase from './pages/AdminKnowledgeBase'; // Admin knowledge base management
-import Test997Page from './pages/Test997Page'; // Test997 staff management page
+import ManagerPage from './pages/ManagerPage'; // Manager staff management page
 import { useLocation } from 'react-router-dom';
 import { VersionCheck } from './components/VersionCheck';
 
@@ -309,7 +309,7 @@ function AppContent() {
           path="/manager" 
           element={
             <ProtectedRoute>
-              <Test997Page />
+              <ManagerPage />
             </ProtectedRoute>
           } 
         />
