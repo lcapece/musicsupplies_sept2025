@@ -38,6 +38,7 @@ const Dashboard: React.FC = () => {
   const [showImageAndSpecs, setShowImageAndSpecs] = useState(true); // Changed to true for default checked
   const [showMsrp, setShowMsrp] = useState(true); // New state for showing MSRP column
   const [showMapPrice, setShowMapPrice] = useState(true); // New state for showing MAP Price column
+  const [showMasterCartonPrices, setShowMasterCartonPrices] = useState(true); // New state for showing Master Carton Prices, default checked
   const [selectedProductForImage, setSelectedProductForImage] = useState<Product | null>(null);
   const [rtExtendedData, setRtExtendedData] = useState<RtExtended | null>(null); // New state for rt_extended data
   const [currentImageUrl, setCurrentImageUrl] = useState<string>(''); // State for the image URL to display - start empty to prevent flash
@@ -858,6 +859,19 @@ const Dashboard: React.FC = () => {
                               />
                               <label htmlFor="showMapPrice" className={`ml-2 block ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-900`}>
                                 Show MAP Price
+                              </label>
+                            </div>
+                            
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id="showMasterCartonPrices"
+                                checked={showMasterCartonPrices}
+                                onChange={(e) => setShowMasterCartonPrices(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <label htmlFor="showMasterCartonPrices" className={`ml-2 block ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-900`}>
+                                Show Master Carton Prices
                               </label>
                             </div>
                           </>

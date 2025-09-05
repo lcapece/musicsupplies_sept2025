@@ -53,19 +53,20 @@ const Test997Page: React.FC = () => {
     { ordinal: 2, fieldName: 'description', displayName: 'Short Description' },
     { ordinal: 3, fieldName: 'price', displayName: 'Price' },
     { ordinal: 4, fieldName: 'master_carton_price', displayName: 'M/C Price' },
-    { ordinal: 5, fieldName: 'master_carton_qty', displayName: 'MAST CART QTY' },
+    { ordinal: 5, fieldName: 'master_carton_qty', displayName: 'M/C QTY' },
     { ordinal: 6, fieldName: 'listprice', displayName: 'MSRP' },
     { ordinal: 7, fieldName: 'map', displayName: 'MAP' },
     { ordinal: 8, fieldName: 'upc', displayName: 'UPC' },
     { ordinal: 9, fieldName: 'category', displayName: 'Category' },
     { ordinal: 10, fieldName: 'brand', displayName: 'Brand' },
     { ordinal: 11, fieldName: 'image', displayName: 'Image File' },
-    { ordinal: 12, fieldName: 'inv_max', displayName: 'Inv: Max' },
-    { ordinal: 13, fieldName: 'inv_min', displayName: 'Inv: Min' },
-    { ordinal: 14, fieldName: 'date_created', displayName: 'Created' },
-    { ordinal: 15, fieldName: 'date_edited', displayName: 'Edited' },
-    { ordinal: 16, fieldName: 'vendor', displayName: 'Vendor' },
-    { ordinal: 17, fieldName: 'vendor_part_number', displayName: 'Vendor Part' }
+    { ordinal: 12, fieldName: 'inventory', displayName: 'INVENTORY' },
+    { ordinal: 13, fieldName: 'inv_max', displayName: 'Inv: Max' },
+    { ordinal: 14, fieldName: 'inv_min', displayName: 'Inv: Min' },
+    { ordinal: 15, fieldName: 'date_created', displayName: 'Created' },
+    { ordinal: 16, fieldName: 'date_edited', displayName: 'Edited' },
+    { ordinal: 17, fieldName: 'vendor', displayName: 'Vendor' },
+    { ordinal: 18, fieldName: 'vendor_part_number', displayName: 'Vendor Part' }
   ];
 
   // Tab configuration
