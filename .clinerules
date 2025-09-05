@@ -37,3 +37,13 @@ STOP defaulting to CLI commands and batch files when MCP tools are available!
 - If MCP is unavailable, provide SQL scripts for manual execution
 
 **VIOLATION OF THIS RULE IS STRICTLY PROHIBITED!**
+
+## AUTOCOMMIT RULE
+
+**MANDATORY AFTER EVERY ACT COMPLETION:**
+- Perform a git commit after every Cline "act" completion
+- Commit message format: "AUTOCOMMIT MMDDYY HH:MM"
+- Set version to "RC-M.DD" format where:
+  - M = month number (no leading zeros)
+  - DD = day with leading zero if needed
+  - Example: 9/5 8:46 AM = "RC-9.05.846"
