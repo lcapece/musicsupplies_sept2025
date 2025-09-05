@@ -38,12 +38,12 @@ STOP defaulting to CLI commands and batch files when MCP tools are available!
 
 **VIOLATION OF THIS RULE IS STRICTLY PROHIBITED!**
 
-## AUTOCOMMIT RULE
+## ACV COMMAND RULE
 
-**MANDATORY AFTER EVERY ACT COMPLETION:**
-- Perform a git commit after every Cline "act" completion
-- Commit message format: "AUTOCOMMIT MMDDYY HH:MM"
-- Set version to "RC-M.DD" format where:
-  - M = month number (no leading zeros)
-  - DD = day with leading zero if needed
-  - Example: 9/5 8:46 AM = "RC-9.05.846"
+**WHEN USER TYPES "acv" (EXACTLY THOSE 3 CHARACTERS):**
+- Perform git commit and version workflow immediately
+- Stage all changes with `git add .`
+- Create commit with format: "AUTOCOMMIT MMDDYY HH:MM"
+- Create version tag with format: "RC-M.DD.HMM"
+- DO NOT perform any automatic commits after task completions
+- ONLY perform git operations when user explicitly types "acv"

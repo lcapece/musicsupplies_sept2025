@@ -113,6 +113,7 @@ const PromoCodeManager: React.FC = () => {
   const [templateConfig, setTemplateConfig] = useState<Record<string, any>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [freeItems, setFreeItems] = useState<Array<{part_number: string, description: string}>>([]);
+  const [isFormValid, setIsFormValid] = useState(false);
 
   // Column management state
   const [filteredColumns, setFilteredColumns] = useState<string[]>([]);
@@ -500,6 +501,29 @@ const PromoCodeManager: React.FC = () => {
     setSortedPromoCodes(sorted);
   }, [promoCodes, searchTerm, sortPromoData]);
 
+  // Form validation function
+  const validateForm = useCallback(() => {
+    const requiredFields = ['name', 'code', 'start_date', 'end_date', 'min_order_value'];
+    
+    // Add value as required for non-free product types
+    if (formData.type !== 'free_product') {
+      requiredFields.push('value');
+    }
+    
+    // Check if all required fields have values
+    const isValid = requiredFields.every(field => {
+      const value = formData[field as keyof typeof formData];
+      return value !== undefined && value !== null && value !== '';
+    });
+    
+    return isValid;
+  }, [formData]);
+
+  // Update form validation when formData changes
+  useEffect(() => {
+    setIsFormValid(validateForm());
+  }, [formData, validateForm]);
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
@@ -538,6 +562,8 @@ const PromoCodeManager: React.FC = () => {
       setError(null);
       const dataToSave = {
         ...formData,
+        // Ensure value is never null - set to 0 for free products
+        value: formData.type === 'free_product' ? 0 : (formData.value || 0),
         template_config: templateConfig
       };
 
@@ -870,13 +896,27 @@ const PromoCodeManager: React.FC = () => {
             <form onSubmit={handleSubmit} className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="mb-4 col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Promo Type</label>
+                  <select
+                    name="type"
+                    value={formData.type || 'dollars_off'}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                  >
+                    <option value="dollars_off">Dollars Off</option>
+                    <option value="percent_off">Percent Off</option>
+                    <option value="free_product">Free Product or Gift</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+                <div className="mb-4 col-span-1 md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">Promo Name</label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name || ''}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     required
                   />
                 </div>
@@ -887,7 +927,7 @@ const PromoCodeManager: React.FC = () => {
                     name="code"
                     value={formData.code || ''}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     required
                   />
                 </div>
@@ -898,7 +938,7 @@ const PromoCodeManager: React.FC = () => {
                     value={formData.legacy_code || ''}
                     onChange={handleInputChange}
                     disabled={formData.type !== 'free_product'}
-                    className={`mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${
+                    className={`mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${
                       formData.type !== 'free_product' ? 'bg-gray-100 text-gray-400' : ''
                     }`}
                   >
@@ -911,27 +951,13 @@ const PromoCodeManager: React.FC = () => {
                   </select>
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Discount Type</label>
-                  <select
-                    name="type"
-                    value={formData.type || 'dollars_off'}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  >
-                    <option value="dollars_off">Dollars Off</option>
-                    <option value="percent_off">Percent Off</option>
-                    <option value="free_product">Free Product or Gift</option>
-                    <option value="advanced">Advanced</option>
-                  </select>
-                </div>
-                <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Start Date</label>
                   <input
                     type="date"
                     name="start_date"
                     value={formData.start_date || ''}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     required
                   />
                 </div>
@@ -942,21 +968,37 @@ const PromoCodeManager: React.FC = () => {
                     name="end_date"
                     value={formData.end_date || ''}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     required
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Discount Value</label>
-                  <input
-                    type="number"
-                    name="value"
-                    step="0.01"
-                    value={formData.value || ''}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700">
+                    {formData.type === 'percent_off' ? 'Percent Off' : 'Discount Value'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="value"
+                      step="0.01"
+                      value={formData.type === 'percent_off' && formData.value ? String(formData.value).replace('%', '') : (formData.value || '')}
+                      onChange={(e) => {
+                        const { name, value } = e.target;
+                        const numericValue = formData.type === 'percent_off' ? parseFloat(value) || 0 : parseFloat(value) || 0;
+                        setFormData(prev => ({ ...prev, [name]: numericValue }));
+                      }}
+                      disabled={formData.type === 'free_product'}
+                      className={`mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${
+                        formData.type === 'free_product' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                      } ${formData.type === 'percent_off' ? 'pr-8' : ''}`}
+                      required={formData.type !== 'free_product'}
+                    />
+                    {formData.type === 'percent_off' && (
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <span className="text-gray-500">%</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Minimum Order Value ($)</label>
@@ -966,7 +1008,7 @@ const PromoCodeManager: React.FC = () => {
                     step="0.01"
                     value={formData.min_order_value || ''}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     required
                   />
                 </div>
@@ -977,7 +1019,7 @@ const PromoCodeManager: React.FC = () => {
                     name="max_uses_per_account"
                     value={formData.max_uses_per_account || ''}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                   />
                 </div>
                 <div className="mb-4">
@@ -987,7 +1029,7 @@ const PromoCodeManager: React.FC = () => {
                     name="max_uses"
                     value={formData.max_uses || ''}
                     onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                   />
                 </div>
                 {formData.type === 'advanced' && (
@@ -997,7 +1039,7 @@ const PromoCodeManager: React.FC = () => {
                       name="template"
                       value={formData.template || ''}
                       onChange={handleTemplateChange}
-                      className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                      className="mt-1 block w-full rounded-md border-gray-700 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     >
                       <option value="">Select a template...</option>
                       {TEMPLATES.map(template => (
@@ -1052,20 +1094,37 @@ const PromoCodeManager: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end mt-4 border-t pt-4">
+              <div className="flex justify-between mt-4 border-t pt-4">
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-3"
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  Cancel
+                  Close
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  {isEditing ? 'Update' : 'Create'}
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Cancel
+                  </button>
+                  <div className="relative">
+                    <button
+                      type="submit"
+                      disabled={!isFormValid}
+                      title={!isFormValid ? "Please fill out all required fields" : ""}
+                      className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                        isFormValid
+                          ? 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                          : 'text-gray-500 bg-gray-300 cursor-not-allowed'
+                      }`}
+                    >
+                      {isEditing ? 'Update' : 'Create'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </form>
           </div>

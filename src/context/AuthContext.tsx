@@ -43,6 +43,8 @@ interface AuthContextType {
   resolvedAccountNumber: string | null;
   closePasswordInitializationModal: () => void;
   isDemoMode: boolean;
+  showPromotionsLoginModal: boolean;
+  closePromotionsLoginModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -74,6 +76,8 @@ const AuthContext = createContext<AuthContextType>({
   resolvedAccountNumber: null,
   closePasswordInitializationModal: () => {},
   isDemoMode: false,
+  showPromotionsLoginModal: false,
+  closePromotionsLoginModal: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -95,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [needsPasswordInitialization, setNeedsPasswordInitialization] = useState<boolean>(false);
   const [resolvedAccountNumber, setResolvedAccountNumber] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [showPromotionsLoginModal, setShowPromotionsLoginModal] = useState<boolean>(false);
 
   // Function to calculate the highest eligible discount for a user
   const calculateBestDiscount = async (accountNumber: string): Promise<void> => {
@@ -772,6 +777,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Modal logic based on requires_password_change
       if (userData.requires_password_change) {
         setShowPasswordChangeModal(true);
+      } else {
+        // Show promotions modal for regular customers (not admin accounts)
+        const accountNum = parseInt(userData.accountNumber, 10);
+        if (!isNaN(accountNum) && accountNum !== 999 && accountNum !== 99) {
+          setShowPromotionsLoginModal(true);
+        }
       }
 
       await calculateBestDiscount(userData.accountNumber);
@@ -972,6 +983,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (claimsError) {
         console.error('[AuthContext] Failed to set JWT claims after 2FA:', claimsError);
+      }
+
+      // Show promotions modal for regular customers after 2FA (not admin accounts)
+      const accountNumber2FA = parseInt(userData.accountNumber, 10);
+      if (!isNaN(accountNumber2FA) && accountNumber2FA !== 999 && accountNumber2FA !== 99) {
+        setShowPromotionsLoginModal(true);
       }
 
       await calculateBestDiscount(userData.accountNumber);
@@ -1261,6 +1278,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const closePromotionsLoginModal = () => setShowPromotionsLoginModal(false);
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -1290,7 +1309,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       needsPasswordInitialization,
       resolvedAccountNumber,
       closePasswordInitializationModal,
-      isDemoMode
+      isDemoMode,
+      showPromotionsLoginModal,
+      closePromotionsLoginModal
     }}>
       {children}
     </AuthContext.Provider>

@@ -54,6 +54,7 @@ const Dashboard: React.FC = () => {
     additional: '',
     exclude: ''
   });
+  const [exactMatches, setExactMatches] = useState<Set<string>>(new Set()); // Track exact part number matches
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [promoStatusData, setPromoStatusData] = useState<PromotionalOffersStatus | null>(null);
   const [showPromoCodePopup, setShowPromoCodePopup] = useState(false); // State for PromoCodePopup
@@ -539,26 +540,25 @@ const Dashboard: React.FC = () => {
       //   console.log('Filtered out promo codes from product search:', promoCodeList);
       // }
 
-      // TEMPORARILY DISABLED FOR DEBUGGING - search terms filtering
       // Apply search terms - handle AND logic properly
       // When both primary and additional are present, we need to fetch broader set and filter client-side
-      // if (searchTerms.primary || searchTerms.additional) {
-      //   if (searchTerms.primary && searchTerms.additional) {
-      //     // For AND logic, we first get all products matching primary term
-      //     query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);
-      //   } else if (searchTerms.primary) {
-      //     // Only primary search term
-      //     query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);
-      //   } else if (searchTerms.additional) {
-      //     // Only additional search term (when primary is empty)
-      //     query = query.or(`partnumber.ilike.%${searchTerms.additional}%,description.ilike.%${searchTerms.additional}%`);
-      //   }
-      // }
+      if (searchTerms.primary || searchTerms.additional) {
+        if (searchTerms.primary && searchTerms.additional) {
+          // For AND logic, we first get all products matching primary term
+          query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%,brand.ilike.%${searchTerms.primary}%`);
+        } else if (searchTerms.primary) {
+          // Only primary search term - search partnumber, description, and brand
+          query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%,brand.ilike.%${searchTerms.primary}%`);
+        } else if (searchTerms.additional) {
+          // Only additional search term (when primary is empty)
+          query = query.or(`partnumber.ilike.%${searchTerms.additional}%,description.ilike.%${searchTerms.additional}%,brand.ilike.%${searchTerms.additional}%`);
+        }
+      }
 
-      // TEMPORARILY DISABLED FOR DEBUGGING - inStockOnly filter
-      // if (inStockOnly) {
-      //   query = query.gt('inventory', 0);
-      // }
+      // Apply in-stock filter
+      if (inStockOnly) {
+        query = query.gt('inventory', 0);
+      }
 
       const { data, error } = await query;
 
@@ -569,31 +569,58 @@ const Dashboard: React.FC = () => {
 
       let filteredData = data || [];
 
-      // TEMPORARILY DISABLED FOR DEBUGGING - client-side filtering
-      // CRITICAL FIX: Apply AND logic client-side for additional term
-      // if (searchTerms.primary && searchTerms.additional && filteredData.length > 0) {
-      //   const additionalLower = searchTerms.additional.toLowerCase();
-      //   filteredData = filteredData.filter(product => {
-      //     const partnumberMatch = product.partnumber?.toLowerCase().includes(additionalLower) || false;
-      //     const descriptionMatch = product.description?.toLowerCase().includes(additionalLower) || false;
-      //     return partnumberMatch || descriptionMatch;
-      //   });
-      //   console.log(`Applied AND filter for additional term "${searchTerms.additional}": ${data.length} -> ${filteredData.length} products`);
-      // }
+      // Apply AND logic client-side for additional term
+      if (searchTerms.primary && searchTerms.additional && filteredData.length > 0) {
+        const additionalLower = searchTerms.additional.toLowerCase();
+        filteredData = filteredData.filter(product => {
+          const partnumberMatch = product.partnumber?.toLowerCase().includes(additionalLower) || false;
+          const descriptionMatch = product.description?.toLowerCase().includes(additionalLower) || false;
+          const brandMatch = product.brand?.toLowerCase().includes(additionalLower) || false;
+          return partnumberMatch || descriptionMatch || brandMatch;
+        });
+        console.log(`Applied AND filter for additional term "${searchTerms.additional}": ${data.length} -> ${filteredData.length} products`);
+      }
 
-      // CRITICAL FIX: Apply exclude filter client-side for better control
-      // if (searchTerms.exclude && filteredData.length > 0) {
-      //   const excludeLower = searchTerms.exclude.toLowerCase();
-      //   filteredData = filteredData.filter(product => {
-      //     const partnumberHasExclude = product.partnumber?.toLowerCase().includes(excludeLower) || false;
-      //     const descriptionHasExclude = product.description?.toLowerCase().includes(excludeLower) || false;
-      //     // Keep product only if exclude term is NOT in either field
-      //     return !partnumberHasExclude && !descriptionHasExclude;
-      //   });
-      //   console.log(`Applied exclude filter for "${searchTerms.exclude}": ${filteredData.length} products remaining`);
-      // }
+      // Apply exclude filter client-side for better control
+      if (searchTerms.exclude && filteredData.length > 0) {
+        const excludeLower = searchTerms.exclude.toLowerCase();
+        filteredData = filteredData.filter(product => {
+          const partnumberHasExclude = product.partnumber?.toLowerCase().includes(excludeLower) || false;
+          const descriptionHasExclude = product.description?.toLowerCase().includes(excludeLower) || false;
+          const brandHasExclude = product.brand?.toLowerCase().includes(excludeLower) || false;
+          // Keep product only if exclude term is NOT in any field
+          return !partnumberHasExclude && !descriptionHasExclude && !brandHasExclude;
+        });
+        console.log(`Applied exclude filter for "${searchTerms.exclude}": ${filteredData.length} products remaining`);
+      }
 
-      const finalData = filteredData;
+      // CRITICAL: Exact part number match prioritization
+      let finalData = filteredData;
+      const newExactMatches = new Set<string>();
+      
+      if (searchTerms.primary && filteredData.length > 0) {
+        const primaryLower = searchTerms.primary.toLowerCase();
+        const exactMatchProducts: Product[] = [];
+        const wildcardMatches: Product[] = [];
+        
+        filteredData.forEach(product => {
+          if (product.partnumber?.toLowerCase() === primaryLower) {
+            exactMatchProducts.push(product);
+            newExactMatches.add(product.partnumber); // Track exact matches for highlighting
+          } else {
+            wildcardMatches.push(product);
+          }
+        });
+        
+        // Combine exact matches first, then wildcard matches
+        if (exactMatchProducts.length > 0) {
+          finalData = [...exactMatchProducts, ...wildcardMatches];
+          console.log(`Prioritized ${exactMatchProducts.length} exact part number matches for "${searchTerms.primary}"`);
+        }
+      }
+      
+      // Update exact matches state for highlighting
+      setExactMatches(newExactMatches);
 
       // Log the fetched data
       console.log('Fetched raw product data:', data);
@@ -905,6 +932,7 @@ const Dashboard: React.FC = () => {
                           fontSize={fontSize}
                           onFontSizeChange={setFontSize}
                           enableFiltering={false} // Disable table filters for customer interface
+                          exactMatches={exactMatches} // Pass exact matches for highlighting
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (

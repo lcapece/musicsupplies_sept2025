@@ -18,6 +18,7 @@ interface ProductTableProps {
   fontSize?: 'smaller' | 'standard' | 'larger';
   onFontSizeChange?: (size: 'smaller' | 'standard' | 'larger') => void;
   enableFiltering?: boolean; // Whether to show filtering controls
+  exactMatches?: Set<string>; // Set of part numbers that are exact matches for highlighting
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
@@ -32,7 +33,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
   showMapPrice = true, // Default to true
   fontSize = 'standard',
   onFontSizeChange,
-  enableFiltering = true // Default to true
+  enableFiltering = true, // Default to true
+  exactMatches = new Set() // Default to empty set
 }) => {
   const { addToCart, addToBackorder, isCartReady } = useCart();
   const { isDemoMode } = useAuth();
@@ -742,10 +744,17 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedProducts.map((product) => (
+                {paginatedProducts.map((product) => {
+                  // Check if this product is an exact match
+                  const isExactMatch = exactMatches.has(product.partnumber);
+                  
+                  return (
                   <tr 
                     key={product.partnumber} 
-                    className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''} ${selectedProductId === product.partnumber ? 'bg-blue-50' : ''}`}
+                    className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''} ${
+                      selectedProductId === product.partnumber ? 'bg-blue-50' : 
+                      isExactMatch ? 'bg-green-100' : ''
+                    }`}
                     onClick={() => {
                       if (onRowClick) {
                         setSelectedProductId(product.partnumber);
@@ -818,7 +827,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -22,12 +22,12 @@ const CartRestorationModal: React.FC<CartRestorationModalProps> = ({
         <div className="flex items-center mb-4">
           <ShoppingCart className="h-6 w-6 text-blue-600 mr-2" />
           <h2 className="text-xl font-semibold text-gray-900">
-            Cart Items Found
+            Cart Items Reminder
           </h2>
         </div>
         
         <p className="text-gray-700 mb-6">
-          Your cart has items from a previous session. What would you like to do?
+          Please note that you have items left in your cart. Please remove them if not needed.
         </p>
         
         <div className="space-y-3">

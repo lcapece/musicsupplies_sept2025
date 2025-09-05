@@ -33,6 +33,9 @@ import AdminKnowledgeBase from './pages/AdminKnowledgeBase'; // Admin knowledge 
 import ManagerPage from './pages/ManagerPage'; // Manager staff management page
 import { useLocation } from 'react-router-dom';
 import { VersionCheck } from './components/VersionCheck';
+import CartRestorationModal from './components/CartRestorationModal';
+import PromotionsLoginModal from './components/PromotionsLoginModal';
+import { useCart } from './context/CartContext';
 
 
 interface ProtectedRouteProps {
@@ -124,8 +127,16 @@ function AppContent() {
     handlePasswordModalClose, 
     showDiscountFormModal,
     closeDiscountFormModal,
-    isSpecialAdmin
+    isSpecialAdmin,
+    showPromotionsLoginModal,
+    closePromotionsLoginModal
   } = useAuth();
+  
+  const { 
+    showCartRestorationModal, 
+    dismissCartRestoration, 
+    emptyEntireCart 
+  } = useCart();
   
   // For error handling
   const [dbUpdateError, setDbUpdateError] = useState<boolean>(false);
@@ -331,6 +342,33 @@ function AppContent() {
         <DiscountFormModal
           isOpen={showDiscountFormModal}
           onClose={closeDiscountFormModal}
+        />
+      )}
+
+      {/* Cart Restoration Modal */}
+      {showCartRestorationModal && (
+        <CartRestorationModal
+          isOpen={showCartRestorationModal}
+          onGoToCart={() => {
+            dismissCartRestoration();
+            // Navigate to shopping page where cart is accessible
+            window.location.href = '/shopping';
+          }}
+          onContinueShopping={() => {
+            dismissCartRestoration();
+          }}
+          onEmptyCart={async () => {
+            await emptyEntireCart();
+            dismissCartRestoration();
+          }}
+        />
+      )}
+
+      {/* Promotions Login Modal */}
+      {showPromotionsLoginModal && (
+        <PromotionsLoginModal
+          isOpen={showPromotionsLoginModal}
+          onClose={closePromotionsLoginModal}
         />
       )}
 

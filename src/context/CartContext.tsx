@@ -36,6 +36,10 @@ interface CartContextType {
   fetchAvailablePromoCodes: () => Promise<void>;
   isLoadingPromoCodes: boolean;
   isPromoCodeAutoApplied: boolean;
+  // NEW: Auto-applied promo functionality
+  appliedPromoCodes: PromoCodeValidity[];
+  autoAppliedPromoItems: CartItem[];
+  qualifyingSubtotal: number;
   // CRITICAL FIX: Add cart readiness state
   isCartReady: boolean;
   // Cart restoration features
@@ -65,6 +69,10 @@ const CartContext = createContext<CartContextType>({
   fetchAvailablePromoCodes: async () => {},
   isLoadingPromoCodes: false,
   isPromoCodeAutoApplied: false,
+  // NEW: Auto-applied promo functionality
+  appliedPromoCodes: [],
+  autoAppliedPromoItems: [],
+  qualifyingSubtotal: 0,
   // CRITICAL FIX: Add default cart readiness state
   isCartReady: false,
   // Cart restoration features
@@ -79,26 +87,7 @@ export const useCart = () => useContext(CartContext);
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // IMPROVED FIX: Simplified cart readiness without arbitrary delays
   const [isCartReady, setIsCartReady] = useState(true);
-  const [items, setItems] = useState<CartItem[]>(() => {
-    // Use sessionStorage for better security (cleared when browser closes)
-    const savedCart = sessionStorage.getItem('cart');
-    if (savedCart) {
-      try {
-        const parsedItems = JSON.parse(savedCart);
-        if (Array.isArray(parsedItems) && parsedItems.every(item => typeof item.partnumber === 'string' && typeof item.quantity === 'number')) {
-          return parsedItems;
-        }
-        sessionStorage.removeItem('cart');
-        return [];
-      } catch (e) {
-        sessionStorage.removeItem('cart');
-        return [];
-      }
-    }
-    // Also clean up any old localStorage cart data
-    localStorage.removeItem('cart');
-    return [];
-  });
+  const [items, setItems] = useState<CartItem[]>([]);
 
   const { user } = useAuth();
   // Ensure a stable cart identifier for event correlation
@@ -119,11 +108,61 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showCartRestorationModal, setShowCartRestorationModal] = useState(false);
   const [inventoryIssues, setInventoryIssues] = useState<{ [partnumber: string]: { available: number; requested: number } }>({});
   
+  // Save cart to database whenever items change
   useEffect(() => {
-    // Use sessionStorage for better security
-    sessionStorage.setItem('cart', JSON.stringify(items));
-    console.log('Cart state updated:', items);
-  }, [items]);
+    const saveCartToDatabase = async () => {
+      if (user && user.accountNumber && items.length >= 0) { // Save even empty carts
+        try {
+          await supabase.rpc('save_user_cart', {
+            p_account_number: parseInt(user.accountNumber, 10),
+            p_cart_data: JSON.stringify(items)
+          });
+          console.log('Cart saved to database for account:', user.accountNumber);
+        } catch (error) {
+          console.error('Error saving cart to database:', error);
+        }
+      }
+    };
+
+    // Debounce cart saves to avoid too many database calls
+    const saveTimeout = setTimeout(saveCartToDatabase, 500);
+    return () => clearTimeout(saveTimeout);
+  }, [items, user]);
+
+  // Load cart from database when user logs in
+  useEffect(() => {
+    const loadCartFromDatabase = async () => {
+      if (user && user.accountNumber) {
+        try {
+          const { data: cartData } = await supabase.rpc('get_user_cart', {
+            p_account_number: parseInt(user.accountNumber, 10)
+          });
+
+          if (cartData && Array.isArray(cartData) && cartData.length > 0) {
+            // Check if current cart is empty but database has items
+            if (items.length === 0) {
+              console.log('Found saved cart in database, showing restoration modal');
+              setItems(cartData);
+              setShowCartRestorationModal(true);
+            } else if (items.length > 0) {
+              // User has items in current cart and database cart - merge or ask
+              console.log('User has items in both current cart and database');
+              // For now, we'll keep current cart and not show modal
+              // In future, could implement merge functionality
+            }
+          }
+        } catch (error) {
+          console.error('Error loading cart from database:', error);
+        }
+      }
+    };
+
+    // Only load once when user first logs in
+    if (user && user.accountNumber && !showCartRestorationModal) {
+      const loadTimeout = setTimeout(loadCartFromDatabase, 1000);
+      return () => clearTimeout(loadTimeout);
+    }
+  }, [user?.accountNumber]); // Only trigger when account number changes (login/logout)
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const totalPrice = items.reduce((total, item) => total + ((item.price || 0) * item.quantity), 0);
@@ -218,41 +257,65 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // TEMPORARILY DISABLED: Auto-apply best promo code when conditions are met (but not immediately when items change)
-  // useEffect(() => {
-  //   const autoApplyBestPromoCode = async () => {
-  //     // Only auto-apply if:
-  //     // 1. User is logged in
-  //     // 2. Cart has items
-  //     // 3. No promo code is currently applied
-  //     // 4. Available promo codes exist
-  //     // 5. Cart has been stable for a bit (not just added items)
-  //     if (!user || !user.accountNumber || items.length === 0 || appliedPromoCode || availablePromoCodes.length === 0) {
-  //       return;
-  //     }
+  // CRITICAL: Auto-apply ALL qualifying promo codes automatically
+  const [appliedPromoCodes, setAppliedPromoCodes] = useState<PromoCodeValidity[]>([]);
+  const [autoAppliedPromoItems, setAutoAppliedPromoItems] = useState<CartItem[]>([]);
+  
+  // Calculate subtotal excluding backorder items (for promo qualification)
+  const qualifyingSubtotal = items.reduce((total, item) => total + ((item.price || 0) * item.quantity), 0);
+  
+  // Auto-apply ALL qualifying promo codes when conditions change
+  useEffect(() => {
+    const autoApplyAllQualifyingPromoCodes = async () => {
+      if (!user || !user.accountNumber || items.length === 0 || availablePromoCodes.length === 0) {
+        // Clear applied promos if no items or no available promos
+        setAppliedPromoCodes([]);
+        setAutoAppliedPromoItems([]);
+        return;
+      }
 
-  //     // Find the best promo code that meets the minimum order requirement
-  //     const bestPromo = availablePromoCodes.find(promo => 
-  //       promo.is_best && totalPrice >= promo.min_order_value
-  //     );
+      const newAppliedPromoCodes: PromoCodeValidity[] = [];
+      const newPromoItems: CartItem[] = [];
 
-  //     if (bestPromo) {
-  //       try {
-  //         console.log('Auto-applying best promo code:', bestPromo.code);
-  //         const result = await applyPromoCode(bestPromo.code, true); // Pass true for isAutoApplied
-  //         if (result.is_valid) {
-  //           console.log('Auto-applied promo code successfully:', bestPromo.code);
-  //         }
-  //       } catch (error) {
-  //         console.error('Error auto-applying promo code:', error);
-  //       }
-  //     }
-  //   };
+      // Process each available promo code
+      for (const availablePromo of availablePromoCodes) {
+        // Check if this promo qualifies based on qualifying subtotal (excluding backorders)
+        if (qualifyingSubtotal >= availablePromo.min_order_value) {
+          try {
+            console.log('Auto-applying qualifying promo code:', availablePromo.code);
+            const result = await applyPromoCode(availablePromo.code, true);
+            
+            if (result.is_valid) {
+              newAppliedPromoCodes.push(result);
+              
+              // Add promo as a cart line item
+              if (result.code && result.discount_amount && result.discount_amount > 0) {
+                const promoItem: CartItem = {
+                  partnumber: result.code,
+                  description: result.product_description || result.message || 'Promo Code Discount',
+                  price: -result.discount_amount, // Negative price for discount
+                  quantity: 1,
+                  inventory: null, // No inventory tracking for promo items
+                  image: undefined // No image for promo items
+                };
+                newPromoItems.push(promoItem);
+              }
+            }
+          } catch (error) {
+            console.error('Error auto-applying promo code:', availablePromo.code, error);
+          }
+        }
+      }
 
-  //   // Add a longer delay to avoid interfering with cart operations
-  //   const timeoutId = setTimeout(autoApplyBestPromoCode, 2000);
-  //   return () => clearTimeout(timeoutId);
-  // }, [availablePromoCodes, appliedPromoCode, user]); // Removed items.length and totalPrice dependencies
+      setAppliedPromoCodes(newAppliedPromoCodes);
+      setAutoAppliedPromoItems(newPromoItems);
+      console.log(`Auto-applied ${newAppliedPromoCodes.length} qualifying promo codes`);
+    };
+
+    // Add delay to ensure cart state is stable before applying promos
+    const timeoutId = setTimeout(autoApplyAllQualifyingPromoCodes, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [availablePromoCodes, qualifyingSubtotal, user?.accountNumber, items.length]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
     console.log('CartContext: Adding to cart:', product.partnumber, 'quantity:', quantity);
@@ -782,22 +845,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore
     }
 
-    let discountPartNumber: string | null = null;
-    let discountDescription: string | null = null;
-    let finalDiscountAmount = 0;
-    let appliedDiscountRate = 0; // This will be a fraction, e.g., 0.05 for 5%
+    // Calculate total discount from all auto-applied promo codes
+    let finalDiscountAmount = appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0);
     let orderComments = `Payment Method: ${paymentMethod}. Customer Email: ${customerEmail}, Phone: ${customerPhone}`;
-    let promoCodeUsedInThisOrder = false;
+    let promoCodesUsedInThisOrder = appliedPromoCodes.length > 0;
 
-    // Apply Promo Code discount if available
-    if (appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount && items.length > 0) {
-      finalDiscountAmount = appliedPromoCode.discount_amount;
-      // PHASE 2: Use actual promo code as partnumber (e.g., "SAVE10")
-      discountPartNumber = appliedPromoCode.code || null;
-      // Use description from products table
-      discountDescription = appliedPromoCode.product_description || appliedPromoCode.message || 'Promo Code Discount';
-      orderComments += ` | ${discountDescription} ($${finalDiscountAmount.toFixed(2)})`;
-      promoCodeUsedInThisOrder = true;
+    // Add comments for all applied promo codes
+    if (promoCodesUsedInThisOrder) {
+      const promoComments = appliedPromoCodes.map(promo => 
+        `${promo.message || promo.code} ($${(promo.discount_amount || 0).toFixed(2)})`
+      ).join(', ');
+      orderComments += ` | PROMOS APPLIED: ${promoComments}`;
     }
 
     const orderItems = items.map(item => ({ 
@@ -805,16 +863,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       price: item.price || 0, extended_price: (item.price || 0) * item.quantity
     }));
 
-    // PHASE 2: Add promo code as line item with actual promo code partnumber
-    if (promoCodeUsedInThisOrder && discountPartNumber && finalDiscountAmount > 0) {
-      orderItems.push({
-        partnumber: discountPartNumber, // Now uses actual promo code (e.g., "SAVE10")
-        description: discountDescription || 'Promo Code Discount',
-        quantity: 1, 
-        price: -finalDiscountAmount, // Negative price for discount
-        extended_price: -finalDiscountAmount
-      });
-    }
+    // CRITICAL: Add ALL auto-applied promo codes as line items
+    appliedPromoCodes.forEach(promo => {
+      if (promo.is_valid && promo.discount_amount && promo.discount_amount > 0) {
+        orderItems.push({
+          partnumber: promo.code || 'PROMO',
+          description: promo.product_description || promo.message || 'Promo Code Discount',
+          quantity: 1, 
+          price: -promo.discount_amount, // Negative price for discount
+          extended_price: -promo.discount_amount
+        });
+      }
+    });
 
     // Add special line items at the end (per requirements)
     // Add PO Reference if provided
@@ -903,23 +963,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore
       }
 
-      // Record promo code usage if applicable
-      if (promoCodeUsedInThisOrder && appliedPromoCode && appliedPromoCode.promo_id) {
-        try {
-          console.log(`Recording promo code usage for account: ${accountNumberInt}, order ID: ${insertedOrder.id}`);
-          await supabase.rpc('record_promo_code_usage', {
-            p_promo_id: appliedPromoCode.promo_id,
-            p_account_number: user.accountNumber,
-            p_order_id: insertedOrder.id,
-            p_order_value: totalPrice,
-            p_discount_amount: appliedPromoCode.discount_amount || 0
-          });
-          console.log('Promo code usage recorded.');
-          // Clear the applied promo code after successful order
-          setAppliedPromoCode(null);
-        } catch (promoCodeUsageError) {
-          console.error('Error recording promo code usage:', promoCodeUsageError);
+      // Record usage for ALL applied promo codes
+      if (promoCodesUsedInThisOrder && appliedPromoCodes.length > 0) {
+        for (const promo of appliedPromoCodes) {
+          if (promo.promo_id) {
+            try {
+              console.log(`Recording promo code usage for ${promo.code}, account: ${accountNumberInt}, order ID: ${insertedOrder.id}`);
+              await supabase.rpc('record_promo_code_usage', {
+                p_promo_id: promo.promo_id,
+                p_account_number: user.accountNumber,
+                p_order_id: insertedOrder.id,
+                p_order_value: totalPrice,
+                p_discount_amount: promo.discount_amount || 0
+              });
+              console.log(`Promo code usage recorded for ${promo.code}.`);
+            } catch (promoCodeUsageError) {
+              console.error(`Error recording promo code usage for ${promo.code}:`, promoCodeUsageError);
+            }
+          }
         }
+        // Clear all applied promo codes after successful order
+        setAppliedPromoCodes([]);
+        setAutoAppliedPromoItems([]);
+        setAppliedPromoCode(null);
       }
       
       clearCart();
@@ -964,7 +1030,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalItems, totalPrice, placeOrder,
       applyPromoCode, removePromoCode, appliedPromoCode,
       availablePromoCodes, fetchAvailablePromoCodes, isLoadingPromoCodes,
-      isPromoCodeAutoApplied, isCartReady,
+      isPromoCodeAutoApplied, 
+      // NEW: Auto-applied promo functionality
+      appliedPromoCodes, autoAppliedPromoItems, qualifyingSubtotal,
+      isCartReady,
       showCartRestorationModal, restoreCartFromDatabase, dismissCartRestoration, inventoryIssues
     }}>
       {children}
