@@ -33,7 +33,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     // NEW: Auto-applied promo functionality
     appliedPromoCodes,
     autoAppliedPromoItems,
-    qualifyingSubtotal
+    qualifyingSubtotal,
+    // NEW: Cancel order function
+    cancelOrderWithConfirmation
   } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -1229,21 +1231,40 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                       </button>
                     )}
                   </div>
-                  <div className="mt-6 flex justify-center text-center text-sm text-gray-500">
-                    <p>
-                      or{' '}
+                  <div className="mt-6 space-y-3">
+                    {/* NEW: Cancel Order Button - Only show when cart has items */}
+                    {items.length > 0 && !isCheckingOut && (
                       <button
-                        type="button"
-                        className="font-medium text-indigo-600 hover:text-indigo-500"
-                        onClick={() => {
-                          if (isCheckingOut) setIsCheckingOut(false);
-                          else onClose();
+                        onClick={async () => {
+                          const cancelled = await cancelOrderWithConfirmation();
+                          if (cancelled) {
+                            onClose(); // Close cart after successful cancellation
+                          }
                         }}
+                        className="w-full flex items-center justify-center rounded-md border border-red-500 bg-red-50 px-6 py-2 text-base font-medium text-red-700 shadow-sm hover:bg-red-100 hover:text-red-800 transition-colors"
+                        title="Remove all items from cart"
                       >
-                        {isCheckingOut ? 'Back to Cart' : 'Continue Shopping'}
-                        <span aria-hidden="true"> &rarr;</span>
+                        <Trash2 size={18} className="mr-2" />
+                        Cancel Order
                       </button>
-                    </p>
+                    )}
+                    
+                    <div className="flex justify-center text-center text-sm text-gray-500">
+                      <p>
+                        or{' '}
+                        <button
+                          type="button"
+                          className="font-medium text-indigo-600 hover:text-indigo-500"
+                          onClick={() => {
+                            if (isCheckingOut) setIsCheckingOut(false);
+                            else onClose();
+                          }}
+                        >
+                          {isCheckingOut ? 'Back to Cart' : 'Continue Shopping'}
+                          <span aria-hidden="true"> &rarr;</span>
+                        </button>
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

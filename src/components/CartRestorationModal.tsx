@@ -1,59 +1,65 @@
 import React from 'react';
-import { ShoppingCart, Trash2, ArrowRight } from 'lucide-react';
+import { ShoppingCart, ArrowRight } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 interface CartRestorationModalProps {
   isOpen: boolean;
   onGoToCart: () => void;
   onContinueShopping: () => void;
-  onEmptyCart: () => void;
 }
 
 const CartRestorationModal: React.FC<CartRestorationModalProps> = ({
   isOpen,
   onGoToCart,
-  onContinueShopping,
-  onEmptyCart
+  onContinueShopping
 }) => {
+  const { restoreCartFromDatabase, dismissCartRestoration } = useCart();
+
+  const handleGoToCart = async () => {
+    await restoreCartFromDatabase();
+    onGoToCart();
+  };
+
+  const handleContinueShopping = () => {
+    dismissCartRestoration();
+    onContinueShopping();
+  };
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <div className="flex items-center mb-4">
-          <ShoppingCart className="h-6 w-6 text-blue-600 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-900">
-            Cart Items Reminder
-          </h2>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40">
+      <div className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 border-4 border-blue-400">
+        <div className="bg-gradient-to-r from-blue-700 to-blue-800 px-6 py-4 text-white rounded-t-lg">
+          <div className="flex items-center">
+            <ShoppingCart className="h-6 w-6 text-yellow-300 mr-2" />
+            <h2 className="text-xl font-bold">
+              CART ITEMS FOUND!
+            </h2>
+          </div>
         </div>
         
-        <p className="text-gray-700 mb-6">
-          Please note that you have items left in your cart. Please remove them if not needed.
-        </p>
-        
-        <div className="space-y-3">
-          <button
-            onClick={onGoToCart}
-            className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Go to Cart
-          </button>
+        <div className="p-6">
+          <p className="text-gray-800 mb-6 font-medium">
+            Reminder: You have items in your cart from your last visit. Do you want to go to the cart now?
+          </p>
           
-          <button
-            onClick={onContinueShopping}
-            className="w-full flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            <ArrowRight className="h-4 w-4 mr-2" />
-            Continue Shopping
-          </button>
-          
-          <button
-            onClick={onEmptyCart}
-            className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Empty out my Cart
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={handleGoToCart}
+              className="w-full flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold shadow-lg"
+            >
+              <ShoppingCart className="h-5 w-5 mr-2" />
+              YES - GO TO CART
+            </button>
+            
+            <button
+              onClick={handleContinueShopping}
+              className="w-full flex items-center justify-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-bold"
+            >
+              <ArrowRight className="h-5 w-5 mr-2" />
+              NO - CONTINUE SHOPPING
+            </button>
+          </div>
         </div>
       </div>
     </div>

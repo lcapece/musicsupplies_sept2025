@@ -350,16 +350,13 @@ function AppContent() {
         <CartRestorationModal
           isOpen={showCartRestorationModal}
           onGoToCart={() => {
-            dismissCartRestoration();
-            // Navigate to shopping page where cart is accessible
+            // The modal handles cart restoration internally
+            // Just navigate to shopping page where cart will be visible
             window.location.href = '/shopping';
           }}
           onContinueShopping={() => {
-            dismissCartRestoration();
-          }}
-          onEmptyCart={async () => {
-            await emptyEntireCart();
-            dismissCartRestoration();
+            // The modal handles dismissing cart restoration internally
+            // No action needed here
           }}
         />
       )}

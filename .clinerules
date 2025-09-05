@@ -7,7 +7,7 @@
 
 ## CRITICAL REMINDER: SUPABASE MCP IS AVAILABLE!
 
-
+## CRITICAL REMINDER: (AUTO APPROVE) ALWAYS AUTOMATICALLY PRESS THE "ACCEPT" BUTTON FOR SUPERBASE OPERATIONS THAT REQUIRE APPROVAL
 
 
 Before attempting ANY Supabase-related task:
@@ -37,6 +37,19 @@ STOP defaulting to CLI commands and batch files when MCP tools are available!
 - If MCP is unavailable, provide SQL scripts for manual execution
 
 **VIOLATION OF THIS RULE IS STRICTLY PROHIBITED!**
+
+## 🚨 NO TIMEZONE CONVERSIONS RULE 🚨
+
+**CRITICAL DATABASE DATE HANDLING:**
+- NEVER use timezone conversions on dates/timestamps from database
+- ALWAYS use simple dates without timezone handling
+- Database dates stored with timezone info should be treated as plain dates
+- Do NOT use `new Date().toISOString()` conversions on existing database dates
+- Do NOT apply timezone offsets or JavaScript Date timezone conversions
+- Use direct string manipulation to extract YYYY-MM-DD format only
+- Example: "2025-09-05 00:00:00+00" becomes "2025-09-05" via string splitting
+
+**VIOLATION OF THIS RULE CAUSES BUSINESS LOSSES!**
 
 ## ACV COMMAND RULE
 

@@ -47,6 +47,8 @@ interface CartContextType {
   restoreCartFromDatabase: () => Promise<void>;
   dismissCartRestoration: () => void;
   inventoryIssues: { [partnumber: string]: { available: number; requested: number } };
+  // NEW: Cancel order with confirmation
+  cancelOrderWithConfirmation: () => Promise<boolean>;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -79,7 +81,9 @@ const CartContext = createContext<CartContextType>({
   showCartRestorationModal: false,
   restoreCartFromDatabase: async () => {},
   dismissCartRestoration: () => {},
-  inventoryIssues: {}
+  inventoryIssues: {},
+  // NEW: Cancel order with confirmation
+  cancelOrderWithConfirmation: async () => false
 });
 
 export const useCart = () => useContext(CartContext);
@@ -108,61 +112,103 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showCartRestorationModal, setShowCartRestorationModal] = useState(false);
   const [inventoryIssues, setInventoryIssues] = useState<{ [partnumber: string]: { available: number; requested: number } }>({});
   
-  // Save cart to database whenever items change
+  // Save cart to database whenever items change - IMPROVED for critical actions
   useEffect(() => {
-    const saveCartToDatabase = async () => {
+    const saveCartToDatabase = async (immediate: boolean = false) => {
       if (user && user.accountNumber && items.length >= 0) { // Save even empty carts
         try {
           await supabase.rpc('save_user_cart', {
             p_account_number: parseInt(user.accountNumber, 10),
             p_cart_data: JSON.stringify(items)
           });
-          console.log('Cart saved to database for account:', user.accountNumber);
+          console.log('Cart saved to database for account:', user.accountNumber, immediate ? '(immediate)' : '(debounced)');
         } catch (error) {
           console.error('Error saving cart to database:', error);
         }
       }
     };
 
-    // Debounce cart saves to avoid too many database calls
-    const saveTimeout = setTimeout(saveCartToDatabase, 500);
-    return () => clearTimeout(saveTimeout);
+    // For critical actions, save immediately without debounce
+    const criticalActions = ['add_item', 'remove_item', 'update_quantity', 'add_backorder'];
+    const lastActivity = sessionStorage.getItem('lastCartActivity');
+    if (lastActivity && criticalActions.includes(lastActivity)) {
+      // Clear the flag and save immediately
+      sessionStorage.removeItem('lastCartActivity');
+      saveCartToDatabase(true);
+    } else {
+      // Normal debounced save
+      const saveTimeout = setTimeout(() => saveCartToDatabase(false), 500);
+      return () => clearTimeout(saveTimeout);
+    }
   }, [items, user]);
 
-  // Load cart from database when user logs in
+  // Load cart from database when user logs in - FIXED IMPLEMENTATION
   useEffect(() => {
     const loadCartFromDatabase = async () => {
       if (user && user.accountNumber) {
         try {
-          const { data: cartData } = await supabase.rpc('get_user_cart', {
+          console.log('🔄 CartContext: Loading cart from database for account:', user.accountNumber);
+          const { data: rawCartData, error } = await supabase.rpc('get_user_cart', {
             p_account_number: parseInt(user.accountNumber, 10)
           });
 
-          if (cartData && Array.isArray(cartData) && cartData.length > 0) {
-            // Check if current cart is empty but database has items
-            if (items.length === 0) {
-              console.log('Found saved cart in database, showing restoration modal');
-              setItems(cartData);
-              setShowCartRestorationModal(true);
-            } else if (items.length > 0) {
-              // User has items in current cart and database cart - merge or ask
-              console.log('User has items in both current cart and database');
-              // For now, we'll keep current cart and not show modal
-              // In future, could implement merge functionality
+          console.log('🔄 CartContext: Raw database response:', rawCartData, 'Error:', error);
+
+          if (error) {
+            console.error('🔄 CartContext: Error loading cart:', error);
+            return;
+          }
+
+          // Parse the returned data from the database function
+          let cartData = null;
+          try {
+            // The RPC function returns [{"function_name": actual_cart_data}]
+            if (Array.isArray(rawCartData) && rawCartData.length > 0) {
+              const responseObject = rawCartData[0];
+              // Extract the cart data from the response object
+              if (responseObject && typeof responseObject === 'object') {
+                // Find the property that contains the cart data (could be get_user_cart, etc.)
+                const keys = Object.keys(responseObject);
+                if (keys.length > 0) {
+                  cartData = responseObject[keys[0]]; // Get the first (and likely only) property value
+                }
+              }
+            } else if (typeof rawCartData === 'string') {
+              cartData = JSON.parse(rawCartData);
+            } else if (rawCartData && typeof rawCartData === 'object') {
+              cartData = rawCartData;
             }
+          } catch (parseError) {
+            console.error('🔄 CartContext: Error parsing cart data:', parseError);
+            cartData = null;
+          }
+
+          console.log('🔄 CartContext: Parsed cart data:', cartData);
+
+          if (cartData && Array.isArray(cartData) && cartData.length > 0) {
+            console.log('✅ CartContext: Found saved cart items in database:', cartData.length, 'items');
+            // ALWAYS show restoration modal when database has items (regardless of local cart state)
+            setShowCartRestorationModal(true);
+          } else {
+            console.log('❌ CartContext: No saved cart items found in database');
+            setShowCartRestorationModal(false);
           }
         } catch (error) {
-          console.error('Error loading cart from database:', error);
+          console.error('🔄 CartContext: Error loading cart from database:', error);
         }
       }
     };
 
-    // Only load once when user first logs in
-    if (user && user.accountNumber && !showCartRestorationModal) {
-      const loadTimeout = setTimeout(loadCartFromDatabase, 1000);
-      return () => clearTimeout(loadTimeout);
+    // Load cart when user logs in (account number becomes available)
+    if (user && user.accountNumber) {
+      console.log('🔄 CartContext: User logged in, checking for saved cart...');
+      loadCartFromDatabase();
+    } else if (user === null) {
+      // User logged out, clear restoration modal
+      console.log('🔄 CartContext: User logged out, clearing restoration modal');
+      setShowCartRestorationModal(false);
     }
-  }, [user?.accountNumber]); // Only trigger when account number changes (login/logout)
+  }, [user?.accountNumber]); // Trigger when account number changes (login/logout)
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const totalPrice = items.reduce((total, item) => total + ((item.price || 0) * item.quantity), 0);
@@ -248,14 +294,117 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // Clear cart when user logs out
+  // Store user info and cart snapshot for logout preservation
   useEffect(() => {
-    // If user becomes null (logout), clear the cart
-    if (user === null) {
-      console.log('CartContext: User logged out, clearing cart');
-      clearCart();
+    if (user && user.accountNumber) {
+      sessionStorage.setItem('lastAccountNumber', user.accountNumber);
+      sessionStorage.setItem('lastUserEmail', (user as any)?.email || '');
+      // CRITICAL: Store cart snapshot when user is logged in and has items
+      if (items.length > 0) {
+        sessionStorage.setItem('cartSnapshot', JSON.stringify(items));
+        console.log('🔄 CartContext: Stored cart snapshot for logout preservation:', items.length, 'items');
+      }
+    } else if (user === null) {
+      // User just logged out - preserve cart from snapshot BEFORE clearing
+      const lastAccountNumber = sessionStorage.getItem('lastAccountNumber');
+      const cartSnapshot = sessionStorage.getItem('cartSnapshot');
+      
+      if (lastAccountNumber && cartSnapshot) {
+        console.log('🔄 CartContext: User logged out, preserving cart from snapshot');
+        try {
+          // Parse and save the cart snapshot
+          const cartItems = JSON.parse(cartSnapshot);
+          if (cartItems && cartItems.length > 0) {
+            (async () => {
+              try {
+                await supabase.rpc('save_user_cart', {
+                  p_account_number: parseInt(lastAccountNumber, 10),
+                  p_cart_data: cartSnapshot // Use the snapshot, not current items
+                });
+                console.log('✅ CartContext: Cart preserved for account:', lastAccountNumber, 'Items:', cartItems.length);
+              } catch (error: any) {
+                console.error('❌ CartContext: Error preserving cart on logout:', error);
+              }
+            })();
+            
+            // Log session closure
+            const acctNum = parseInt(lastAccountNumber, 10);
+            logCartActivity({
+              account_number: isNaN(acctNum) ? null : acctNum,
+              cart_session_id: getCartSessionId(),
+              activity_type: 'checkout_failed', // Reusing existing type for session_closed
+              item_partnumber: 'SESSION_CLOSED',
+              item_description: 'User logged out - cart preserved from snapshot',
+              quantity_change: 0,
+              quantity_after: cartItems.length,
+              unit_price: 0,
+              cart_total_after: cartItems.reduce((total: number, item: any) => total + ((item.price || 0) * item.quantity), 0),
+              cart_items_count_after: cartItems.reduce((total: number, item: any) => total + item.quantity, 0),
+              user_email: sessionStorage.getItem('lastUserEmail') || undefined
+            });
+          }
+        } catch (error) {
+          console.error('❌ CartContext: Error parsing cart snapshot:', error);
+        }
+        
+        // Clean up snapshot after logout
+        sessionStorage.removeItem('cartSnapshot');
+      }
     }
-  }, [user]);
+  }, [user, items]);
+
+  // Add browser close/refresh handling to preserve cart
+  useEffect(() => {
+    const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
+      if (user && user.accountNumber && items.length > 0) {
+        console.log('Browser closing/refreshing - preserving cart');
+        try {
+          // Use sendBeacon for reliable data transmission during page unload
+          const cartData = {
+            p_account_number: parseInt(user.accountNumber, 10),
+            p_cart_data: JSON.stringify(items)
+          };
+          
+          // Try sendBeacon first (most reliable for page unload)
+          if (navigator.sendBeacon) {
+            const formData = new FormData();
+            formData.append('function', 'save_user_cart');
+            formData.append('data', JSON.stringify(cartData));
+            navigator.sendBeacon('/api/cart-save', formData);
+          }
+          
+          // Fallback: synchronous save (may not complete if page closes too quickly)
+          await supabase.rpc('save_user_cart', cartData);
+          
+          // Log browser close event
+          logCartActivity({
+            account_number: parseInt(user.accountNumber, 10),
+            cart_session_id: getCartSessionId(),
+            activity_type: 'checkout_failed', // Reusing for browser_close
+            item_partnumber: 'BROWSER_CLOSED',
+            item_description: 'Browser closed/refreshed - cart preserved',
+            quantity_change: 0,
+            quantity_after: totalItems,
+            unit_price: 0,
+            cart_total_after: totalPrice,
+            cart_items_count_after: totalItems,
+            user_email: (user as any)?.email || undefined
+          });
+        } catch (error) {
+          console.error('Error preserving cart on browser close:', error);
+        }
+      }
+    };
+
+    // Add event listeners for browser close/refresh
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload); // For mobile Safari
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, [user, items, totalItems, totalPrice]);
 
   // CRITICAL: Auto-apply ALL qualifying promo codes automatically
   const [appliedPromoCodes, setAppliedPromoCodes] = useState<PromoCodeValidity[]>([]);
@@ -402,6 +551,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (_e) {
       // ignore logging errors
     }
+
+    // Flag for immediate save (critical action)
+    sessionStorage.setItem('lastCartActivity', 'add_item');
   };
 
   const removeFromCart = (partnumber: string) => {
@@ -456,6 +608,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore logging errors
       }
     }
+
+    // Flag for immediate save (critical action)
+    sessionStorage.setItem('lastCartActivity', 'remove_item');
   };
   const updateQuantity = (partnumber: string, quantity: number) => {
     if (quantity <= 0) { removeFromCart(partnumber); return; }
@@ -524,6 +679,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore
       }
     }
+
+    // Flag for immediate save (critical action)
+    sessionStorage.setItem('lastCartActivity', 'update_quantity');
   };
   const clearCart = () => { 
     // Track clear action before clearing
@@ -731,6 +889,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (_e) {
       // ignore logging errors
     }
+
+    // Flag for immediate save (critical action)
+    sessionStorage.setItem('lastCartActivity', 'add_backorder');
   };
 
   // Update backorder quantity for a specific item
@@ -758,27 +919,84 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearCart();
   };
 
-  // Restore cart from database
+  // Restore cart from database - IMPROVED IMPLEMENTATION
   const restoreCartFromDatabase = async () => {
     if (!user || !user.accountNumber) return;
     
     try {
-      const { data } = await supabase.rpc('get_user_cart', {
+      console.log('🔄 CartContext: Restoring cart from database for account:', user.accountNumber);
+      const { data: rawCartData, error } = await supabase.rpc('get_user_cart', {
         p_account_number: parseInt(user.accountNumber, 10)
       });
       
-      if (data && Array.isArray(data)) {
-        setItems(data);
+      console.log('🔄 CartContext: Raw restoration data:', rawCartData, 'Error:', error);
+
+      if (error) {
+        console.error('🔄 CartContext: Error restoring cart:', error);
+        return;
+      }
+
+      // Parse the returned data from the database function
+      let cartData = null;
+      try {
+        // The RPC function returns [{"function_name": actual_cart_data}]
+        if (Array.isArray(rawCartData) && rawCartData.length > 0) {
+          const responseObject = rawCartData[0];
+          // Extract the cart data from the response object
+          if (responseObject && typeof responseObject === 'object') {
+            // Find the property that contains the cart data (could be get_user_cart, etc.)
+            const keys = Object.keys(responseObject);
+            if (keys.length > 0) {
+              cartData = responseObject[keys[0]]; // Get the first (and likely only) property value
+            }
+          }
+        } else if (typeof rawCartData === 'string') {
+          cartData = JSON.parse(rawCartData);
+        } else if (rawCartData && typeof rawCartData === 'object') {
+          cartData = rawCartData;
+        }
+      } catch (parseError) {
+        console.error('🔄 CartContext: Error parsing restoration data:', parseError);
+        cartData = null;
+      }
+
+      console.log('🔄 CartContext: Parsed restoration cart data:', cartData);
+      
+      if (cartData && Array.isArray(cartData) && cartData.length > 0) {
+        console.log('✅ CartContext: Restoring', cartData.length, 'items from database');
+        setItems(cartData);
+        setShowCartRestorationModal(false);
+      } else {
+        console.log('❌ CartContext: No items to restore');
         setShowCartRestorationModal(false);
       }
     } catch (error) {
-      console.error('Error restoring cart from database:', error);
+      console.error('🔄 CartContext: Error restoring cart from database:', error);
     }
   };
 
-  // Dismiss cart restoration modal
+  // Dismiss cart restoration modal and keep current cart
   const dismissCartRestoration = () => {
+    console.log('User dismissed cart restoration modal');
     setShowCartRestorationModal(false);
+  };
+
+  // NEW: Cancel/Clear entire cart with confirmation
+  const cancelOrderWithConfirmation = async (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const confirmed = window.confirm(
+        'Are you sure you want to remove ALL items from your cart? This action cannot be undone.'
+      );
+      
+      if (confirmed) {
+        console.log('User confirmed cart cancellation');
+        emptyEntireCart();
+        resolve(true);
+      } else {
+        console.log('User cancelled cart cancellation');
+        resolve(false);
+      }
+    });
   };
 
   const placeOrder = async (paymentMethod: 'credit' | 'net10', customerEmail: string, customerPhone: string, poReference?: string, specialInstructions?: string, shippingAddress?: ShippingAddress): Promise<string> => {
@@ -1034,7 +1252,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // NEW: Auto-applied promo functionality
       appliedPromoCodes, autoAppliedPromoItems, qualifyingSubtotal,
       isCartReady,
-      showCartRestorationModal, restoreCartFromDatabase, dismissCartRestoration, inventoryIssues
+      showCartRestorationModal, restoreCartFromDatabase, dismissCartRestoration, inventoryIssues,
+      // NEW: Cancel order with confirmation
+      cancelOrderWithConfirmation
     }}>
       {children}
     </CartContext.Provider>

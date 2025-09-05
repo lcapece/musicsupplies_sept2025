@@ -294,12 +294,15 @@ const PromoCodeManager: React.FC = () => {
         return sortDirection === 'asc' ? aBool - bBool : bBool - aBool;
       }
 
-      // For date fields
+      // For date fields - 🚨 NO TIMEZONE CONVERSIONS
       const dateFields = ['start_date', 'end_date', 'created_at', 'updated_at'];
       if (dateFields.includes(sortField)) {
-        const aDate = new Date(aVal).getTime();
-        const bDate = new Date(bVal).getTime();
-        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+        // Extract simple date strings for comparison (YYYY-MM-DD format)
+        const aDateStr = String(aVal).split(' ')[0] || String(aVal);
+        const bDateStr = String(bVal).split(' ')[0] || String(bVal);
+        return sortDirection === 'asc' ? 
+          aDateStr.localeCompare(bDateStr) : 
+          bDateStr.localeCompare(aDateStr);
       }
 
       // String comparison
@@ -422,10 +425,24 @@ const PromoCodeManager: React.FC = () => {
         return value ? 'Y' : 'N';
       case 'start_date':
       case 'end_date':
-        return value ? new Date(value).toLocaleDateString() : 'N/A';
+        // 🚨 Format as MM/DD/YYYY per user requirements
+        if (!value) return 'N/A';
+        const dateStr = value.split(' ')[0] || value; // Extract YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          const [year, month, day] = dateStr.split('-');
+          return `${month}/${day}/${year}`;
+        }
+        return dateStr;
       case 'created_at':
       case 'updated_at':
-        return value ? new Date(value).toLocaleDateString() : 'N/A';
+        // 🚨 Format as MM/DD/YYYY per user requirements
+        if (!value) return 'N/A';
+        const dateStr2 = value.split(' ')[0] || value; // Extract YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr2)) {
+          const [year, month, day] = dateStr2.split('-');
+          return `${month}/${day}/${year}`;
+        }
+        return dateStr2;
       case 'max_uses':
       case 'max_uses_per_account':
         return value || '∞';
@@ -560,43 +577,113 @@ const PromoCodeManager: React.FC = () => {
     e.preventDefault();
     try {
       setError(null);
+      
+      // 🚨 CRITICAL: NO TIMEZONE CONVERSIONS PER .CLINERULES
+      // Use direct string values - NO Date object conversion
       const dataToSave = {
         ...formData,
         // Ensure value is never null - set to 0 for free products
         value: formData.type === 'free_product' ? 0 : (formData.value || 0),
+        // 🚨 DIRECT STRING USE - NO TIMEZONE CONVERSION
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        // Ensure legacy_code is always saved (for free items)
+        legacy_code: formData.legacy_code || null,
         template_config: templateConfig
       };
 
+      // Add debugging logs
+      console.log('🚨 CRITICAL DEBUG - Saving promo data:', dataToSave);
+      console.log('🚨 Original form data dates:', {
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        legacy_code: formData.legacy_code
+      });
+
       if (isEditing) {
-        const { error: updateError } = await supabase
+        console.log('🚨 UPDATING promo code ID:', isEditing);
+        const { error: updateError, data: updateData } = await supabase
           .from('promo_codes')
           .update(dataToSave)
-          .eq('id', isEditing);
+          .eq('id', isEditing)
+          .select('*');
 
-        if (updateError) throw updateError;
+        console.log('🚨 Update result:', updateData);
+        if (updateError) {
+          console.error('🚨 UPDATE ERROR:', updateError);
+          throw updateError;
+        }
         setIsEditing(null);
       } else {
-        const { error: insertError } = await supabase
+        console.log('🚨 INSERTING new promo code');
+        const { error: insertError, data: insertData } = await supabase
           .from('promo_codes')
-          .insert([dataToSave]);
+          .insert([dataToSave])
+          .select('*');
 
-        if (insertError) throw insertError;
+        console.log('🚨 Insert result:', insertData);
+        if (insertError) {
+          console.error('🚨 INSERT ERROR:', insertError);
+          throw insertError;
+        }
         setIsCreating(false);
       }
 
       setFormData({ is_active: false, allow_concurrent: false, type: 'dollars_off' });
       setTemplateConfig({});
       fetchPromoCodes();
+      console.log('🚨 Promo code saved successfully!');
     } catch (err) {
-      console.error('Error saving promo code:', err);
+      console.error('🚨 CRITICAL ERROR saving promo code:', err);
       setError('Failed to save promo code. Please check the console for details.');
     }
   };
 
   const handleEdit = (promo: PromoCode) => {
+    console.log('🚨🚨🚨 CRITICAL EDIT FUNCTION CALLED - Editing promo:', promo);
     setIsEditing(promo.id);
-    setFormData(promo);
+    
+    // 🚨 DIRECT ASSIGNMENT - NO PROCESSING
+    console.log('🚨🚨🚨 RAW PROMO DATA FOR EDIT:', {
+      start_date: promo.start_date,
+      end_date: promo.end_date,
+      legacy_code: promo.legacy_code,
+      name: promo.name,
+      code: promo.code,
+      min_order_value: promo.min_order_value,
+      is_active: promo.is_active
+    });
+    
+    // 🚨 SIMPLE STRING EXTRACTION FOR DATES
+    const extractDate = (dbDate: string) => {
+      if (!dbDate) return '';
+      // "2025-09-05 00:00:00+00" -> "2025-09-05"
+      return dbDate.split(' ')[0];
+    };
+    
+    const startDateForForm = extractDate(promo.start_date || '');
+    const endDateForForm = extractDate(promo.end_date || '');
+    
+    console.log('🚨🚨🚨 DATE EXTRACTION RESULTS:', {
+      original_start: promo.start_date,
+      original_end: promo.end_date,
+      extracted_start: startDateForForm,
+      extracted_end: endDateForForm
+    });
+    
+    // 🚨 DIRECT FORM DATA ASSIGNMENT
+    const directFormData = {
+      ...promo,
+      start_date: startDateForForm,
+      end_date: endDateForForm,
+    };
+    
+    console.log('🚨🚨🚨 DIRECT FORM DATA BEING SET:', directFormData);
+    
+    setFormData(directFormData);
     setTemplateConfig(promo.template_config || {});
+    
+    console.log('🚨🚨🚨 FORM DATA HAS BEEN SET - CHECK IF FORM POPULATES');
   };
 
   const handleDelete = async (id: string) => {
@@ -882,7 +969,7 @@ const PromoCodeManager: React.FC = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
           <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
             <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-medium text-gray-900">{isEditing ? 'Edit Promo Code' : 'Create New Promo Code'}</h3>
+              <h3 className="text-lg font-medium text-gray-900">{isEditing ? 'Edit Promotion' : 'Create New Promo Code'}</h3>
               <button
                 type="button"
                 className="text-gray-400 hover:text-gray-500 focus:outline-none"
@@ -1168,18 +1255,67 @@ const PromoCodeManager: React.FC = () => {
                   </thead>
                   <tbody>
                     {sortedPromoCodes.map((promo, index) => {
-                      const today = new Date().toISOString().split('T')[0];
+                      // 🚨 NO TIMEZONE CONVERSION - Get current date as simple string
+                      const now = new Date();
+                      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                      
+                      // Extract simple date from DB timestamp (NO timezone conversion)
+                      const getSimpleDate = (dateStr: string | null | undefined): string => {
+                        if (!dateStr) return '';
+                        // "2025-09-05 00:00:00+00" becomes "2025-09-05"
+                        return dateStr.split(' ')[0] || dateStr;
+                      };
+                      
+                      const promoStart = getSimpleDate(promo.start_date);
+                      const promoEnd = getSimpleDate(promo.end_date);
+                      
                       let rowBgColor = '';
-                      if (promo.is_active && promo.start_date <= today && promo.end_date >= today) {
-                        rowBgColor = 'bg-green-100';
-                      } else if (promo.end_date < today) {
-                        rowBgColor = 'bg-red-100';
-                      } else if (promo.uses_remaining === 0 || (promo.max_uses && promo.uses_remaining !== null && (promo.max_uses - promo.uses_remaining) >= promo.max_uses)) {
+                      
+                      // Debug logging for critical promo analysis
+                      const startCheck = promoStart <= today;
+                      const endCheck = promoEnd >= today;
+                      const usesCheck = promo.uses_remaining === null || promo.uses_remaining > 0;
+                      
+                      console.log('🚨 ROW COLOR DEBUG - Promo:', promo.code, {
+                        is_active: promo.is_active,
+                        raw_start_date: promo.start_date,
+                        raw_end_date: promo.end_date,
+                        simple_start_date: promoStart,
+                        simple_end_date: promoEnd,
+                        today: today,
+                        start_comparison: startCheck,
+                        end_comparison: endCheck,
+                        uses_comparison: usesCheck,
+                        uses_remaining: promo.uses_remaining,
+                        max_uses: promo.max_uses,
+                        SHOULD_BE_GREEN: promo.is_active && promoStart && promoEnd && startCheck && endCheck && usesCheck
+                      });
+                      
+                      // 🚨 CRITICAL FIX: PROPER date comparison logic
+                      if (!promo.is_active) {
+                        // Inactive promotion - GRAY
+                        rowBgColor = 'bg-gray-200';
+                        console.log('⚪ GRAY - Inactive promotion:', promo.code);
+                      } else if (promo.uses_remaining === 0) {
+                        // Depleted promotion - ORANGE
                         rowBgColor = 'bg-orange-100';
-                      } else if (promo.start_date > today) {
+                        console.log('🟠 ORANGE - Depleted promotion:', promo.code);
+                      } else if (promoEnd && promoEnd < today) {
+                        // Expired promotion - RED
+                        rowBgColor = 'bg-red-100';
+                        console.log('🔴 RED - Expired promotion:', promo.code);
+                      } else if (promo.is_active && promoStart && promoEnd && startCheck && endCheck) {
+                        // 🚨 ACTIVE PROMOTION - GREEN (check this BEFORE future check)
+                        rowBgColor = 'bg-green-100';
+                        console.log('🟢 GREEN - ACTIVE PROMOTION:', promo.code, 'Start:', promoStart, '<=', today, ':', startCheck, 'End:', promoEnd, '>=', today, ':', endCheck);
+                      } else if (promoStart && promoStart > today) {
+                        // Future promotion - YELLOW (check this AFTER active check)
                         rowBgColor = 'bg-yellow-100';
+                        console.log('🟡 YELLOW - Future promotion:', promo.code, 'Start:', promoStart, '>', today);
                       } else {
+                        // Default alternating row colors
                         rowBgColor = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                        console.log('⚫ DEFAULT - Other promotion:', promo.code, 'Reason: Logic fallthrough');
                       }
                       
                       return (
@@ -1227,7 +1363,7 @@ const PromoCodeManager: React.FC = () => {
               </DndContext>
             </div>
             <div className="bg-white border-t border-gray-200 px-4 py-2 flex-shrink-0 text-sm text-gray-700">
-              <p>🟢 Active | 🔴 Expired | 🟡 Upcoming | 🟠 Depleted</p>
+              <p>🟢 Active | 🔴 Expired | 🟡 Upcoming | 🟠 Depleted | ⚪ Inactive</p>
             </div>
           </>
         )}
