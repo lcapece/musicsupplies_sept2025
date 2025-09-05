@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, LogOut, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import ShoppingCartComponent from './ShoppingCart';
 import AccountSettingsModal from './AccountSettingsModal';
 import { useAutoVersionCheck } from '../hooks/useAutoVersionCheck';
@@ -18,9 +18,26 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
   const { totalItems } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
   
   // Silent automatic version checking
   useAutoVersionCheck();
+
+  // Check for cart auto-open URL parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('openCart') === 'true') {
+      console.log('🔄 Header: Auto-opening cart from URL parameter');
+      setIsCartOpen(true);
+      
+      // Clean up the URL parameter without causing a page reload
+      urlParams.delete('openCart');
+      const newSearch = urlParams.toString();
+      const newUrl = location.pathname + (newSearch ? `?${newSearch}` : '');
+      navigate(newUrl, { replace: true });
+    }
+  }, [location.search, navigate]);
   
   const handleLogout = () => {
     logout();

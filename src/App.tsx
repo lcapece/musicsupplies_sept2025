@@ -31,7 +31,7 @@ import EnhancedChatWidget from './components/EnhancedChatWidget';
 import ChatPage from './pages/ChatPage';
 import AdminKnowledgeBase from './pages/AdminKnowledgeBase'; // Admin knowledge base management
 import ManagerPage from './pages/ManagerPage'; // Manager staff management page
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { VersionCheck } from './components/VersionCheck';
 import CartRestorationModal from './components/CartRestorationModal';
 import PromotionsLoginModal from './components/PromotionsLoginModal';
@@ -118,6 +118,7 @@ const SpecialAdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children })
 
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { 
     user, // Get user for accountData
     // activeDiscount,  // Removed as part of new discount logic
@@ -135,7 +136,8 @@ function AppContent() {
   const { 
     showCartRestorationModal, 
     dismissCartRestoration, 
-    emptyEntireCart 
+    emptyEntireCart,
+    restoreCartFromDatabase
   } = useCart();
   
   // For error handling
@@ -349,14 +351,17 @@ function AppContent() {
       {showCartRestorationModal && (
         <CartRestorationModal
           isOpen={showCartRestorationModal}
-          onGoToCart={() => {
-            // The modal handles cart restoration internally
-            // Just navigate to shopping page where cart will be visible
-            window.location.href = '/shopping';
+          onGoToCart={async () => {
+            console.log('🔄 App: Cart restoration - restoring items and navigating to shopping');
+            // First restore the cart items from database
+            await restoreCartFromDatabase();
+            // Then navigate to shopping page with cart auto-open parameter
+            navigate('/shopping?openCart=true');
           }}
           onContinueShopping={() => {
+            console.log('🔄 App: Cart restoration - dismissing modal and continuing');
             // The modal handles dismissing cart restoration internally
-            // No action needed here
+            dismissCartRestoration();
           }}
         />
       )}
