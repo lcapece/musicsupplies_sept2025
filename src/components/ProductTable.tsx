@@ -280,8 +280,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
     }
   };
 
-  const formatPrice = (price: number | null) => {
-    if (price === null) {
+  const formatPrice = (price: number | null | undefined) => {
+    if (price === null || price === undefined) {
       return <span className="text-gray-500 italic">Call for Price</span>;
     }
     return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -304,6 +304,27 @@ const ProductTable: React.FC<ProductTableProps> = ({
       console.error('Error formatting MAP price:', error, map);
       return <span className="text-gray-500">Error</span>;
     }
+  };
+
+  // Format master carton information according to requirements
+  const formatMasterCartonInfo = (product: Product) => {
+    // If no master carton info available, display ---
+    if (!product.master_carton_quantity || !product.master_carton_price) {
+      return <span className="text-gray-500">---</span>;
+    }
+
+    // If available inventory is less than master carton quantity, display ---
+    if (!product.inventory || product.inventory < product.master_carton_quantity) {
+      return <span className="text-gray-500">---</span>;
+    }
+
+    // Format as "4 @ $55.00"
+    const formattedPrice = `$${product.master_carton_price.toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })}`;
+    
+    return <span className="text-gray-900 font-medium">{product.master_carton_quantity} @ {formattedPrice}</span>;
   };
 
   // Debug pagination
@@ -666,6 +687,24 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       )}
                     </th>
                   )}
+                  <th 
+                    className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]`}
+                    onClick={() => requestSort('price')}
+                  >
+                    Your Price
+                    {sortConfig.key === 'price' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
+                  </th>
+                  <th 
+                    className={`px-3 py-2 text-center ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
+                    onClick={() => requestSort('master_carton_quantity')}
+                  >
+                    Master Carton
+                    {sortConfig.key === 'master_carton_quantity' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
+                  </th>
                   {showMsrp && (
                     <th 
                       className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
@@ -677,15 +716,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       )}
                     </th>
                   )}
-                  <th 
-                    className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]`}
-                    onClick={() => requestSort('price')}
-                  >
-                    Your Price
-                    {sortConfig.key === 'price' && (
-                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
-                    )}
-                  </th>
                   {showMapPrice && (
                     <th 
                       className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
@@ -745,18 +775,16 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%] ${isDemoMode ? 'demo-mode-blur' : ''}`}>
                       {formatPrice(product.price)}
                     </td>
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center font-medium ${isDemoMode ? 'demo-mode-blur' : ''}`}>
+                      {formatMasterCartonInfo(product)}
+                    </td>
                     {showMapPrice && (
                       <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium`}>
                         {formatMapPrice(product.map)}
                       </td>
                     )}
                     <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center ${isDemoMode ? 'demo-mode-blur' : ''}`}>
-                      {/* Hide inventory display for backorder items (inventory ≤ 2) */}
-                      {product.inventory !== null && product.inventory <= 2 ? (
-                        <span className="text-gray-400">---</span>
-                      ) : (
-                        getInventoryDisplay(product.inventory)
-                      )}
+                      {getInventoryDisplay(product.inventory)}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center relative">
                       <div onClick={(e) => e.stopPropagation()}>

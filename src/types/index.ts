@@ -19,6 +19,8 @@ export interface Product {
   brand?: string; // Manufacturer/brand name
   map?: number | null; // Manufacturer's Advertised Price
   upc?: string; // Universal Product Code
+  master_carton_price?: number | null; // Master carton price
+  master_carton_quantity?: number | null; // Master carton quantity
 }
 
 export interface CartItem extends Product {

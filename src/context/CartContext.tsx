@@ -521,7 +521,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // PHASE 1: Dual-table validation - Check if promo code exists in both tables
       console.log('Validating promo code exists in products table...');
       const { data: productData, error: productError } = await supabase
-        .from('products_supabase')
+        .from('pre_products_supabase')
         .select('partnumber, description, price')
         .eq('partnumber', code)
         .single();

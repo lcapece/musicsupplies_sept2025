@@ -13,6 +13,8 @@ interface ProductManagerRow {
   brand: string | null;
   image: string | null;
   price: number | null;
+  master_carton_price: number | null;
+  master_carton_qty: number | null;
   listprice: number | null;
   dstamp: string | null;
 }
@@ -69,6 +71,24 @@ const ProductEditTab: React.FC = () => {
       valueParser: (params: any) => parseFloat(params.newValue) || null
     },
     {
+      field: 'master_carton_price',
+      headerName: 'M/C Price',
+      editable: true,
+      width: 100,
+      cellEditor: 'agNumberCellEditor',
+      valueFormatter: (params: any) => params.value != null ? `$${params.value.toFixed(2)}` : '',
+      valueParser: (params: any) => parseFloat(params.newValue) || null
+    },
+    {
+      field: 'master_carton_qty',
+      headerName: 'M/C Qty',
+      editable: true,
+      width: 100,
+      cellEditor: 'agNumberCellEditor',
+      valueFormatter: (params: any) => params.value != null ? params.value.toString() : '',
+      valueParser: (params: any) => parseInt(params.newValue) || null
+    },
+    {
       field: 'listprice',
       headerName: 'List Price',
       editable: true,
@@ -119,7 +139,7 @@ const ProductEditTab: React.FC = () => {
     sortable: true,
     filter: true,
     floatingFilter: true,
-    editable: false,
+    editable: true,
     suppressMovable: false
   }), []);
 
@@ -264,6 +284,8 @@ const ProductEditTab: React.FC = () => {
       brand: null,
       image: null,
       price: null,
+      master_carton_price: null,
+      master_carton_qty: null,
       listprice: null,
       dstamp: new Date().toISOString()
     };
@@ -368,14 +390,14 @@ const ProductEditTab: React.FC = () => {
               defaultColDef={defaultColDef}
               onCellValueChanged={onCellValueChanged}
               animateRows={true}
-              rowSelection="multiple"
+              rowSelection="single"
               enableCellTextSelection={true}
-              suppressRowClickSelection={true}
+              suppressRowClickSelection={false}
               stopEditingWhenCellsLoseFocus={true}
               undoRedoCellEditing={true}
               undoRedoCellEditingLimit={20}
-              enableRangeSelection={true}
-              singleClickEdit={false}
+              enableRangeSelection={false}
+              singleClickEdit={true}
               getRowId={(params) => params.data.partnumber}
             />
           </div>
@@ -386,7 +408,7 @@ const ProductEditTab: React.FC = () => {
         <p className="text-lg font-semibold text-blue-800 mb-2">📋 Excel-like Editor Instructions:</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
           <ul className="list-disc list-inside space-y-1">
-            <li><strong>Edit:</strong> Double-click any cell to edit</li>
+            <li><strong>Edit:</strong> Single-click any cell to edit (except Date Stamp)</li>
             <li><strong>Navigate:</strong> Use arrow keys to move between cells</li>
             <li><strong>Save:</strong> Press Enter or Tab to save changes</li>
             <li><strong>Undo:</strong> Use Ctrl+Z to undo recent changes</li>
@@ -394,7 +416,7 @@ const ProductEditTab: React.FC = () => {
           <ul className="list-disc list-inside space-y-1">
             <li><strong>Search:</strong> Use Search A + B for AND logic</li>
             <li><strong>Exclude:</strong> Use Search NOT to exclude terms</li>
-            <li><strong>Select:</strong> Click row numbers to select multiple rows</li>
+            <li><strong>NEW FIELDS:</strong> M/C Price and M/C Qty are now editable</li>
             <li><strong>Auto-Save:</strong> Changes saved automatically to database</li>
           </ul>
         </div>

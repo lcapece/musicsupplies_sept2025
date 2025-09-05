@@ -52,8 +52,8 @@ const Test997Page: React.FC = () => {
     { ordinal: 1, fieldName: 'partnumber', displayName: 'Part Number' },
     { ordinal: 2, fieldName: 'description', displayName: 'Short Description' },
     { ordinal: 3, fieldName: 'price', displayName: 'Price' },
-    { ordinal: 4, fieldName: 'master_carton_qty', displayName: 'MAST CART QTY' },
-    { ordinal: 5, fieldName: 'master_carton_price', displayName: 'MAST CART $' },
+    { ordinal: 4, fieldName: 'master_carton_price', displayName: 'M/C Price' },
+    { ordinal: 5, fieldName: 'master_carton_qty', displayName: 'MAST CART QTY' },
     { ordinal: 6, fieldName: 'listprice', displayName: 'MSRP' },
     { ordinal: 7, fieldName: 'map', displayName: 'MAP' },
     { ordinal: 8, fieldName: 'upc', displayName: 'UPC' },
@@ -852,7 +852,16 @@ const Test997Page: React.FC = () => {
                                 <input
                                   type="text"
                                   value={getCellValue(product, colIndex)}
-                                  onChange={(e) => handleCellEdit(product.id, col, e.target.value)}
+                                  onChange={(e) => {
+                                    // Use partnumber as unique identifier (consistent with dropdown fields and autoSave function)
+                                    if (product.partnumber) {
+                                      handleCellEdit(product.partnumber, col, e.target.value);
+                                    } else {
+                                      console.error('Cannot update product: missing partnumber', product);
+                                      setError('Cannot update product: missing partnumber');
+                                      setIsEditing(false);
+                                    }
+                                  }}
                                   onBlur={() => setIsEditing(false)}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === 'Tab') {

@@ -136,7 +136,7 @@ function AppContent() {
       try {
         // Run a query to check if the new columns exist
         const { data, error } = await supabase
-          .from('products_supabase')
+          .from('pre_products_supabase')
           .select('partnumber, brand, map')
           .limit(1);
           
@@ -237,8 +237,17 @@ function AppContent() {
               ) : isSpecialAdmin ? (
                 <Navigate to="/sku-import" replace />
               ) : (
-                <Dashboard />
+                <Navigate to="/shopping" replace />
               )}
+            </ProtectedRoute>
+          } 
+        />
+        {/* Shopping page - Main product browsing and shopping interface */}
+        <Route 
+          path="/shopping" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
             </ProtectedRoute>
           } 
         />
@@ -295,9 +304,9 @@ function AppContent() {
         />
         {/* Chat route - accessible to everyone */}
         <Route path="/chat" element={<ChatPage />} />
-        {/* Test997 Staff Management - Protected route */}
+        {/* Manager Panel - Protected route */}
         <Route 
-          path="/test997" 
+          path="/manager" 
           element={
             <ProtectedRoute>
               <Test997Page />
