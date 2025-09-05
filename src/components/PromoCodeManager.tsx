@@ -131,26 +131,26 @@ const PromoCodeManager: React.FC = () => {
 
   // Default column mapping for promo codes
   const defaultColumnMapping = [
-    { ordinal: 1, fieldName: 'code', displayName: 'Code' },
-    { ordinal: 2, fieldName: 'name', displayName: 'Name' },
-    { ordinal: 3, fieldName: 'type', displayName: 'Type' },
-    { ordinal: 4, fieldName: 'value', displayName: 'Val' },
-    { ordinal: 5, fieldName: 'min_order_value', displayName: 'Min$' },
-    { ordinal: 6, fieldName: 'max_uses', displayName: 'Max' },
-    { ordinal: 7, fieldName: 'uses_remaining', displayName: 'Rem' },
-    { ordinal: 8, fieldName: 'used_count', displayName: 'Used' },
-    { ordinal: 9, fieldName: 'is_active', displayName: 'Act' },
-    { ordinal: 10, fieldName: 'start_date', displayName: 'Start' },
-    { ordinal: 11, fieldName: 'end_date', displayName: 'End' },
-    { ordinal: 12, fieldName: 'created_at', displayName: 'Created' },
-    { ordinal: 13, fieldName: 'updated_at', displayName: 'Updated' },
-    { ordinal: 14, fieldName: 'max_uses_per_account', displayName: 'Max/Acc' },
-    { ordinal: 15, fieldName: 'uses_per_account_tracking', displayName: 'Trk/Acc' },
-    { ordinal: 16, fieldName: 'legacy_code', displayName: 'Legacy' },
-    { ordinal: 17, fieldName: 'allow_concurrent', displayName: 'Conc' },
-    { ordinal: 18, fieldName: 'template', displayName: 'Tmpl' },
-    { ordinal: 19, fieldName: 'template_config', displayName: 'Config' },
-    { ordinal: 20, fieldName: 'actions', displayName: 'Actions' },
+    { ordinal: 1, fieldName: 'actions', displayName: 'Actions' },
+    { ordinal: 2, fieldName: 'code', displayName: 'Code' },
+    { ordinal: 3, fieldName: 'name', displayName: 'Name' },
+    { ordinal: 4, fieldName: 'type', displayName: 'Type' },
+    { ordinal: 5, fieldName: 'value', displayName: 'Val' },
+    { ordinal: 6, fieldName: 'min_order_value', displayName: 'Min$' },
+    { ordinal: 7, fieldName: 'max_uses', displayName: 'Max' },
+    { ordinal: 8, fieldName: 'uses_remaining', displayName: 'Rem' },
+    { ordinal: 9, fieldName: 'used_count', displayName: 'Used' },
+    { ordinal: 10, fieldName: 'is_active', displayName: 'Act' },
+    { ordinal: 11, fieldName: 'start_date', displayName: 'Start' },
+    { ordinal: 12, fieldName: 'end_date', displayName: 'End' },
+    { ordinal: 13, fieldName: 'created_at', displayName: 'Created' },
+    { ordinal: 14, fieldName: 'updated_at', displayName: 'Updated' },
+    { ordinal: 15, fieldName: 'max_uses_per_account', displayName: 'Max/Acc' },
+    { ordinal: 16, fieldName: 'uses_per_account_tracking', displayName: 'Trk/Acc' },
+    { ordinal: 17, fieldName: 'legacy_code', displayName: 'Free Item' },
+    { ordinal: 18, fieldName: 'allow_concurrent', displayName: 'Conc' },
+    { ordinal: 19, fieldName: 'template', displayName: 'Tmpl' },
+    { ordinal: 20, fieldName: 'template_config', displayName: 'Config' },
   ];
 
   // Save user preferences for promo codes
@@ -408,7 +408,11 @@ const PromoCodeManager: React.FC = () => {
     
     switch (field) {
       case 'type':
-        return value === 'percent_off' ? '%' : '$';
+        if (value === 'percent_off') return '%';
+        if (value === 'dollars_off') return '$';
+        if (value === 'free_product') return 'Free';
+        if (value === 'advanced') return 'Adv';
+        return String(value || '');
       case 'is_active':
         return value ? 'Y' : 'N';
       case 'allow_concurrent':
@@ -986,20 +990,22 @@ const PromoCodeManager: React.FC = () => {
                     className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                   />
                 </div>
-                <div className="mb-4 col-span-1 md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">Template</label>
-                  <select
-                    name="template"
-                    value={formData.template || ''}
-                    onChange={handleTemplateChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  >
-                    <option value="">Select a template...</option>
-                    {TEMPLATES.map(template => (
-                      <option key={template.id} value={template.id}>{template.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {formData.type === 'advanced' && (
+                  <div className="mb-4 col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Template</label>
+                    <select
+                      name="template"
+                      value={formData.template || ''}
+                      onChange={handleTemplateChange}
+                      className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    >
+                      <option value="">Select a template...</option>
+                      {TEMPLATES.map(template => (
+                        <option key={template.id} value={template.id}>{template.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="mb-4 col-span-1 md:col-span-2">
                   <div className="flex items-center">
                     <input

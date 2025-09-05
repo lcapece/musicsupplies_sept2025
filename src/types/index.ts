@@ -85,7 +85,7 @@ export interface PromoCode {
   id: string;
   code: string;
   name: string;
-  type: 'percent_off' | 'dollars_off';
+  type: 'percent_off' | 'dollars_off' | 'free_product' | 'advanced';
   value: number;
   min_order_value: number;
   max_uses: number | null;
