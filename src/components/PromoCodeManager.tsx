@@ -112,6 +112,7 @@ const PromoCodeManager: React.FC = () => {
   });
   const [templateConfig, setTemplateConfig] = useState<Record<string, any>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [freeItems, setFreeItems] = useState<Array<{part_number: string, description: string}>>([]);
 
   // Column management state
   const [filteredColumns, setFilteredColumns] = useState<string[]>([]);
@@ -466,9 +467,24 @@ const PromoCodeManager: React.FC = () => {
     }
   }, []);
 
+  const fetchFreeItems = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products_supabase')
+        .select('part_number, description')
+        .ilike('part_number', '%promo%');
+
+      if (error) throw error;
+      setFreeItems(data || []);
+    } catch (err) {
+      console.error('Error fetching free items:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPromoCodes();
-  }, [fetchPromoCodes]);
+    fetchFreeItems();
+  }, [fetchPromoCodes, fetchFreeItems]);
 
   // Apply sorting to promo codes
   useEffect(() => {
@@ -872,14 +888,37 @@ const PromoCodeManager: React.FC = () => {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Legacy Code (Model Number)</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700">Free Item</label>
+                  <select
                     name="legacy_code"
                     value={formData.legacy_code || ''}
                     onChange={handleInputChange}
+                    disabled={formData.type !== 'free_product'}
+                    className={`mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${
+                      formData.type !== 'free_product' ? 'bg-gray-100 text-gray-400' : ''
+                    }`}
+                  >
+                    <option value="">Select free item...</option>
+                    {freeItems.map((item) => (
+                      <option key={item.part_number} value={item.part_number}>
+                        {item.part_number} - {item.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Discount Type</label>
+                  <select
+                    name="type"
+                    value={formData.type || 'dollars_off'}
+                    onChange={handleInputChange}
                     className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  />
+                  >
+                    <option value="dollars_off">Dollars Off</option>
+                    <option value="percent_off">Percent Off</option>
+                    <option value="free_product">Free Product or Gift</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Start Date</label>
@@ -902,19 +941,6 @@ const PromoCodeManager: React.FC = () => {
                     className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     required
                   />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Discount Type</label>
-                  <select
-                    name="type"
-                    value={formData.type || 'dollars_off'}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-500 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                  >
-                    <option value="dollars_off">Dollars Off</option>
-                    <option value="percent_off">Percent Off</option>
-                    <option value="free_product">Free Product or Gift</option>
-                  </select>
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Discount Value</label>
