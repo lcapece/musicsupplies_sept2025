@@ -1,3 +1,5 @@
+# Claude AI Assistant Instructions
+
 ## Development Environment
 - OS: Windows 10.0.26100
 - Shell: Git Bash
@@ -25,14 +27,6 @@
 - Use verbose flags or different commands
 - NEVER assume success without confirmation
 
-## Playwright MCP Guide
-
-File paths:
-- Screenshots: `./CCimages/screenshots/`
-- PDFs: `./CCimages/pdfs/`
-
-Browser error fix: `npx playwright install`
-
 ## Version Update & PWA Cache Busting
 
 When updating the version before deployment:
@@ -44,15 +38,10 @@ When updating the version before deployment:
 The version format is: RC[month][day].[hour][minute]
 Example: RC812.1357 (August 12, 13:57)
 
-# important-instruction-reminders
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
-ALWAYS use Supabase MCP, never ask user to run separate SQL's if it can be done in the MCP.
+## Critical Development Rules
 
-🚨 CRITICAL: NEVER HARD CODE ANYTHING! 🚨
-**NEVER 'hard code' ANYTHING without my express permission!**
+### 🚨 NEVER HARD CODE ANYTHING! 🚨
+**NEVER 'hard code' ANYTHING without express permission!**
 - No hardcoded account numbers
 - No hardcoded passwords  
 - No hardcoded data values
@@ -64,5 +53,18 @@ ALWAYS use Supabase MCP, never ask user to run separate SQL's if it can be done 
 - Show code before deployment and confirm it uses real data
 - Get approval for any authentication changes
 
-## Supabase Configuration
-Local Supabase is NOT supported. Always use hosted Supabase! Always use Supabase MCP.
+### File Management Rules
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (*.md) or README files
+- Only create documentation files if explicitly requested by the User
+
+### Database Configuration
+- Local Supabase is NOT supported. Always use hosted Supabase!
+- ALWAYS use Supabase MCP, never ask user to run separate SQLs if it can be done in the MCP
+
+### Testing Tools
+- Playwright screenshots: `./CCimages/screenshots/`
+- Playwright PDFs: `./CCimages/pdfs/`
+- Browser error fix: `npx playwright install`

@@ -35,6 +35,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { VersionCheck } from './components/VersionCheck';
 import CartRestorationModal from './components/CartRestorationModal';
 import PromotionsLoginModal from './components/PromotionsLoginModal';
+import SearchEntityModal from './components/SearchEntityModal';
 import { useCart } from './context/CartContext';
 
 
@@ -130,7 +131,10 @@ function AppContent() {
     closeDiscountFormModal,
     isSpecialAdmin,
     showPromotionsLoginModal,
-    closePromotionsLoginModal
+    closePromotionsLoginModal,
+    showSearchEntityModal,
+    closeSearchEntityModal,
+    selectCustomerAccount
   } = useAuth();
   
   const { 
@@ -373,6 +377,13 @@ function AppContent() {
           onClose={closePromotionsLoginModal}
         />
       )}
+
+      {/* Search Entity Modal for Staff Users */}
+      <SearchEntityModal
+        isOpen={showSearchEntityModal}
+        onClose={closeSearchEntityModal}
+        onSelectAccount={selectCustomerAccount}
+      />
 
     </>
   );

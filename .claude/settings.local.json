@@ -62,7 +62,9 @@
       "Bash(start test-2fa-browser.html)",
       "Bash(env)",
       "Bash(echo:*)",
-      "Bash(./test-2fa-curl.sh)"
+      "Bash(./test-2fa-curl.sh)",
+      "Bash(C:Usersryanhrc10musicsupplies_rc10node_modulessupabasebinsupabase.exe --version)",
+      "Bash(true)"
     ],
     "deny": []
   }

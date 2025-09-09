@@ -64,15 +64,15 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
       <div className="max-w-full mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Left Section - Logo and Phone */}
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center">
-              <div className="font-bold fixed-header-size" style={{ fontSize: '54px' }}>
+              <div className="font-bold header-logo leading-none whitespace-nowrap">
                 <span className="text-blue-600">Music</span>
                 <span className="text-red-600">Supplies</span>
                 <span className="text-black">.com</span>
               </div>
             </Link>
-            <div className="font-bold text-gray-700 fixed-header-size" style={{ fontSize: '36px' }}>
+            <div className="font-bold text-gray-700 header-phone leading-none whitespace-nowrap">
               (800) 321-5584
             </div>
           </div>

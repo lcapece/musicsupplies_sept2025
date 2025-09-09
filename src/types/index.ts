@@ -145,3 +145,25 @@ export interface AvailablePromoCode {
   uses_remaining_for_account?: number | null;
   status?: 'available' | 'expired' | 'expired_global' | 'expired_date' | 'not_active' | 'disabled' | 'min_not_met';
 }
+
+export interface SecurityLevel {
+  id: string;
+  security_level: string;
+  section: string;
+  scope: 'read-only' | 'create' | 'update' | 'delete' | 'all' | 'none';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type PermissionScope = 'read-only' | 'create' | 'update' | 'delete' | 'all' | 'none';
+
+export type SecurityLevelName = 'user' | 'manager' | 'admin' | 'super_admin';
+
+export interface PermissionCheck {
+  hasAccess: boolean;
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  scope: PermissionScope;
+}

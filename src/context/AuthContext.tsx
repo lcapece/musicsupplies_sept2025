@@ -45,6 +45,11 @@ interface AuthContextType {
   isDemoMode: boolean;
   showPromotionsLoginModal: boolean;
   closePromotionsLoginModal: () => void;
+  showSearchEntityModal: boolean;
+  isStaffUser: boolean;
+  staffUsername: string | null;
+  closeSearchEntityModal: () => void;
+  selectCustomerAccount: (accountId: string, businessName: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -78,6 +83,11 @@ const AuthContext = createContext<AuthContextType>({
   isDemoMode: false,
   showPromotionsLoginModal: false,
   closePromotionsLoginModal: () => {},
+  showSearchEntityModal: false,
+  isStaffUser: false,
+  staffUsername: null,
+  closeSearchEntityModal: () => {},
+  selectCustomerAccount: async () => false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -100,6 +110,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [resolvedAccountNumber, setResolvedAccountNumber] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [showPromotionsLoginModal, setShowPromotionsLoginModal] = useState<boolean>(false);
+  const [showSearchEntityModal, setShowSearchEntityModal] = useState<boolean>(false);
+  const [isStaffUser, setIsStaffUser] = useState<boolean>(false);
+  const [staffUsername, setStaffUsername] = useState<string | null>(null);
 
   // Function to calculate the highest eligible discount for a user
   const calculateBestDiscount = async (accountNumber: string): Promise<void> => {
@@ -428,8 +441,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
 
-    // Validate identifier format
+    // Validate identifier format - allow staff usernames (non-numeric)
     const isEmail = identifier.includes('@');
+    const isNumeric = /^\d+$/.test(identifier.trim());
+    
     if (isEmail) {
       const emailValidation = validateEmail(identifier);
       if (!emailValidation.isValid) {
@@ -437,7 +452,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       identifier = emailValidation.sanitized || identifier;
-    } else {
+    } else if (isNumeric) {
+      // Only validate as account number if it's numeric
       const accountValidation = validateAccountNumber(identifier);
       if (!accountValidation.isValid) {
         setError(accountValidation.error || 'Invalid account number format');
@@ -445,9 +461,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       identifier = accountValidation.sanitized || identifier;
     }
+    // Non-numeric, non-email identifiers (staff usernames) pass through without validation
 
     // CRITICAL: Clear any orphaned auth.users records before authentication
     await clearOrphanedAuthUsers(identifier);
+
+    // Check if this is a staff user login
+    try {
+      const { data: staffData, error: staffError } = await supabase
+        .from('staff_management')
+        .select('username, user_full_name, security_level')
+        .eq('username', identifier)
+        .single();
+
+      if (!staffError && staffData) {
+        // This is a staff user - show SearchEntityModal instead of regular login
+        setIsStaffUser(true);
+        setStaffUsername(identifier);
+        setShowSearchEntityModal(true);
+        console.log(`Staff user detected: ${identifier} (${staffData.user_full_name})`);
+        return false; // Don't complete regular login, show entity search modal instead
+      }
+    } catch (staffCheckErr) {
+      // Not a staff user or error checking, continue with regular login
+      console.log('Staff check failed or user not found in staff_management, continuing with regular login');
+    }
 
     // Check for deactivated account pattern: one letter + 5 identical characters (x's or other repeating chars)
     const deactivatedPattern = /^[a-zA-Z](.)\1{4}$/;
@@ -1280,6 +1318,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const closePromotionsLoginModal = () => setShowPromotionsLoginModal(false);
 
+  const closeSearchEntityModal = () => {
+    setShowSearchEntityModal(false);
+    setIsStaffUser(false);
+    setStaffUsername(null);
+  };
+
+  const selectCustomerAccount = async (accountId: string, businessName: string): Promise<boolean> => {
+    try {
+      // Fetch the full customer account data from accounts_lcmd
+      const accountData = await fetchUserAccount(accountId);
+      if (!accountData) {
+        setError('Could not load selected account.');
+        return false;
+      }
+
+      // Set up the customer account as the current user but keep staff context
+      setUser(accountData);
+      setIsAuthenticated(true);
+      sessionManager.setSession({ ...accountData, staff_username: staffUsername });
+
+      // Set JWT claims for the selected customer account
+      try {
+        const accountNumber = parseInt(accountData.accountNumber, 10);
+        if (!isNaN(accountNumber)) {
+          await supabase.rpc('set_admin_jwt_claims', {
+            p_account_number: accountNumber
+          });
+        }
+      } catch (claimsError) {
+        console.error('[AuthContext] Failed to set JWT claims for selected account:', claimsError);
+      }
+
+      // Calculate discounts for the selected account
+      await calculateBestDiscount(accountData.accountNumber);
+
+      // Initialize activity tracking for the selected account
+      await activityTracker.initSession(parseInt(accountData.accountNumber, 10), accountId);
+
+      // Close the search modal
+      setShowSearchEntityModal(false);
+      
+      console.log(`Staff user ${staffUsername} logged in as customer account ${accountId} (${businessName})`);
+      return true;
+    } catch (err) {
+      console.error('Error selecting customer account:', err);
+      setError('Failed to login as selected account.');
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -1311,7 +1399,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       closePasswordInitializationModal,
       isDemoMode,
       showPromotionsLoginModal,
-      closePromotionsLoginModal
+      closePromotionsLoginModal,
+      showSearchEntityModal,
+      isStaffUser,
+      staffUsername,
+      closeSearchEntityModal,
+      selectCustomerAccount
     }}>
       {children}
     </AuthContext.Provider>

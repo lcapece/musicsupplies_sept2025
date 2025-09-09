@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createClient } from '@supabase/supabase-js';
+import * as readline from 'readline';
 
 const SUPABASE_URL = 'https://ekklokrukxmqlahtonnc.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
@@ -9,186 +8,103 @@ const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-const server = new Server(
-  {
-    name: 'supabase-mcp',
-    version: '1.0.0',
-  },
-  {
-    capabilities: {
-      tools: {},
-    },
-  }
-);
-
-server.setRequestHandler('tools/list', async () => {
-  return {
-    tools: [
-      {
-        name: 'query_database',
-        description: 'Execute a SELECT query on the Supabase database',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            table: { type: 'string', description: 'Table name' },
-            select: { type: 'string', description: 'Columns to select (default: *)' },
-            filters: { type: 'object', description: 'Filter conditions' },
-            limit: { type: 'number', description: 'Limit results' }
-          },
-          required: ['table']
-        }
-      },
-      {
-        name: 'insert_data',
-        description: 'Insert data into a Supabase table',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            table: { type: 'string', description: 'Table name' },
-            data: { type: 'object', description: 'Data to insert' }
-          },
-          required: ['table', 'data']
-        }
-      },
-      {
-        name: 'update_data',
-        description: 'Update data in a Supabase table',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            table: { type: 'string', description: 'Table name' },
-            data: { type: 'object', description: 'Data to update' },
-            filters: { type: 'object', description: 'Filter conditions' }
-          },
-          required: ['table', 'data', 'filters']
-        }
-      },
-      {
-        name: 'delete_data',
-        description: 'Delete data from a Supabase table',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            table: { type: 'string', description: 'Table name' },
-            filters: { type: 'object', description: 'Filter conditions' }
-          },
-          required: ['table', 'filters']
-        }
-      }
-    ]
-  };
+// Simple JSON-RPC handler
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: false
 });
 
-server.setRequestHandler('tools/call', async (request) => {
-  const { name, arguments: args } = request.params;
-
-  try {
-    switch (name) {
-      case 'query_database': {
-        const query = supabase.from(args.table).select(args.select || '*');
-        
-        if (args.filters) {
-          Object.entries(args.filters).forEach(([key, value]) => {
-            query.eq(key, value);
-          });
-        }
-        
-        if (args.limit) {
-          query.limit(args.limit);
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) throw error;
-        
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(data, null, 2)
-            }
-          ]
-        };
-      }
-      
-      case 'insert_data': {
-        const { data, error } = await supabase
-          .from(args.table)
-          .insert(args.data)
-          .select();
-        
-        if (error) throw error;
-        
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Inserted: ${JSON.stringify(data, null, 2)}`
-            }
-          ]
-        };
-      }
-      
-      case 'update_data': {
-        const query = supabase.from(args.table).update(args.data);
-        
-        Object.entries(args.filters).forEach(([key, value]) => {
-          query.eq(key, value);
-        });
-        
-        const { data, error } = await query.select();
-        
-        if (error) throw error;
-        
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Updated: ${JSON.stringify(data, null, 2)}`
-            }
-          ]
-        };
-      }
-      
-      case 'delete_data': {
-        const query = supabase.from(args.table).delete();
-        
-        Object.entries(args.filters).forEach(([key, value]) => {
-          query.eq(key, value);
-        });
-        
-        const { error } = await query;
-        
-        if (error) throw error;
-        
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Data deleted successfully'
-            }
-          ]
-        };
-      }
-      
-      default:
-        throw new Error(`Unknown tool: ${name}`);
-    }
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Error: ${error.message}`
-        }
-      ]
-    };
-  }
-});
-
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+function send(response) {
+  process.stdout.write(JSON.stringify(response) + '\n');
 }
 
-main().catch(console.error);
+rl.on('line', async (line) => {
+  try {
+    const request = JSON.parse(line);
+    
+    // Handle initialization
+    if (request.method === 'initialize') {
+      send({
+        jsonrpc: '2.0',
+        id: request.id,
+        result: {
+          protocolVersion: '1.0.0',
+          capabilities: {
+            tools: {}
+          },
+          serverInfo: {
+            name: 'supabase-mcp',
+            version: '1.0.0'
+          }
+        }
+      });
+      return;
+    }
+    
+    // Handle tools/list
+    if (request.method === 'tools/list') {
+      send({
+        jsonrpc: '2.0',
+        id: request.id,
+        result: {
+          tools: [
+            {
+              name: 'query_database',
+              description: 'Query Supabase database',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  table: { type: 'string', description: 'Table name' }
+                },
+                required: ['table']
+              }
+            }
+          ]
+        }
+      });
+      return;
+    }
+    
+    // Handle tools/call
+    if (request.method === 'tools/call') {
+      if (request.params.name === 'query_database') {
+        const { data, error } = await supabase
+          .from(request.params.arguments.table)
+          .select('*')
+          .limit(10);
+        
+        send({
+          jsonrpc: '2.0',
+          id: request.id,
+          result: {
+            content: [
+              {
+                type: 'text',
+                text: error ? `Error: ${error.message}` : JSON.stringify(data, null, 2)
+              }
+            ]
+          }
+        });
+        return;
+      }
+    }
+    
+    // Default error response
+    send({
+      jsonrpc: '2.0',
+      id: request.id,
+      error: {
+        code: -32601,
+        message: 'Method not found'
+      }
+    });
+    
+  } catch (error) {
+    // Silently ignore parse errors
+  }
+});
+
+// Log to stderr (not stdout which is used for JSON-RPC)
+console.error('Supabase MCP server started (direct implementation)');
+

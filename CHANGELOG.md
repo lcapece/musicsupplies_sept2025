@@ -1,6 +1,25 @@
 # Music Supplies RC10 - Change Log
 
+**Conventions:**
+- YYYY-MM-DD — Short title — Commit (short SHA) — Impacted areas
+- Bullet points with rationale and follow-up actions
+- Replace per-incident FIX/FINAL docs with entries here and updates to canonical pages
+
 ## Recent Updates & Fixes
+
+### September 8, 2025
+#### Documentation Cleanup & Project Organization
+- **Major cleanup completed** - Removed 130+ obsolete files (emergency patches, debug scripts, temp files)
+- **Project structure modernized** - Organized into /docs, /scripts, /sql, /archive folders
+- **Documentation consolidated** - Reduced from 475+ files to ~50 organized files
+- **Claude AI instructions optimized** - Streamlined CLAUDE.md for better AI assistant guidance
+
+### August 20, 2025
+#### Documentation Architecture
+- **Documentation reset** - Created canonical docs entry point at docs/README.md
+- **Single-source policy established** - No more V2/V3 forks; use changelog + canonical pages
+- **Authentication consolidation** - Added docs/authentication.md as canonical auth reference
+- **Operational invariants defined** - Security and authentication contracts established
 
 ### August 12, 2025
 

@@ -359,3 +359,15 @@ img[alt*="logo"]::after {
   color: #dc2626;
   font-weight: 600;
 }
+
+/* (Removed responsive header typography; using fixed sizes again) */
+/* Responsive header typography (fits within 64px header) */
+.header-logo {
+  font-size: clamp(22px, 2.8vw, 36px);
+  line-height: 1;
+}
+
+.header-phone {
+  font-size: clamp(16px, 2vw, 24px);
+  line-height: 1;
+}
