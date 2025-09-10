@@ -1194,17 +1194,84 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     <p>${totalPrice.toFixed(2)}</p>
                   </div>
 
-                  {/* Total Discount Field - Shows combined savings from all auto-applied promos */}
+                  {/* ENHANCED: Detailed Promo Code Discount Display - Shows individual promo details */}
+                  {/* Show manually applied promo codes first */}
+                  {appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount && (
+                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex justify-between text-base font-medium text-green-600">
+                        <div className="flex flex-col">
+                          <span className="font-semibold">
+                            Promo Code: {appliedPromoCode.code || appliedPromoCode.promo_id || 'SAVE1'}
+                          </span>
+                          {appliedPromoCode.message && (
+                            <span className="text-sm text-green-600 mt-1">{appliedPromoCode.message}</span>
+                          )}
+                          {appliedPromoCode.product_description && (
+                            <span className="text-xs text-green-500 italic mt-1">{appliedPromoCode.product_description}</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-lg font-bold">-${appliedPromoCode.discount_amount.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Show auto-applied promo codes */}
                   {appliedPromoCodes.length > 0 && (
-                    <div className="flex justify-between text-lg font-medium text-green-600 mt-2">
-                      <p>Total Discount ({appliedPromoCodes.length} promo{appliedPromoCodes.length > 1 ? 's' : ''} applied)</p>
-                      <p>-${appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0).toFixed(2)}</p>
+                    <div className="mt-2 space-y-2">
+                      {appliedPromoCodes.map((promo, index) => (
+                        <div key={index} className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex justify-between text-base font-medium text-green-600">
+                            <div className="flex flex-col">
+                              <span className="font-semibold">
+                                Auto Applied: {promo.code || promo.promo_id || 'Promotion'}
+                              </span>
+                              {promo.message && (
+                                <span className="text-sm text-green-600 mt-1">{promo.message}</span>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-lg font-bold">-${(promo.discount_amount || 0).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Fallback: Show ANY discount even without detailed promo info */}
+                  {!appliedPromoCode && appliedPromoCodes.length === 0 && totalPrice !== displayGrandTotal && (
+                    <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex justify-between text-base font-medium text-yellow-700">
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Promotional Discount Applied</span>
+                          <span className="text-sm text-yellow-600 mt-1">Discount has been applied to your order</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-lg font-bold">-${(totalPrice - displayGrandTotal).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Total Savings Summary - Only show if there are multiple promos or we have detailed info */}
+                  {((appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount) || appliedPromoCodes.length > 0) && (
+                    <div className="flex justify-between text-lg font-bold text-green-700 mt-3 pt-2 border-t border-green-300 bg-green-100 px-3 py-2 rounded">
+                      <p>💰 You're Saving:</p>
+                      <p>-${(
+                        (appliedPromoCode && appliedPromoCode.is_valid ? (appliedPromoCode.discount_amount || 0) : 0) +
+                        appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0)
+                      ).toFixed(2)}</p>
                     </div>
                   )}
 
                   <div className="flex justify-between text-3xl font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">
                     <p>Grand Total</p>
-                    <p>${(totalPrice - appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0)).toFixed(2)}</p>
+                    <p>${(totalPrice - (
+                      appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0) +
+                      ((appliedPromoCode && appliedPromoCode.is_valid) ? (appliedPromoCode.discount_amount || 0) : 0)
+                    )).toFixed(2)}</p>
                   </div>
                   <p className="mt-0.5 text-base text-gray-500">Does not inclued shipping charge. You will be emailed the Grand Total when shipped</p>
                   <div className="mt-6">
