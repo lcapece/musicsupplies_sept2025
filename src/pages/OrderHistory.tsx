@@ -191,8 +191,15 @@ const OrderHistory: React.FC = () => {
         };
       });
       
-      console.log('[OrderHistory] Processed orders:', processedOrders);
-      setOrders(processedOrders);
+      // Sort orders by invoice date descending (most recent first)
+      const sortedOrders = processedOrders.sort((a, b) => {
+        const dateA = new Date(a.invoiceDate);
+        const dateB = new Date(b.invoiceDate);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      console.log('[OrderHistory] Processed orders:', sortedOrders);
+      setOrders(sortedOrders);
 
     } catch (err: any) {
       console.error('[OrderHistory] Unexpected error in fetchOrderHistoryDetails:', err);
