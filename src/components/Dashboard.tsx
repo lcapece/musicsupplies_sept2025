@@ -36,11 +36,7 @@ const Dashboard: React.FC = () => {
     additional: '',
     exclude: ''
   });
-  const [fontSize, setFontSize] = useState<'smaller' | 'standard' | 'larger'>(() => {
-    // Load from localStorage or default to 'standard'
-    const saved = localStorage.getItem('fontSizePreference');
-    return (saved as 'smaller' | 'standard' | 'larger') || 'standard';
-  });
+  const [fontSize, setFontSize] = useState<'smaller' | 'standard' | 'larger'>('standard'); // Default to 'standard' (middle option)
 
   // Save font size preference to localStorage
   useEffect(() => {

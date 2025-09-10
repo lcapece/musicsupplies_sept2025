@@ -116,11 +116,18 @@ const Dashboard: React.FC = () => {
           
           if (!error && data) {
             setFontSize(data as 'smaller' | 'standard' | 'larger');
+          } else {
+            // Explicitly set to standard if no preference found
+            setFontSize('standard');
           }
         } catch (error) {
           console.log('Font preference not loaded (table may not exist yet):', error);
           // Fallback to standard - this is normal until migration is applied
+          setFontSize('standard');
         }
+      } else {
+        // If no user, default to standard
+        setFontSize('standard');
       }
     };
 

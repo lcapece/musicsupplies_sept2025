@@ -1092,12 +1092,12 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                       return (
                         <div className="flex justify-between text-sm text-green-600 mt-1 font-medium">
                           <div className="flex items-center">
-                            <span className="mr-2">🎁</span>
+                            <span className="mr-2 text-2xl">🎁</span>
                             <div className="flex flex-col">
-                              <p>{promoMessage}</p>
+                              <p className="text-lg">{promoMessage}</p>
                               {uniquePromoCodes.length > 0 && (
-                                <p className="text-xs text-green-500 italic">
-                                  Code{uniquePromoCodes.length > 1 ? 's' : ''}: {uniquePromoCodes.join(', ')}
+                                <p className="text-sm text-green-600">
+                                  Code{uniquePromoCodes.length > 1 ? 's' : ''}: <span className="text-red-600 font-bold">{uniquePromoCodes.join(', ')}</span>
                                 </p>
                               )}
                             </div>
