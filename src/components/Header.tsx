@@ -88,7 +88,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
                 checked={activeView === 'products'}
                 onChange={() => onViewChange('products')}
               />
-              <span className="ml-2 text-gray-700 font-medium" style={{ fontSize: '12px' }}>SHOPPING</span>
+              <span className="ml-2 text-gray-700 font-medium" style={{ fontSize: '18px' }}>SHOPPING</span>
             </label>
             
             {!isDemoMode && (
@@ -101,7 +101,7 @@ const Header: React.FC<HeaderProps> = ({ onViewChange, activeView }) => {
                   checked={activeView === 'orders'}
                   onChange={() => onViewChange('orders')}
                 />
-                <span className="ml-2 text-gray-700 font-medium" style={{ fontSize: '12px' }}>Order History</span>
+                <span className="ml-2 text-gray-700 font-medium" style={{ fontSize: '18px' }}>Order History</span>
               </label>
             )}
           </div>
