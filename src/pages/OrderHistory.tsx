@@ -123,8 +123,8 @@ const OrderHistory: React.FC = () => {
           linekey, model, Description, Qty, unitnet, ups, payments
         `) // customerpo removed from select, fields aligned with lcmd_ordhist
         .eq('accountnumber', accountNumberInt)
-        .order('invoicedate', { ascending: false })
-        .order('invoicenumber', { ascending: false });
+        .order('invoicenumber', { ascending: false })
+        .order('invoicedate', { ascending: false });
 
       if (queryError) {
         console.error('[OrderHistory] Query Error fetching lcmd_ordhist:', queryError);

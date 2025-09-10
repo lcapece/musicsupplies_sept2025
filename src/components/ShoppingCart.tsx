@@ -619,146 +619,6 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                   </button>
                 </div>
 
-                {/* ENHANCED: Dynamic Promo List with Real-time Status */}
-                {!isCheckingOut && !orderPlaced && availablePromoCodes.length > 0 && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <h3 className="text-sm font-bold text-red-800 mb-2">🎯 Available Promotions * No Need to Enter Promo Codes!</h3>
-                    <div className="space-y-2">
-                      {/* Qualified Promos First */}
-                      {availablePromoCodes
-                        .filter(promo => promo.min_order_value <= qualifyingSubtotal && promo.status === 'available')
-                        .map((promo) => (
-                        <div key={promo.code} className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded border-2 border-green-300 shadow-sm">
-                          <div className="flex justify-between items-center">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <span className="animate-pulse text-lg">🎉</span>
-                                <div className="text-sm font-bold text-green-700">
-                                  {promo.name || promo.description || promo.code}
-                                </div>
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">
-                                  QUALIFIED!
-                                </span>
-                              </div>
-                              {promo.description && promo.name && (
-                                <div className="text-xs text-gray-600 mt-1 ml-6">
-                                  {promo.description}
-                                </div>
-                              )}
-                              {promo.type === 'free_gift' && (
-                                <div className="text-xs text-green-600 font-bold mt-1 ml-6">
-                                  🎁 Free Gift Auto-Added to Your Order!
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right ml-4">
-                              <div className="text-lg font-bold text-green-600">
-                                Save ${promo.discount_amount?.toFixed(2) || '0.00'}
-                              </div>
-                              <div className="text-xs text-green-600 font-bold animate-pulse">
-                                ✅ AUTO-APPLIED
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Non-Qualified Promos Below */}
-                      {availablePromoCodes
-                        .filter(promo => promo.min_order_value > qualifyingSubtotal && promo.status === 'available')
-                        .map((promo) => (
-                        <div key={promo.code} className="p-2 bg-white rounded border border-blue-300">
-                          <div className="flex justify-between items-center">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <span className="text-lg">💰</span>
-                                <div className="text-sm font-bold text-blue-700">
-                                  {promo.name || promo.description || promo.code}
-                                </div>
-                              </div>
-                              {promo.description && promo.name && (
-                                <div className="text-xs text-gray-600 mt-1 ml-6">
-                                  {promo.description}
-                                </div>
-                              )}
-                              <div className="text-xs text-red-600 font-bold mt-1 ml-6">
-                                Minimum Order: ${promo.min_order_value.toFixed(2)}
-                              </div>
-                            </div>
-                            <div className="text-right ml-4">
-                              <div className="text-lg font-bold text-blue-600">
-                                Save ${promo.discount_amount?.toFixed(2) || '0.00'}
-                              </div>
-                              <div className="text-xs text-red-600 font-bold">
-                                Need ${(promo.min_order_value - qualifyingSubtotal).toFixed(2)} more
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Depleted/Ended Promos at Bottom */}
-                      {availablePromoCodes
-                        .filter(promo => promo.status === 'disabled' || promo.status === 'not_active' || promo.status === 'expired' || promo.status === 'expired_global' || promo.status === 'expired_date')
-                        .map((promo) => (
-                        <div key={promo.code} className="p-2 bg-gray-100 rounded border border-gray-300 opacity-70">
-                          <div className="flex justify-between items-center">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <span className="text-lg">😔</span>
-                                <div className="text-sm font-bold text-gray-600 line-through">
-                                  {promo.name || promo.description || promo.code}
-                                </div>
-                              </div>
-                              <div className="text-xs text-red-500 font-bold mt-1 ml-6">
-                                Sorry, promotion has ended
-                              </div>
-                            </div>
-                            <div className="text-right ml-4">
-                              <div className="text-sm text-gray-500 line-through">
-                                Was ${promo.discount_amount?.toFixed(2) || '0.00'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Total Savings Display */}
-                    {appliedPromoCodes.length > 0 && (
-                      <div className="mt-3 p-3 bg-green-100 border border-green-300 rounded-lg">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-bold text-green-700">
-                            🎉 Total Promotional Savings:
-                          </span>
-                          <span className="text-xl font-bold text-green-600">
-                            ${appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* CRITICAL: Auto-Applied Promotions Message */}
-                {!isCheckingOut && !orderPlaced && appliedPromoCodes.length > 0 && (
-                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p 
-                      className="text-sm font-bold text-green-700 text-center animate-pulse"
-                      style={{ animation: 'pulse 1.5s infinite' }}
-                    >
-                      🎉 Promotions have been automatically added for you! 🎉
-                    </p>
-                    <div className="mt-2 text-xs text-green-600">
-                      {appliedPromoCodes.map((promo, index) => (
-                        <div key={index} className="flex justify-between">
-                          <span>{promo.message}</span>
-                          <span className="font-bold">-${promo.discount_amount?.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {orderPlaced ? (
                   <div className="mt-8 text-center">
@@ -1144,43 +1004,6 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                           </li>
                         ))}
                         
-                        {/* Display auto-applied promo items as line items */}
-                        {autoAppliedPromoItems.map((promoItem) => (
-                          <li key={`promo-${promoItem.partnumber}`} className="flex py-6 bg-green-50 border-2 border-green-200 rounded-lg">
-                            <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-green-300 bg-green-100 flex items-center justify-center">
-                              <span className="text-green-600 text-2xl font-bold">🎁</span>
-                            </div>
-                            <div className="ml-4 flex flex-1 flex-col">
-                              <div>
-                                <div className="flex justify-between text-2xl font-medium text-green-700">
-                                  <h3>
-                                    <span className="font-bold">{promoItem.partnumber}</span>
-                                  </h3>
-                                </div>
-                                <p className="mt-1 text-base text-green-600 font-medium">{promoItem.description}</p>
-                                <p className="mt-1 text-sm text-green-500 italic">🚀 Automatically Applied Promotion</p>
-                              </div>
-                              <div className="flex flex-1 items-center justify-between text-sm mt-2">
-                                <div className="flex items-center">
-                                  <span className="text-xs font-medium text-green-700 mr-2">Quantity:</span>
-                                  <span className="font-bold text-green-800">{promoItem.quantity}</span>
-                                </div>
-                                
-                                <div className="flex-grow"></div>
-
-                                <div className="flex items-center space-x-4">
-                                  <div className="text-right">
-                                    <p className="text-sm text-green-600 font-bold">${Math.abs(promoItem.price || 0).toFixed(2)} discount</p>
-                                    <p className="font-bold text-xl text-green-700">-${Math.abs((promoItem.price || 0) * promoItem.quantity).toFixed(2)}</p>
-                                  </div>
-                                  <div className="w-10 h-10 flex items-center justify-center">
-                                    <span className="text-green-600 text-lg">✅</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </li>
-                        ))}
                       </ul>
                     )}
                   </div>
@@ -1194,84 +1017,137 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     <p>${totalPrice.toFixed(2)}</p>
                   </div>
 
-                  {/* ENHANCED: Detailed Promo Code Discount Display - Shows individual promo details */}
-                  {/* Show manually applied promo codes first */}
-                  {appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount && (
-                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex justify-between text-base font-medium text-green-600">
-                        <div className="flex flex-col">
-                          <span className="font-semibold">
-                            Promo Code: {appliedPromoCode.code || appliedPromoCode.promo_id || 'SAVE1'}
-                          </span>
-                          {appliedPromoCode.message && (
-                            <span className="text-sm text-green-600 mt-1">{appliedPromoCode.message}</span>
-                          )}
-                          {appliedPromoCode.product_description && (
-                            <span className="text-xs text-green-500 italic mt-1">{appliedPromoCode.product_description}</span>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <span className="text-lg font-bold">-${appliedPromoCode.discount_amount.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Show auto-applied promo codes */}
-                  {appliedPromoCodes.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      {appliedPromoCodes.map((promo, index) => (
-                        <div key={index} className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                          <div className="flex justify-between text-base font-medium text-green-600">
+                  {/* Enhanced Promo Code Discount Display */}
+                  {(() => {
+                    // CRITICAL FIX: Clear promo codes when cart is empty
+                    if (totalPrice === 0 || items.length === 0) {
+                      console.log('Cart is empty - clearing all promo codes');
+                      // Clear promo codes when cart becomes empty
+                      if (appliedPromoCode) {
+                        console.log('Removing applied promo code due to empty cart');
+                        removePromoCode();
+                      }
+                      return null; // Don't show any discount when cart is empty
+                    }
+                    
+                    let totalDiscount = 0;
+                    let promoMessage = '';
+                    let promoCodesApplied = [];
+                    
+                    // Debug logging for troubleshooting
+                    console.log('Discount Display Debug:', {
+                      appliedPromoCode,
+                      appliedPromoCodes,
+                      totalPrice,
+                      appliedPromoCodeValid: appliedPromoCode?.is_valid,
+                      appliedPromoCodeAmount: appliedPromoCode?.discount_amount
+                    });
+                    
+                    // Check for manually applied promo code (like SAVE1)
+                    if (appliedPromoCode) {
+                      console.log('Found appliedPromoCode:', appliedPromoCode);
+                      
+                      // Check if it's valid and has a discount amount
+                      const discountAmount = parseFloat(appliedPromoCode.discount_amount?.toString() || '0');
+                      
+                      if (appliedPromoCode.is_valid && discountAmount > 0) {
+                        totalDiscount += discountAmount;
+                        const codeDisplay = appliedPromoCode.code || appliedPromoCode.promo_id || 'SAVE1';
+                        promoCodesApplied.push(codeDisplay);
+                        promoMessage = appliedPromoCode.message || `Promo code ${codeDisplay} has been automatically applied`;
+                        console.log('Valid promo code found:', codeDisplay, 'Amount:', discountAmount);
+                      } else {
+                        console.log('Promo code not valid or no discount:', {
+                          is_valid: appliedPromoCode.is_valid,
+                          discount_amount: discountAmount,
+                          raw_discount: appliedPromoCode.discount_amount
+                        });
+                      }
+                    }
+                    
+                    // Check for auto-applied promo codes
+                    if (appliedPromoCodes && Array.isArray(appliedPromoCodes) && appliedPromoCodes.length > 0) {
+                      console.log('Found appliedPromoCodes:', appliedPromoCodes);
+                      
+                      appliedPromoCodes.forEach(promo => {
+                        const discountAmount = parseFloat(promo.discount_amount?.toString() || '0');
+                        if (promo.is_valid && discountAmount > 0) {
+                          totalDiscount += discountAmount;
+                          const codeDisplay = promo.code || promo.promo_id || 'PROMO';
+                          promoCodesApplied.push(codeDisplay);
+                        }
+                      });
+                      
+                      if (appliedPromoCodes.length > 0 && !promoMessage) {
+                        promoMessage = 'Promotional discount has been automatically applied';
+                      }
+                    }
+                    
+                    // Show compact discount line if there's any discount and cart has items
+                    if (totalDiscount > 0 && totalPrice > 0) {
+                      console.log('Displaying discount:', totalDiscount, 'Message:', promoMessage);
+                      // Remove duplicate promo codes
+                      const uniquePromoCodes = [...new Set(promoCodesApplied)];
+                      
+                      return (
+                        <div className="flex justify-between text-sm text-green-600 mt-1 font-medium">
+                          <div className="flex items-center">
+                            <span className="mr-2">🎁</span>
                             <div className="flex flex-col">
-                              <span className="font-semibold">
-                                Auto Applied: {promo.code || promo.promo_id || 'Promotion'}
-                              </span>
-                              {promo.message && (
-                                <span className="text-sm text-green-600 mt-1">{promo.message}</span>
+                              <p>{promoMessage}</p>
+                              {uniquePromoCodes.length > 0 && (
+                                <p className="text-xs text-green-500 italic">
+                                  Code{uniquePromoCodes.length > 1 ? 's' : ''}: {uniquePromoCodes.join(', ')}
+                                </p>
                               )}
                             </div>
-                            <div className="text-right">
-                              <span className="text-lg font-bold">-${(promo.discount_amount || 0).toFixed(2)}</span>
-                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">-${totalDiscount.toFixed(2)}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Fallback: Show ANY discount even without detailed promo info */}
-                  {!appliedPromoCode && appliedPromoCodes.length === 0 && totalPrice !== displayGrandTotal && (
-                    <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex justify-between text-base font-medium text-yellow-700">
-                        <div className="flex flex-col">
-                          <span className="font-semibold">Promotional Discount Applied</span>
-                          <span className="text-sm text-yellow-600 mt-1">Discount has been applied to your order</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-lg font-bold">-${(totalPrice - displayGrandTotal).toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Total Savings Summary - Only show if there are multiple promos or we have detailed info */}
-                  {((appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount) || appliedPromoCodes.length > 0) && (
-                    <div className="flex justify-between text-lg font-bold text-green-700 mt-3 pt-2 border-t border-green-300 bg-green-100 px-3 py-2 rounded">
-                      <p>💰 You're Saving:</p>
-                      <p>-${(
-                        (appliedPromoCode && appliedPromoCode.is_valid ? (appliedPromoCode.discount_amount || 0) : 0) +
-                        appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0)
-                      ).toFixed(2)}</p>
-                    </div>
-                  )}
+                      );
+                    } else {
+                      console.log('No discount to display - totalDiscount:', totalDiscount, 'totalPrice:', totalPrice);
+                    }
+                    
+                    return null;
+                  })()}
 
                   <div className="flex justify-between text-3xl font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">
                     <p>Grand Total</p>
-                    <p>${(totalPrice - (
-                      appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0) +
-                      ((appliedPromoCode && appliedPromoCode.is_valid) ? (appliedPromoCode.discount_amount || 0) : 0)
-                    )).toFixed(2)}</p>
+                    <p>${(() => {
+                      // CRITICAL FIX: Don't apply discounts when cart is empty
+                      if (totalPrice === 0 || items.length === 0) {
+                        console.log('Grand Total - Cart is empty, returning $0.00');
+                        return '0.00';
+                      }
+                      
+                      // Calculate total discount from all sources
+                      let totalDiscount = 0;
+                      
+                      // Add discount from manually applied promo code (like SAVE1)
+                      if (appliedPromoCode && appliedPromoCode.is_valid) {
+                        const discountAmount = parseFloat(appliedPromoCode.discount_amount?.toString() || '0');
+                        totalDiscount += discountAmount;
+                        console.log('Grand Total - Applied promo discount:', discountAmount);
+                      }
+                      
+                      // Add discount from auto-applied promo codes
+                      if (appliedPromoCodes && appliedPromoCodes.length > 0) {
+                        const autoDiscountAmount = appliedPromoCodes.reduce((total, promo) => {
+                          const discountAmount = parseFloat(promo.discount_amount?.toString() || '0');
+                          return total + (promo.is_valid ? discountAmount : 0);
+                        }, 0);
+                        totalDiscount += autoDiscountAmount;
+                        console.log('Grand Total - Auto promo discounts:', autoDiscountAmount);
+                      }
+                      
+                      // Ensure grand total is never negative
+                      const grandTotal = Math.max(0, totalPrice - totalDiscount);
+                      console.log('Grand Total calculation - Subtotal:', totalPrice, 'Total Discounts:', totalDiscount, 'Grand Total:', grandTotal);
+                      return grandTotal.toFixed(2);
+                    })()}</p>
                   </div>
                   <p className="mt-0.5 text-base text-gray-500">Does not inclued shipping charge. You will be emailed the Grand Total when shipped</p>
                   <div className="mt-6">
