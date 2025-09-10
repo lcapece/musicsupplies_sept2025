@@ -893,7 +893,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     {items.length === 0 && autoAppliedPromoItems.length === 0 ? (
                       <p className="text-center text-xl text-gray-500">Your cart is empty.</p>
                     ) : (
-                      <ul role="list" className="-my-6 divide-y divide-gray-200">
+                      <ul role="list" className="-my-6 divide-y-2 divide-gray-300">
                         {/* Display regular items */}
                         {items.map((item) => (
                           <li key={item.partnumber + (item.description || '')} className="flex py-6">
@@ -920,7 +920,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 <div className="flex items-center space-x-6">
                                   {/* Regular Quantity Row */}
                                   <div className="flex items-center">
-                                    <span className="text-xs font-medium text-gray-700 mr-2">Qty Ordered:</span>
+                                    <span className="text-sm font-medium text-gray-700 mr-2">Qty Ordered:</span>
                                     <button
                                       onClick={() => updateQuantity(item.partnumber, Math.max(0, item.quantity - 1))}
                                       className="p-1 text-gray-500 hover:text-indigo-600"
@@ -947,7 +947,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   {/* Backorder Quantity Row - Only show if qty_backordered > 0 */}
                                   {(item.qtyBackordered || 0) > 0 && (
                                     <div className="flex items-center">
-                                      <span className="text-xs font-medium text-orange-700 mr-2">Qty Backorder:</span>
+                                      <span className="text-sm font-medium text-orange-700 mr-2">Qty Backorder:</span>
                                       <button
                                         onClick={() => updateBackorderQuantity(item.partnumber, Math.max(0, (item.qtyBackordered || 0) - 1))}
                                         className="p-1 text-orange-500 hover:text-orange-600"
@@ -1092,18 +1092,19 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                       return (
                         <div className="flex justify-between text-sm text-green-600 mt-1 font-medium">
                           <div className="flex items-center">
-                            <span className="mr-2 text-2xl">🎁</span>
+                            <span className="mr-2 text-3xl">🎁</span>
                             <div className="flex flex-col">
-                              <p className="text-lg">{promoMessage}</p>
-                              {uniquePromoCodes.length > 0 && (
-                                <p className="text-sm text-green-600">
-                                  Code{uniquePromoCodes.length > 1 ? 's' : ''}: <span className="text-red-600 font-bold">{uniquePromoCodes.join(', ')}</span>
+                              {uniquePromoCodes.length > 0 ? (
+                                <p className="text-lg text-green-600">
+                                  Promo code <span className="text-red-600 font-bold">{uniquePromoCodes.join(', ')}</span> has been automatically applied
                                 </p>
+                              ) : (
+                                <p className="text-lg text-green-600">{promoMessage}</p>
                               )}
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">-${totalDiscount.toFixed(2)}</p>
+                            <p className="font-bold text-lg">-${totalDiscount.toFixed(2)}</p>
                           </div>
                         </div>
                       );

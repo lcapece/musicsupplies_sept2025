@@ -276,21 +276,21 @@ img[alt*="logo"]::after {
   line-height: 1.6 !important;
 }
 
-/* Product Table Specific Font Classes - A- reduced by 60%, A is +30% from A-, A+ is +60% from A- */
+/* Product Table Specific Font Classes - Fixed sizing: A- is 100% larger base, A is +30% from A-, A+ is +60% from A- */
 .font-product-table-smaller {
-  font-size: 8.466px !important; /* 60% reduction from 21.165px (21.165 * 0.4 = 8.466) */
+  font-size: 16.932px !important; /* 100% increase from previous 8.466px (8.466 * 2 = 16.932px) */
   line-height: 1.4 !important;
   font-weight: 400;
 }
 
 .font-product-table-standard {
-  font-size: 11.006px !important; /* 30% increase from new A- (8.466 * 1.3 = 11.006) */
+  font-size: 22.012px !important; /* 30% increase from new A- (16.932 * 1.3 = 22.012px) */
   line-height: 1.4 !important;
   font-weight: 400;
 }
 
 .font-product-table-larger {
-  font-size: 13.546px !important; /* 60% increase from new A- (8.466 * 1.6 = 13.546) */
+  font-size: 27.091px !important; /* 60% increase from new A- (16.932 * 1.6 = 27.091px) */
   line-height: 1.4 !important;
   font-weight: 400;
 }
