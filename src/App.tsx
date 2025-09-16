@@ -23,6 +23,7 @@ import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import update pa
 import SmsConsentPreviewPage from './pages/SmsConsentPreviewPage'; // Import SMS consent preview page
 import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
+import ProspectsPage from './pages/ProspectsPage'; // Import Prospects page
 
 
 interface ProtectedRouteProps {
@@ -217,6 +218,14 @@ function AppContent() {
             <SpecialAdminProtectedRoute>
               <SkuImportPage />
             </SpecialAdminProtectedRoute>
+          }
+        />
+        <Route 
+          path="/prospects"
+          element={
+            <AdminProtectedRoute>
+              <ProspectsPage />
+            </AdminProtectedRoute>
           }
         />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
