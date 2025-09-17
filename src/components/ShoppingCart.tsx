@@ -18,6 +18,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     items, 
     removeFromCart, 
     updateQuantity, 
+    updateBackorderQuantity,
     totalItems, 
     totalPrice, 
     clearCart, 
@@ -28,7 +29,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     availablePromoCodes,
     fetchAvailablePromoCodes,
     isLoadingPromoCodes,
-    isPromoCodeAutoApplied
+    isPromoCodeAutoApplied,
+    // NEW: Auto-applied promo functionality
+    appliedPromoCodes,
+    autoAppliedPromoItems,
+    qualifyingSubtotal,
+    // NEW: Cancel order function
+    cancelOrderWithConfirmation
   } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -36,11 +43,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const [orderConfirmationDetails, setOrderConfirmationDetails] = useState<OrderConfirmationDetails | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'net10'>('net10');
   const { user } = useAuth();
-  const [email, setEmail] = useState(user?.email || user?.email_address || '');
-  const [phone, setPhone] = useState(user?.mobile_phone || '');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [isLoadingContactInfo, setIsLoadingContactInfo] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     phone?: boolean;
     email?: boolean;
+    emailFormat?: boolean;
   }>({});
   const phoneInputRef = React.useRef<HTMLInputElement>(null);
   const [poReference, setPoReference] = useState('');
@@ -55,21 +64,27 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   const [shippingPhone, setShippingPhone] = useState('');
   const [shippingContactName, setShippingContactName] = useState('');
 
-  // Format phone number as (999) 999-9999
+  // Format phone number as 999-999-9999
   const formatPhoneNumber = (value: string): string => {
     // Strip all non-numeric characters
     const phoneNumber = value.replace(/\D/g, '');
     
-    // Format the phone number
+    // Format the phone number as 999-999-9999
     if (phoneNumber.length === 0) {
       return '';
     } else if (phoneNumber.length <= 3) {
-      return `(${phoneNumber}`;
+      return phoneNumber;
     } else if (phoneNumber.length <= 6) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`;
     } else {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
     }
+  };
+  
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
   };
   
   // Promo code states
@@ -121,12 +136,81 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     }
   }, [isDragging, dragStart, modalPosition]);
   
+  // Enhanced contact info loading from multiple sources
   useEffect(() => {
-    if (isOpen && user) {
-      setEmail(user.email || user.email_address || '');
-      setPhone(user.mobile_phone || '');
-    }
-    if (!isOpen) {
+    const loadContactInfo = async () => {
+      if (isOpen && user && user.accountNumber) {
+        setIsLoadingContactInfo(true);
+        
+        try {
+          // First, use data from user object
+          let bestEmail = user.email || user.email_address || '';
+          let bestPhone = user.mobile_phone || user.phone || '';
+          
+          // Then, try to get more current contact info from contactinfo table
+          const { data: contactInfo, error: contactError } = await supabase
+            .from('contactinfo')
+            .select('email_address, business_phone, mobile_phone')
+            .eq('account_number', parseInt(user.accountNumber, 10))
+            .single();
+          
+          if (!contactError && contactInfo) {
+            // Use contactinfo table data if available and not empty
+            if (contactInfo.email_address && contactInfo.email_address.trim()) {
+              bestEmail = contactInfo.email_address.trim();
+            }
+            
+            // Prefer mobile_phone over business_phone for checkout
+            if (contactInfo.mobile_phone && contactInfo.mobile_phone.trim()) {
+              bestPhone = contactInfo.mobile_phone.trim();
+            } else if (contactInfo.business_phone && contactInfo.business_phone.trim() && !bestPhone) {
+              bestPhone = contactInfo.business_phone.trim();
+            }
+          }
+          
+          // Also check accounts_lcmd table for most current data
+          const { data: accountData, error: accountError } = await supabase
+            .from('accounts_lcmd')
+            .select('email_address, phone, mobile_phone')
+            .eq('account_number', parseInt(user.accountNumber, 10))
+            .single();
+          
+          if (!accountError && accountData) {
+            // Use the most recent data from accounts_lcmd if available
+            if (accountData.email_address && accountData.email_address.trim()) {
+              bestEmail = accountData.email_address.trim();
+            }
+            
+            // Prefer mobile_phone for checkout
+            if (accountData.mobile_phone && accountData.mobile_phone.trim()) {
+              bestPhone = accountData.mobile_phone.trim();
+            } else if (accountData.phone && accountData.phone.trim() && !bestPhone) {
+              bestPhone = accountData.phone.trim();
+            }
+          }
+          
+          console.log('Contact info loaded:', { bestEmail, bestPhone });
+          setEmail(bestEmail);
+          setPhone(bestPhone ? formatPhoneNumber(bestPhone) : '');
+          
+        } catch (error) {
+          console.error('Error loading contact info:', error);
+          // Fallback to user object data
+          setEmail(user.email || user.email_address || '');
+          setPhone(user.mobile_phone || user.phone || '');
+        } finally {
+          setIsLoadingContactInfo(false);
+        }
+      } else if (isOpen && user) {
+        // No account number, just use user object data
+        setEmail(user.email || user.email_address || '');
+        setPhone(user.mobile_phone || user.phone || '');
+      }
+    };
+    
+    if (isOpen) {
+      loadContactInfo();
+    } else {
       setIsCheckingOut(false);
       setOrderPlaced(false);
     }
@@ -241,6 +325,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
     if (!email) {
       setValidationErrors(prev => ({ ...prev, email: true }));
       hasErrors = true;
+    } else if (!validateEmail(email)) {
+      setValidationErrors(prev => ({ ...prev, emailFormat: true }));
+      hasErrors = true;
     }
     
     if (hasErrors) {
@@ -288,7 +375,16 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
           } : undefined,
           {
             name: user?.acctName || email.split('@')[0],
-            accountNumber: user?.accountNumber
+            accountNumber: user?.accountNumber,
+            address: user?.address && user?.city && user?.state && user?.zip ? {
+              line1: user.address,
+              cityStateZip: `${user.city}, ${user.state} ${user.zip}`
+            } : undefined,
+            shippingAddress: shippingDifferent && shippingAddress ? {
+              name: shippingContactName || user?.acctName || email.split('@')[0],
+              line1: shippingAddress,
+              cityStateZip: `${shippingCity}, ${shippingState} ${shippingZip}`
+            } : undefined
           }
         );
 
@@ -328,7 +424,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
             body: {
               customerPhone: phone,
               orderNumber: newOrderNumber,
-              customerName: user?.acctName || email.split('@')[0]
+              customerName: user?.acctName || email.split('@')[0],
+              orderAmount: displayGrandTotal.toFixed(2)
             }
           });
 
@@ -420,13 +517,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
   
   if (!isOpen) return null;
 
-  // Calculate the discount amount from the applied promo code
-  const discountAmount = appliedPromoCode && appliedPromoCode.is_valid && appliedPromoCode.discount_amount
-    ? appliedPromoCode.discount_amount
-    : 0;
+  // Calculate the total discount amount from all auto-applied promos
+  const totalDiscountAmount = appliedPromoCodes.reduce((total, promo) => total + (promo.discount_amount || 0), 0);
     
-  // Calculate the grand total after discount
-  const displayGrandTotal = totalPrice - discountAmount;
+  // Calculate the grand total after all discounts
+  const displayGrandTotal = totalPrice - totalDiscountAmount;
 
   // Get the selected promo code details
   const selectedPromoDetails = availablePromoCodes.find(promo => promo.code === selectedPromoCode);
@@ -524,6 +619,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                   </button>
                 </div>
 
+
                 {orderPlaced ? (
                   <div className="mt-8 text-center">
                     <h3 className="text-4xl font-semibold text-green-600">Order Placed Successfully!</h3>
@@ -549,61 +645,94 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                 ) : orderConfirmationDetails ? (
                   <OrderConfirmationModal orderDetails={orderConfirmationDetails} onClose={handleCloseConfirmationModal} />
                 ) : isCheckingOut ? (
-                  <div className="mt-8">
-                    <h3 className="text-3xl font-semibold text-gray-900 mb-6">Checkout</h3>
-                    <div className="space-y-6">
-                      <div>
-                        <label htmlFor="email" className="block text-base font-medium text-gray-700">E-mail Address (required)</label>
-                        <input
-                          type="email"
-                          name="email"
-                          id="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          placeholder="you@example.com"
-                        />
+                  <div className="mt-4">
+                    <h3 className="text-2xl font-semibold text-gray-900 mb-4">Checkout</h3>
+                    <div className="space-y-4">
+                      {/* Email and Phone - Side by Side */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="email" className={`block text-sm font-medium ${validationErrors.email ? 'text-red-700' : 'text-gray-700'}`}>
+                            E-mail Address (required)
+                            {isLoadingContactInfo && <span className="ml-1 text-xs text-blue-500">Loading...</span>}
+                          </label>
+                          <input
+                            type="email"
+                            name="email"
+                            id="email"
+                            value={email}
+                            onChange={(e) => {
+                              setEmail(e.target.value);
+                              if (e.target.value && (validationErrors.email || validationErrors.emailFormat)) {
+                                setValidationErrors(prev => ({ ...prev, email: false, emailFormat: false }));
+                              }
+                            }}
+                            className={`mt-1 block w-full px-3 py-2 border ${(validationErrors.email || validationErrors.emailFormat) ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                            placeholder="xxx@ssss.sss"
+                            disabled={isLoadingContactInfo}
+                          />
+                          {email && !validationErrors.email && !validationErrors.emailFormat && (
+                            <p className="mt-1 text-xs text-green-600">✓ Email address loaded from your account</p>
+                          )}
+                          {validationErrors.email && (
+                            <p className="mt-1 text-xs text-red-600">Email address is required</p>
+                          )}
+                          {validationErrors.emailFormat && (
+                            <p className="mt-1 text-xs text-red-600">Please enter a valid email address</p>
+                          )}
+                        </div>
+                        <div>
+                          <label htmlFor="phone" className={`block text-sm font-medium ${validationErrors.phone ? 'text-red-700' : 'text-gray-700'}`}>
+                            Phone Number (required) - <span className="mobile-preferred-flash">Mobile Preferred</span>
+                            {isLoadingContactInfo && <span className="ml-1 text-xs text-blue-500">Loading...</span>}
+                          </label>
+                          <input
+                            ref={phoneInputRef}
+                            type="tel"
+                            name="phone"
+                            id="phone"
+                            value={phone}
+                            onChange={(e) => {
+                              setPhone(formatPhoneNumber(e.target.value));
+                              if (e.target.value && validationErrors.phone) {
+                                setValidationErrors(prev => ({ ...prev, phone: false, emailFormat: false }));
+                              }
+                            }}
+                            className={`mt-1 block w-full px-3 py-2 border ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                            placeholder="516-433-6969"
+                            maxLength={12}
+                            disabled={isLoadingContactInfo}
+                          />
+                          {phone && !validationErrors.phone && (
+                            <p className="mt-1 text-xs text-green-600">✓ Phone number loaded from your account</p>
+                          )}
+                          {validationErrors.phone && (
+                            <p className="mt-1 text-xs text-red-600">Phone number is required</p>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Payment Method - Compact */}
                       <div>
-                        <label htmlFor="phone" className={`block text-base font-medium ${validationErrors.phone ? 'subtle-required-pulse' : 'text-gray-700'}`}>
-                          Phone Number (required) - Mobile Preferred
-                        </label>
-                        <input
-                          ref={phoneInputRef}
-                          type="tel"
-                          name="phone"
-                          id="phone"
-                          value={phone}
-                          onChange={(e) => {
-                            setPhone(formatPhoneNumber(e.target.value));
-                            if (e.target.value && validationErrors.phone) {
-                              setValidationErrors(prev => ({ ...prev, phone: false }));
-                            }
-                          }}
-                          className={`mt-1 block w-full px-3 py-2 border ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-base`}
-                          placeholder="(999) 999-9999"
-                          maxLength={14}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-base font-medium text-gray-700">Payment Method</label>
-                        <div className="mt-2 flex space-x-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                        <div className="flex space-x-3">
                           <button
                             onClick={() => setPaymentMethod('net10')}
-                            className={`px-4 py-2 border rounded-md text-base font-medium ${paymentMethod === 'net10' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            className={`px-4 py-2 border rounded-md text-sm font-medium ${paymentMethod === 'net10' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                           >
                             Net-10 Open Account
                           </button>
                           <button
                             onClick={() => setPaymentMethod('credit')}
-                            className={`px-4 py-2 border rounded-md text-base font-medium ${paymentMethod === 'credit' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                            className={`px-4 py-2 border rounded-md text-sm font-medium ${paymentMethod === 'credit' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                           >
-                            Credit Card on File
+                            Existing Terms on File
                           </button>
                         </div>
                       </div>
+
+                      {/* PO Reference - Compact */}
                       <div>
-                        <label htmlFor="poReference" className="block text-base font-medium text-gray-700">Your PO Reference (optional)</label>
+                        <label htmlFor="poReference" className="block text-sm font-medium text-gray-700">Your PO Reference (optional)</label>
                         <input
                           type="text"
                           name="poReference"
@@ -614,17 +743,19 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                           placeholder="Enter your PO reference number"
                         />
                       </div>
+
+                      {/* Special Instructions - Compact */}
                       <div>
-                        <label htmlFor="specialInstructions" className="block text-base font-medium text-gray-700">
+                        <label htmlFor="specialInstructions" className="block text-sm font-medium text-gray-700">
                           Special Instructions or Comment (optional)
-                          <span className="text-sm text-gray-500 ml-2">
+                          <span className="text-xs text-gray-500 ml-2">
                             {specialInstructions.length}/140 characters
                           </span>
                         </label>
                         <textarea
                           name="specialInstructions"
                           id="specialInstructions"
-                          rows={3}
+                          rows={2}
                           value={specialInstructions}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -638,8 +769,8 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                         />
                       </div>
 
-                      {/* Shipping Address Section */}
-                      <div className="border-t border-gray-200 pt-6">
+                      {/* Shipping Address Checkbox - Compact */}
+                      <div className="pt-2">
                         <div className="flex items-center">
                           <input
                             id="shippingDifferent"
@@ -649,17 +780,17 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                             onChange={(e) => setShippingDifferent(e.target.checked)}
                             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                           />
-                          <label htmlFor="shippingDifferent" className="ml-2 block text-base font-medium text-gray-700">
+                          <label htmlFor="shippingDifferent" className="ml-2 block text-sm font-medium text-gray-700">
                             Shipping Address is Different than Bill-To Address
                           </label>
                         </div>
 
                         {shippingDifferent && (
-                          <div className="mt-4 space-y-4 p-4 bg-gray-50 rounded-md">
-                            <h4 className="text-lg font-medium text-gray-900">Shipping Address</h4>
+                          <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-md">
+                            <h4 className="text-sm font-medium text-gray-900">Shipping Address</h4>
                             
                             <div>
-                              <label htmlFor="shippingContactName" className="block text-sm font-medium text-gray-700">
+                              <label htmlFor="shippingContactName" className="block text-xs font-medium text-gray-700">
                                 Contact Name
                               </label>
                               <input
@@ -668,13 +799,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 id="shippingContactName"
                                 value={shippingContactName}
                                 onChange={(e) => setShippingContactName(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                 placeholder="Contact name for shipping"
                               />
                             </div>
 
                             <div>
-                              <label htmlFor="shippingAddress" className="block text-sm font-medium text-gray-700">
+                              <label htmlFor="shippingAddress" className="block text-xs font-medium text-gray-700">
                                 Street Address
                               </label>
                               <input
@@ -683,14 +814,14 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 id="shippingAddress"
                                 value={shippingAddress}
                                 onChange={(e) => setShippingAddress(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                 placeholder="Street address"
                               />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label htmlFor="shippingCity" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingCity" className="block text-xs font-medium text-gray-700">
                                   City
                                 </label>
                                 <input
@@ -699,13 +830,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingCity"
                                   value={shippingCity}
                                   onChange={(e) => setShippingCity(e.target.value)}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                   placeholder="City"
                                 />
                               </div>
 
                               <div>
-                                <label htmlFor="shippingState" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingState" className="block text-xs font-medium text-gray-700">
                                   State
                                 </label>
                                 <input
@@ -714,15 +845,15 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingState"
                                   value={shippingState}
                                   onChange={(e) => setShippingState(e.target.value)}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                   placeholder="State"
                                 />
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label htmlFor="shippingZip" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingZip" className="block text-xs font-medium text-gray-700">
                                   ZIP Code
                                 </label>
                                 <input
@@ -731,13 +862,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingZip"
                                   value={shippingZip}
                                   onChange={(e) => setShippingZip(e.target.value)}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
                                   placeholder="ZIP Code"
                                 />
                               </div>
 
                               <div>
-                                <label htmlFor="shippingPhone" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="shippingPhone" className="block text-xs font-medium text-gray-700">
                                   Phone Number
                                 </label>
                                 <input
@@ -746,9 +877,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   id="shippingPhone"
                                   value={shippingPhone}
                                   onChange={(e) => setShippingPhone(formatPhoneNumber(e.target.value))}
-                                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                  placeholder="(999) 999-9999"
-                                  maxLength={14}
+                                  className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-xs"
+                                  placeholder="999-999-9999"
+                                  maxLength={12}
                                 />
                               </div>
                             </div>
@@ -759,10 +890,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                   </div>
                 ) : (
                   <div className="mt-8">
-                    {items.length === 0 ? (
+                    {items.length === 0 && autoAppliedPromoItems.length === 0 ? (
                       <p className="text-center text-xl text-gray-500">Your cart is empty.</p>
                     ) : (
-                      <ul role="list" className="-my-6 divide-y divide-gray-200">
+                      <ul role="list" className="-my-6 divide-y-2 divide-gray-300">
+                        {/* Display regular items */}
                         {items.map((item) => (
                           <li key={item.partnumber + (item.description || '')} className="flex py-6">
                             {item.image && (
@@ -784,29 +916,61 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                 <p className="mt-1 text-base text-gray-500">{item.description}</p>
                               </div>
                               <div className="flex flex-1 items-center justify-between text-sm mt-2">
-                                {/* Quantity controls */}
-                                <div className="flex items-center">
-                                  <button
-                                    onClick={() => updateQuantity(item.partnumber, Math.max(1, item.quantity - 1))}
-                                    className="p-1 text-gray-500 hover:text-indigo-600"
-                                    aria-label="Decrease quantity"
-                                  >
-                                    <Minus size={16} />
-                                  </button>
-                                  <input
-                                    type="number"
-                                    value={item.quantity}
-                                    onChange={(e) => updateQuantity(item.partnumber, parseInt(e.target.value) || 1)}
-                                    className="w-16 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-base mx-2"
-                                    min="1"
-                                  />
-                                  <button
-                                    onClick={() => updateQuantity(item.partnumber, item.quantity + 1)}
-                                    className="p-1 text-gray-500 hover:text-indigo-600"
-                                    aria-label="Increase quantity"
-                                  >
-                                    <Plus size={16} />
-                                  </button>
+                                {/* Quantity controls - Regular and Backorder stacked left-to-right */}
+                                <div className="flex items-center space-x-6">
+                                  {/* Regular Quantity Row */}
+                                  <div className="flex items-center">
+                                    <span className="text-sm font-medium text-gray-700 mr-2">Qty Ordered:</span>
+                                    <button
+                                      onClick={() => updateQuantity(item.partnumber, Math.max(0, item.quantity - 1))}
+                                      className="p-1 text-gray-500 hover:text-indigo-600"
+                                      aria-label="Decrease quantity"
+                                    >
+                                      <Minus size={14} />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={item.quantity}
+                                      onChange={(e) => updateQuantity(item.partnumber, Math.max(0, parseInt(e.target.value) || 0))}
+                                      className="w-14 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm mx-1"
+                                      min="0"
+                                    />
+                                    <button
+                                      onClick={() => updateQuantity(item.partnumber, item.quantity + 1)}
+                                      className="p-1 text-gray-500 hover:text-indigo-600"
+                                      aria-label="Increase quantity"
+                                    >
+                                      <Plus size={14} />
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Backorder Quantity Row - Only show if qty_backordered > 0 */}
+                                  {(item.qtyBackordered || 0) > 0 && (
+                                    <div className="flex items-center">
+                                      <span className="text-sm font-medium text-orange-700 mr-2">Qty Backorder:</span>
+                                      <button
+                                        onClick={() => updateBackorderQuantity(item.partnumber, Math.max(0, (item.qtyBackordered || 0) - 1))}
+                                        className="p-1 text-orange-500 hover:text-orange-600"
+                                        aria-label="Decrease backorder quantity"
+                                      >
+                                        <Minus size={14} />
+                                      </button>
+                                      <input
+                                        type="number"
+                                        value={item.qtyBackordered || 0}
+                                        onChange={(e) => updateBackorderQuantity(item.partnumber, Math.max(0, parseInt(e.target.value) || 0))}
+                                        className="w-14 text-center border-orange-300 rounded-md shadow-sm focus:border-orange-500 focus:ring-orange-500 text-sm mx-1 bg-orange-50"
+                                        min="0"
+                                      />
+                                      <button
+                                        onClick={() => updateBackorderQuantity(item.partnumber, (item.qtyBackordered || 0) + 1)}
+                                        className="p-1 text-orange-500 hover:text-orange-600"
+                                        aria-label="Increase backorder quantity"
+                                      >
+                                        <Plus size={14} />
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Spacer to push prices and remove button to the right */}
@@ -817,6 +981,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                                   <div className="text-right">
                                     <p className="text-sm text-gray-500">${(item.price || 0).toFixed(2)} ea.</p>
                                     <p className="font-medium text-xl text-gray-900">${((item.price || 0) * item.quantity).toFixed(2)}</p>
+                                    {(item.qtyBackordered || 0) > 0 && (
+                                      <p className="text-xs text-orange-600">
+                                        +{item.qtyBackordered} backordered (${((item.price || 0) * (item.qtyBackordered || 0)).toFixed(2)})
+                                      </p>
+                                    )}
                                   </div>
                                   <button
                                     type="button"
@@ -834,6 +1003,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                             </div>
                           </li>
                         ))}
+                        
                       </ul>
                     )}
                   </div>
@@ -847,88 +1017,138 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                     <p>${totalPrice.toFixed(2)}</p>
                   </div>
 
-                  {/* Promo Code Dropdown - Moved up to the totals section */}
-                  {!isCheckingOut && items.length > 0 && (
-                    <div className="mt-2">
-                      <div className="flex justify-between items-center">
-                        <div className="flex-grow">
+                  {/* Enhanced Promo Code Discount Display */}
+                  {(() => {
+                    // CRITICAL FIX: Clear promo codes when cart is empty
+                    if (totalPrice === 0 || items.length === 0) {
+                      console.log('Cart is empty - clearing all promo codes');
+                      // Clear promo codes when cart becomes empty
+                      if (appliedPromoCode) {
+                        console.log('Removing applied promo code due to empty cart');
+                        removePromoCode();
+                      }
+                      return null; // Don't show any discount when cart is empty
+                    }
+                    
+                    let totalDiscount = 0;
+                    let promoMessage = '';
+                    let promoCodesApplied = [];
+                    
+                    // Debug logging for troubleshooting
+                    console.log('Discount Display Debug:', {
+                      appliedPromoCode,
+                      appliedPromoCodes,
+                      totalPrice,
+                      appliedPromoCodeValid: appliedPromoCode?.is_valid,
+                      appliedPromoCodeAmount: appliedPromoCode?.discount_amount
+                    });
+                    
+                    // Check for manually applied promo code (like SAVE1)
+                    if (appliedPromoCode) {
+                      console.log('Found appliedPromoCode:', appliedPromoCode);
+                      
+                      // Check if it's valid and has a discount amount
+                      const discountAmount = parseFloat(appliedPromoCode.discount_amount?.toString() || '0');
+                      
+                      if (appliedPromoCode.is_valid && discountAmount > 0) {
+                        totalDiscount += discountAmount;
+                        const codeDisplay = appliedPromoCode.code || appliedPromoCode.promo_id || 'SAVE1';
+                        promoCodesApplied.push(codeDisplay);
+                        promoMessage = appliedPromoCode.message || `Promo code ${codeDisplay} has been automatically applied`;
+                        console.log('Valid promo code found:', codeDisplay, 'Amount:', discountAmount);
+                      } else {
+                        console.log('Promo code not valid or no discount:', {
+                          is_valid: appliedPromoCode.is_valid,
+                          discount_amount: discountAmount,
+                          raw_discount: appliedPromoCode.discount_amount
+                        });
+                      }
+                    }
+                    
+                    // Check for auto-applied promo codes
+                    if (appliedPromoCodes && Array.isArray(appliedPromoCodes) && appliedPromoCodes.length > 0) {
+                      console.log('Found appliedPromoCodes:', appliedPromoCodes);
+                      
+                      appliedPromoCodes.forEach(promo => {
+                        const discountAmount = parseFloat(promo.discount_amount?.toString() || '0');
+                        if (promo.is_valid && discountAmount > 0) {
+                          totalDiscount += discountAmount;
+                          const codeDisplay = promo.code || promo.promo_id || 'PROMO';
+                          promoCodesApplied.push(codeDisplay);
+                        }
+                      });
+                      
+                      if (appliedPromoCodes.length > 0 && !promoMessage) {
+                        promoMessage = 'Promotional discount has been automatically applied';
+                      }
+                    }
+                    
+                    // Show compact discount line if there's any discount and cart has items
+                    if (totalDiscount > 0 && totalPrice > 0) {
+                      console.log('Displaying discount:', totalDiscount, 'Message:', promoMessage);
+                      // Remove duplicate promo codes
+                      const uniquePromoCodes = [...new Set(promoCodesApplied)];
+                      
+                      return (
+                        <div className="flex justify-between text-sm text-green-600 mt-1 font-medium">
                           <div className="flex items-center">
-                            <select
-                              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                              value={selectedPromoCode}
-                              onChange={(e) => setSelectedPromoCode(e.target.value)}
-                              disabled={isLoadingPromoCodes}
-                            >
-                              <option value="">
-                                {appliedPromoCode ? 'Switch to a different promo code' : 'Select a promo code'}
-                              </option>
-                              {availablePromoCodes
-                                .filter(promo => !promo.status || promo.status === 'available' || promo.status === 'min_not_met')
-                                .map((promo) => (
-                                <option key={promo.code} value={promo.code}>
-                                  {promo.code} - {promo.description} (Save ${promo.discount_amount.toFixed(2)})
-                                  {promo.is_best ? ' - Best Value!' : ''}
-                                  {appliedPromoCode && appliedPromoCode.promo_id === promo.code ? ' - Currently Applied' : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={handleRefreshPromoCodes}
-                              className="inline-flex items-center p-2 border border-gray-300 bg-gray-50 text-gray-500 hover:bg-gray-100"
-                              title="Refresh promo codes"
-                              disabled={isLoadingPromoCodes}
-                            >
-                              <RefreshCw size={16} className={isLoadingPromoCodes ? "animate-spin" : ""} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={appliedPromoCode ? removePromoCode : handleApplyPromoCode}
-                              className={`inline-flex items-center px-3 py-2 text-sm leading-4 font-medium rounded-r-md text-white ${
-                                appliedPromoCode 
-                                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500 border border-transparent' 
-                                  : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
-                              } ${
-                                // Add critical flashing red border when there are available promo codes and none applied
-                                !appliedPromoCode && selectedPromoCode && availablePromoCodes.length > 0 
-                                  ? 'promo-button-pulse relative z-10' 
-                                  : 'border border-transparent'
-                              } focus:outline-none focus:ring-2 focus:ring-offset-2`}
-                              title={!appliedPromoCode && selectedPromoCode ? "CLICK TO APPLY PROMO CODE!" : ""}
-                              disabled={applyingPromo || (!appliedPromoCode && !selectedPromoCode)}
-                            >
-                              {applyingPromo ? 'Applying...' : appliedPromoCode ? 'Remove' : 'Apply'}
-                            </button>
+                            <span className="mr-2 text-3xl">🎁</span>
+                            <div className="flex flex-col">
+                              {uniquePromoCodes.length > 0 ? (
+                                <p className="text-lg text-green-600">
+                                  Promo code <span className="text-red-600 font-bold">{uniquePromoCodes.join(', ')}</span> has been automatically applied
+                                </p>
+                              ) : (
+                                <p className="text-lg text-green-600">{promoMessage}</p>
+                              )}
+                            </div>
                           </div>
-                          {promoError && (
-                            <p className="mt-1 text-sm text-red-600">{promoError}</p>
-                          )}
-                          {appliedPromoCode && appliedPromoCode.is_valid && (
-                            <p className="mt-1 text-sm text-green-600">
-                              Promo code applied successfully!
-                            </p>
-                          )}
-                          {!appliedPromoCode && selectedPromoDetails && (
-                            <p className="mt-1 text-xs text-blue-600">
-                              Potential savings: ${selectedPromoDetails.discount_amount.toFixed(2)}
-                            </p>
-                          )}
+                          <div className="text-right">
+                            <p className="font-bold text-lg">-${totalDiscount.toFixed(2)}</p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Applied discount display */}
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-sm font-medium text-green-600 mt-2">
-                      <p>{appliedPromoCode?.message || "Promo Code Discount"}</p>
-                      <p>-${discountAmount.toFixed(2)}</p>
-                    </div>
-                  )}
+                      );
+                    } else {
+                      console.log('No discount to display - totalDiscount:', totalDiscount, 'totalPrice:', totalPrice);
+                    }
+                    
+                    return null;
+                  })()}
 
                   <div className="flex justify-between text-3xl font-bold text-gray-900 mt-2 pt-2 border-t border-dashed">
-                    <p>Sub Total</p>
-                    <p>${displayGrandTotal.toFixed(2)}</p>
+                    <p>Grand Total</p>
+                    <p>${(() => {
+                      // CRITICAL FIX: Don't apply discounts when cart is empty
+                      if (totalPrice === 0 || items.length === 0) {
+                        console.log('Grand Total - Cart is empty, returning $0.00');
+                        return '0.00';
+                      }
+                      
+                      // Calculate total discount from all sources
+                      let totalDiscount = 0;
+                      
+                      // Add discount from manually applied promo code (like SAVE1)
+                      if (appliedPromoCode && appliedPromoCode.is_valid) {
+                        const discountAmount = parseFloat(appliedPromoCode.discount_amount?.toString() || '0');
+                        totalDiscount += discountAmount;
+                        console.log('Grand Total - Applied promo discount:', discountAmount);
+                      }
+                      
+                      // Add discount from auto-applied promo codes
+                      if (appliedPromoCodes && appliedPromoCodes.length > 0) {
+                        const autoDiscountAmount = appliedPromoCodes.reduce((total, promo) => {
+                          const discountAmount = parseFloat(promo.discount_amount?.toString() || '0');
+                          return total + (promo.is_valid ? discountAmount : 0);
+                        }, 0);
+                        totalDiscount += autoDiscountAmount;
+                        console.log('Grand Total - Auto promo discounts:', autoDiscountAmount);
+                      }
+                      
+                      // Ensure grand total is never negative
+                      const grandTotal = Math.max(0, totalPrice - totalDiscount);
+                      console.log('Grand Total calculation - Subtotal:', totalPrice, 'Total Discounts:', totalDiscount, 'Grand Total:', grandTotal);
+                      return grandTotal.toFixed(2);
+                    })()}</p>
                   </div>
                   <p className="mt-0.5 text-base text-gray-500">Does not inclued shipping charge. You will be emailed the Grand Total when shipped</p>
                   <div className="mt-6">
@@ -955,21 +1175,40 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({ isOpen, onClose }) => {
                       </button>
                     )}
                   </div>
-                  <div className="mt-6 flex justify-center text-center text-sm text-gray-500">
-                    <p>
-                      or{' '}
+                  <div className="mt-6 space-y-3">
+                    {/* NEW: Cancel Order Button - Only show when cart has items */}
+                    {items.length > 0 && !isCheckingOut && (
                       <button
-                        type="button"
-                        className="font-medium text-indigo-600 hover:text-indigo-500"
-                        onClick={() => {
-                          if (isCheckingOut) setIsCheckingOut(false);
-                          else onClose();
+                        onClick={async () => {
+                          const cancelled = await cancelOrderWithConfirmation();
+                          if (cancelled) {
+                            onClose(); // Close cart after successful cancellation
+                          }
                         }}
+                        className="w-full flex items-center justify-center rounded-md border border-red-500 bg-red-50 px-6 py-2 text-base font-medium text-red-700 shadow-sm hover:bg-red-100 hover:text-red-800 transition-colors"
+                        title="Remove all items from cart"
                       >
-                        {isCheckingOut ? 'Back to Cart' : 'Continue Shopping'}
-                        <span aria-hidden="true"> &rarr;</span>
+                        <Trash2 size={18} className="mr-2" />
+                        Cancel Order
                       </button>
-                    </p>
+                    )}
+                    
+                    <div className="flex justify-center text-center text-sm text-gray-500">
+                      <p>
+                        or{' '}
+                        <button
+                          type="button"
+                          className="font-medium text-indigo-600 hover:text-indigo-500"
+                          onClick={() => {
+                            if (isCheckingOut) setIsCheckingOut(false);
+                            else onClose();
+                          }}
+                        >
+                          {isCheckingOut ? 'Back to Cart' : 'Continue Shopping'}
+                          <span aria-hidden="true"> &rarr;</span>
+                        </button>
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

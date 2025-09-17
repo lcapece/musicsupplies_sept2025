@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>URGENT: Account 999 SMS Status Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .error { background-color: #ffebee; color: #c62828; }
+        .success { background-color: #e8f5e8; color: #2e7d32; }
+        .loading { background-color: #fff3e0; color: #f57c00; }
+        pre { background-color: #f5f5f5; padding: 10px; overflow: auto; }
+    </style>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>🚨 URGENT: Account 999 SMS/2FA Status Check</h1>
+    <div id="results">
+        <div class="loading">Loading... Please wait while checking SMS configuration.</div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://ekklokrukxmqlahtonnc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const resultsDiv = document.getElementById('results');
+
+        function addResult(title, content, isError = false) {
+            const div = document.createElement('div');
+            div.className = 'result ' + (isError ? 'error' : 'success');
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            resultsDiv.appendChild(div);
+        }
+
+        async function checkSMSStatus() {
+            resultsDiv.innerHTML = '';
+            
+            try {
+                // 1. Check SMS Status Function
+                console.log('Checking SMS status...');
+                const { data: smsStatus, error: smsError } = await supabase.rpc('get_sms_status');
+                
+                if (smsError) {
+                    addResult('SMS Status Function', `Error: ${smsError.message}`, true);
+                } else {
+                    addResult('SMS Status Function', JSON.stringify(smsStatus, null, 2));
+                }
+
+                // 2. Test SMS Config Function  
+                console.log('Testing SMS config...');
+                const { data: configTest, error: configError } = await supabase.rpc('test_sms_config');
+                
+                if (configError) {
+                    addResult('SMS Config Test', `Error: ${configError.message}`, true);
+                } else {
+                    addResult('SMS Config Test', JSON.stringify(configTest, null, 2));
+                }
+
+                // 3. Check Account 999
+                console.log('Checking account 999...');
+                const { data: account999, error: accountError } = await supabase
+                    .from('accounts_lcmd')
+                    .select('account_number, acct_name, phone, mobile_phone, email_address')
+                    .eq('account_number', 999)
+                    .single();
+                
+                if (accountError) {
+                    addResult('Account 999', `Error: ${accountError.message}`, true);
+                } else {
+                    addResult('Account 999', JSON.stringify(account999, null, 2));
+                }
+
+                // 4. Check 2FA Phone Numbers
+                console.log('Checking 2FA phone numbers...');
+                const { data: twoFAPhones, error: phoneError } = await supabase
+                    .from('2fa')
+                    .select('*');
+                
+                if (phoneError) {
+                    addResult('2FA Phone Numbers', `Error: ${phoneError.message}`, true);
+                } else {
+                    addResult('2FA Phone Numbers', JSON.stringify(twoFAPhones, null, 2));
+                }
+
+                // 5. Check App Config for ClickSend
+                console.log('Checking app config...');
+                const { data: appConfig, error: configQueryError } = await supabase
+                    .from('app_config')
+                    .select('config_key, config_value, description')
+                    .in('config_key', ['CLICKSEND_USERNAME', 'CLICKSEND_API_KEY']);
+                
+                if (configQueryError) {
+                    addResult('App Config (ClickSend)', `Error: ${configQueryError.message}`, true);
+                } else {
+                    // Mask sensitive values for display
+                    const maskedConfig = appConfig.map(item => ({
+                        ...item,
+                        config_value: item.config_value ? '***SET***' : 'NOT SET'
+                    }));
+                    addResult('App Config (ClickSend)', JSON.stringify(maskedConfig, null, 2));
+                }
+
+                // 6. Check Recent 2FA Codes for Account 999
+                console.log('Checking recent 2FA codes...');
+                const { data: recentCodes, error: codesError } = await supabase
+                    .from('two_factor_codes')
+                    .select('id, account_number, code, created_at, expires_at, used, ip_address')
+                    .eq('account_number', 999)
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                
+                if (codesError) {
+                    addResult('Recent 2FA Codes (Account 999)', `Error: ${codesError.message}`, true);
+                } else {
+                    // Mask codes for security
+                    const maskedCodes = recentCodes.map(code => ({
+                        ...code,
+                        code: '***' + code.code.slice(-2)
+                    }));
+                    addResult('Recent 2FA Codes (Account 999)', JSON.stringify(maskedCodes, null, 2));
+                }
+
+            } catch (error) {
+                addResult('Unexpected Error', error.message, true);
+            }
+        }
+
+        // Run the check automatically when page loads
+        checkSMSStatus();
+    </script>
+</body>
+</html>

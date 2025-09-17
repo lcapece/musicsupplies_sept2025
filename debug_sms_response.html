@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DEBUG SMS Response</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Debug ClickSend Response</h1>
+    <button onclick="testSMS()">Send Test SMS and Show Full Response</button>
+    <div id="result"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ekklokrukxmqlahtonnc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+        
+        const { createClient } = supabase;
+        const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testSMS() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Sending SMS and debugging response...</p>';
+            
+            try {
+                const response = await client.functions.invoke('send-admin-sms', {
+                    body: {
+                        eventName: '2FA_LOGIN',
+                        message: 'EMERGENCY DEBUG TEST: 999999',
+                        customPhones: ['+15164550980']
+                    }
+                });
+                
+                console.log('Full SMS Response:', response);
+                
+                result.innerHTML = `
+                    <h2>Full Response:</h2>
+                    <pre>${JSON.stringify(response, null, 2)}</pre>
+                    <h2>Data:</h2>
+                    <pre>${JSON.stringify(response.data, null, 2)}</pre>
+                    <h2>Error:</h2>
+                    <pre>${JSON.stringify(response.error, null, 2)}</pre>
+                `;
+                
+            } catch (e) {
+                console.error('Exception:', e);
+                result.innerHTML = `<p style="color: red;">EXCEPTION: ${e.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

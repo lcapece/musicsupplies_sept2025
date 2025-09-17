@@ -13,6 +13,11 @@ export interface InvoiceData {
     line1?: string;
     cityStateZip?: string;
   };
+  shippingAddress?: {
+    name?: string;
+    line1?: string;
+    cityStateZip?: string;
+  };
   items: CartItem[];
   subtotal: number;
   shippingCharges?: number;
@@ -53,6 +58,7 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
     customerEmail,
     customerPhone,
     customerAddress,
+    shippingAddress,
     items,
     subtotal,
     shippingCharges = 0,
@@ -64,34 +70,37 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
     paymentMethod
   } = invoiceData;
 
-  // Determine if this is a web order (750000-770000 range)
+  // Fix order number display - ensure single WB prefix for web orders
   const orderNum = parseInt(orderNumber.replace(/[^\d]/g, ''));
   const isWebOrder = orderNum >= 750000 && orderNum <= 770000;
-  const displayLabel = isWebOrder ? "Web Order:" : "Invoice Number:";
-  const displayNumber = isWebOrder ? `WB${orderNumber}` : orderNumber;
+  const displayLabel = isWebOrder ? "WEB ORDER" : "INVOICE";
+  // Fix: Don't add WB if orderNumber already contains it
+  const displayNumber = isWebOrder ? 
+    (orderNumber.startsWith('WB') ? orderNumber : `WB${orderNumber}`) : 
+    orderNumber;
 
-  // Generate line items HTML with clean styling
+  // Generate line items HTML with EMAIL-SAFE inline styling
   const lineItemsHTML = items.map((item, index) => `
-    <tr class="${index % 2 === 0 ? 'row-even' : 'row-odd'}">
-      <td class="qty-cell">${item.quantity}</td>
-      <td class="qty-cell">${item.quantity}</td>
-      <td class="part-cell">${item.partnumber}</td>
-      <td class="desc-cell">${item.description || ''}</td>
-      <td class="price-cell">$${(item.price || 0).toFixed(2)}</td>
-      <td class="total-cell">$${((item.price || 0) * item.quantity).toFixed(2)}</td>
+    <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
+      <td style="padding: 6px; border: 1px solid #000; text-align: center; font-size: 10px;">${item.quantity}</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: center; font-size: 10px;">${item.quantity}</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: left; font-size: 10px;">${item.partnumber}</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: left; font-size: 10px;">${item.description || ''}</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: right; font-size: 10px;">$${(item.price || 0).toFixed(2)}</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: right; font-size: 10px;">$${((item.price || 0) * item.quantity).toFixed(2)}</td>
     </tr>
   `).join('');
 
-  // Add empty rows for consistent layout (minimum 6 rows total)
-  const emptyRowsNeeded = Math.max(0, 6 - items.length);
+  // Add empty rows for consistent layout (minimum 12 rows total for professional appearance)
+  const emptyRowsNeeded = Math.max(0, 12 - items.length);
   const emptyRowsHTML = Array(emptyRowsNeeded).fill(0).map((_, index) => `
-    <tr class="${(items.length + index) % 2 === 0 ? 'row-even' : 'row-odd'} empty-row">
-      <td class="qty-cell">&nbsp;</td>
-      <td class="qty-cell"></td>
-      <td class="part-cell"></td>
-      <td class="desc-cell"></td>
-      <td class="price-cell"></td>
-      <td class="total-cell"></td>
+    <tr style="background-color: ${(items.length + index) % 2 === 0 ? '#ffffff' : '#f9f9f9'}; height: 20px;">
+      <td style="padding: 6px; border: 1px solid #000; text-align: center; font-size: 10px;">&nbsp;</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: center; font-size: 10px;">&nbsp;</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: left; font-size: 10px;">&nbsp;</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: left; font-size: 10px;">&nbsp;</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: right; font-size: 10px;">&nbsp;</td>
+      <td style="padding: 6px; border: 1px solid #000; text-align: right; font-size: 10px;">&nbsp;</td>
     </tr>
   `).join('');
 
@@ -101,399 +110,212 @@ export function generateInvoiceHTML(invoiceData: InvoiceData, companyInfo: Compa
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${isWebOrder ? 'Web Order' : 'Invoice'} ${displayNumber}</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: white;
-            color: #000;
-            line-height: 1.4;
-        }
-
-        /* Print-optimized container for 8.5" x 11" */
-        .invoice-container {
-            width: 8.5in;
-            max-width: 8.5in;
-            margin: 0 auto;
-            padding: 0.5in;
-            background: white;
-            box-sizing: border-box;
-        }
-
-        /* Clean Header Section */
-        .invoice-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #ddd;
-        }
-
-        .company-section {
-            flex: 1;
-        }
-
-        .company-name {
-            font-size: 22px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 5px;
-        }
-
-        .company-website {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-
-        .company-website .music { color: #2c5aa0; }
-        .company-website .supplies { color: #dc3545; }
-        .company-website .com { color: #000; }
-
-        .company-details {
-            font-size: 14px;
-            color: #666;
-            line-height: 1.6;
-        }
-
-        /* Invoice Meta Information */  
-        .invoice-meta {
-            text-align: right;
-            flex: 0 0 250px;
-        }
-
-        .invoice-title {
-            font-size: 28px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 15px;
-        }
-
-        .meta-item {
-            font-size: 14px;
-            margin: 5px 0;
-            color: #333;
-        }
-
-        .meta-item strong {
-            color: #000;
-        }
-
-        /* Customer Information */
-        .customer-section {
-            margin-bottom: 25px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-left: 4px solid #2c5aa0;
-        }
-
-        .bill-to-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 10px;
-        }
-
-        .customer-info {
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        /* Items Table */
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 25px;
-            font-size: 13px;
-        }
-
-        .items-table th {
-            background: #2c5aa0;
-            color: white;
-            padding: 10px 8px;
-            text-align: left;
-            font-weight: bold;
-            border: 1px solid #ddd;
-        }
-
-        .items-table th.text-center { text-align: center; }
-        .items-table th.text-right { text-align: right; }
-
-        .items-table td {
-            padding: 8px;
-            border: 1px solid #ddd;
-            vertical-align: top;
-        }
-
-        .items-table tbody tr.row-even {
-            background-color: #f8f9fa;
-        }
-
-        .items-table tbody tr.row-odd {
-            background-color: white;
-        }
-
-        .qty-cell {
-            text-align: center;
-            font-weight: bold;
-            width: 8%;
-        }
-
-        .part-cell {
-            font-family: monospace;
-            font-weight: bold;
-            width: 18%;
-        }
-
-        .desc-cell {
-            width: 44%;
-        }
-
-        .price-cell, .total-cell {
-            text-align: right;
-            font-family: monospace;
-            font-weight: bold;
-            width: 15%;
-        }
-
-        .empty-row td {
-            height: 25px;
-            border-color: #eee;
-        }
-
-        /* Summary Section */
-        .summary-section {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 25px;
-        }
-
-        .totals-table {
-            width: 300px;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
-        .totals-table td {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-        }
-
-        .total-label {
-            text-align: right;
-            font-weight: bold;
-            background: #f8f9fa;
-            width: 60%;
-        }
-
-        .total-amount {
-            text-align: right;
-            font-family: monospace;
-            font-weight: bold;
-            width: 40%;
-        }
-
-        .grand-total-row {
-            background: #2c5aa0;
-            color: white;
-        }
-
-        .grand-total-row .total-label,
-        .grand-total-row .total-amount {
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-        }
-
-        /* Payment Information */
-        .payment-section {
-            margin-bottom: 25px;
-            padding: 15px;
-            background: #f8f9fa;
-            border: 1px solid #ddd;
-        }
-
-        .payment-method {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .payment-terms {
-            font-size: 13px;
-            color: #666;
-            font-style: italic;
-        }
-
-        /* Pro-Forma Notice */
-        .proforma-notice {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #fff5f5;
-            border: 2px solid #dc3545;
-            border-radius: 5px;
-            text-align: center;
-        }
-
-        .proforma-text {
-            color: #dc3545;
-            font-size: 14px;
-            font-weight: bold;
-            margin: 0;
-        }
-
-        /* Footer */
-        .footer-section {
-            padding: 15px 0;
-            text-align: center;
-            border-top: 1px solid #ddd;
-            font-size: 12px;
-            color: #666;
-        }
-
-        .footer-text {
-            margin: 5px 0;
-        }
-
-        /* Print Styles */
-        @media print {
-            body {
-                margin: 0;
-                padding: 0;
-            }
-            
-            .invoice-container {
-                margin: 0;
-                padding: 0.5in;
-                box-shadow: none;
-                border: none;
-            }
-            
-            @page {
-                size: 8.5in 11in;
-                margin: 0.5in;
-            }
-        }
-    </style>
+    <title>Invoice Number: ${orderNumber}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:AllowPNG/>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
 </head>
-<body>
-    <div class="invoice-container">
-        <!-- Clean Header -->
-        <header class="invoice-header">
-            <div class="company-section">
-                <h1 class="company-name">${companyInfo.name}</h1>
-                <div class="company-website">
-                    <span class="music">Music</span><span class="supplies">Supplies</span><span class="com">.com</span>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background: white; color: #000; line-height: 1.4; font-size: 12px;">
+
+    <!-- MAIN CONTAINER TABLE - EMAIL SAFE -->
+    <table style="width: 100%; max-width: 800px; margin: 0 auto; background: white; border-collapse: collapse;" cellpadding="0" cellspacing="0">
+        
+        <!-- HEADER SECTION -->
+        <tr>
+            <td style="padding: 20px;">
+                <table style="width: 100%; border-collapse: collapse;" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="width: 50%; vertical-align: top;">
+                            <!-- COMPANY INFO -->
+                            <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">
+                                MusicSupplies<span style="color: #dc3545;">Supplies</span>.com
+                            </div>
+                            <h1 style="font-size: 18px; font-weight: bold; color: #2c5aa0; margin: 15px 0;">
+                                ${companyInfo.name}
+                            </h1>
+                            <div style="font-size: 11px; color: #333; line-height: 1.5;">
+                                <div>${companyInfo.address}</div>
+                                <div>${companyInfo.cityStateZip}</div>
+                                <div>${companyInfo.phone}</div>
+                                <div>Reply to: ${companyInfo.email}</div>
+                            </div>
+                        </td>
+                        <td style="width: 50%; vertical-align: top; text-align: right;">
+                            <!-- INVOICE META -->
+                            <h2 style="font-size: 28px; font-weight: bold; margin-bottom: 15px; color: #4a90a4;">
+                                ${displayLabel}
+                            </h2>
+                            <div style="font-size: 11px; margin: 3px 0; color: #333;">
+                                <strong>Invoice Number:</strong> ${displayNumber}
+                            </div>
+                            ${accountNumber ? `<div style="font-size: 11px; margin: 3px 0; color: #333;"><strong>Acct No.:</strong> ${accountNumber}</div>` : ''}
+                            <div style="font-size: 11px; margin: 3px 0; color: #333;">
+                                <strong>Invoice Date:</strong> ${invoiceDate}
+                            </div>
+                            <div style="font-size: 11px; margin: 3px 0; color: #333;">
+                                <strong>Terms:</strong> ${terms}
+                            </div>
+                            <div style="font-size: 11px; margin: 3px 0; color: #333;">
+                                <strong>Sales Rep:</strong> ${salesRep}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- PROFORMA WARNING (if no shipping) -->
+        ${(!shippingCharges || shippingCharges === 0) ? `
+        <tr>
+            <td style="padding: 0 20px;">
+                <div style="text-align: center; margin: 20px 0; padding: 15px; background-color: #fff3cd; border: 2px solid #dc3545;">
+                    <h2 style="color: #dc3545; font-weight: bold; margin: 0; font-size: 18px;">
+                        PROFORMA INVOICE - SHIPPING NOT YET CALCULATED
+                    </h2>
                 </div>
-                <div class="company-details">
-                    <div>${companyInfo.address}</div>
-                    <div>${companyInfo.cityStateZip}</div>
-                    <div>${companyInfo.phone}</div>
-                    <div>Reply to: ${companyInfo.email}</div>
+            </td>
+        </tr>
+        ` : ''}
+
+        <!-- CUSTOMER SECTIONS -->
+        <tr>
+            <td style="padding: 0 20px;">
+                <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="width: 48%; vertical-align: top;">
+                            <!-- BILL TO -->
+                            <div style="padding: 12px; border: 2px solid #000; min-height: 120px;">
+                                <h3 style="font-size: 12px; font-weight: bold; margin-bottom: 8px; text-decoration: underline;">
+                                    Bill To:
+                                </h3>
+                                <div style="font-size: 11px; line-height: 1.4;">
+                                    <div><strong>${customerName}</strong></div>
+                                    ${customerAddress?.line1 ? `<div>${customerAddress.line1}</div>` : ''}
+                                    ${customerAddress?.cityStateZip ? `<div>${customerAddress.cityStateZip}</div>` : ''}
+                                    <div>Email: ${customerEmail}</div>
+                                    <div>Phone: ${customerPhone}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="width: 4%;"></td> <!-- SPACER -->
+                        <td style="width: 48%; vertical-align: top;">
+                            <!-- SHIP TO -->
+                            <div style="padding: 12px; border: 2px solid #000; min-height: 120px;">
+                                <h3 style="font-size: 12px; font-weight: bold; margin-bottom: 8px; text-decoration: underline;">
+                                    Ship To:
+                                </h3>
+                                <div style="font-size: 11px; line-height: 1.4;">
+                                    ${shippingAddress && shippingAddress.line1 ? `
+                                        <div><strong>${shippingAddress.name || customerName}</strong></div>
+                                        <div>${shippingAddress.line1}</div>
+                                        <div>${shippingAddress.cityStateZip || ''}</div>
+                                    ` : `
+                                        <div>N/A</div>
+                                    `}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- ITEMS TABLE -->
+        <tr>
+            <td style="padding: 0 20px;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;" cellpadding="0" cellspacing="0">
+                    <!-- TABLE HEADER -->
+                    <thead>
+                        <tr style="background: #4a90a4; color: white;">
+                            <th style="padding: 8px 6px; text-align: center; font-weight: bold; border: 1px solid #000; font-size: 10px;">Qty Ord</th>
+                            <th style="padding: 8px 6px; text-align: center; font-weight: bold; border: 1px solid #000; font-size: 10px;">Qty Shp</th>
+                            <th style="padding: 8px 6px; text-align: left; font-weight: bold; border: 1px solid #000; font-size: 10px;">Part Number</th>
+                            <th style="padding: 8px 6px; text-align: left; font-weight: bold; border: 1px solid #000; font-size: 10px;">Description</th>
+                            <th style="padding: 8px 6px; text-align: right; font-weight: bold; border: 1px solid #000; font-size: 10px;">Unit Net</th>
+                            <th style="padding: 8px 6px; text-align: right; font-weight: bold; border: 1px solid #000; font-size: 10px;">Extended Net</th>
+                        </tr>
+                    </thead>
+                    <!-- TABLE BODY -->
+                    <tbody>
+                        ${lineItemsHTML}
+                        ${emptyRowsHTML}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+
+        <!-- TOTALS SECTION -->
+        <tr>
+            <td style="padding: 0 20px;">
+                <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td style="width: 30%; vertical-align: top;">
+                            <!-- DISCOUNT BOX -->
+                            <div style="border: 2px dashed #000; padding: 15px; text-align: center; height: 80px;">
+                                ${promoCodeDiscount > 0 && promoCodeDescription ? `
+                                    <div style="font-size: 10px; font-weight: bold; margin-bottom: 5px;">${promoCodeDescription}</div>
+                                    <div style="font-size: 10px; font-weight: bold;">Discount: $${promoCodeDiscount.toFixed(2)}</div>
+                                ` : `
+                                    <div style="font-size: 10px; font-weight: bold;">&nbsp;</div>
+                                    <div style="font-size: 10px; font-weight: bold;">&nbsp;</div>
+                                `}
+                            </div>
+                        </td>
+                        <td style="width: 20%;"></td> <!-- SPACER -->
+                        <td style="width: 50%; vertical-align: top;">
+                            <!-- TOTALS TABLE -->
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px;" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; width: 60%;">Subtotal:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; width: 40%;">$${subtotal.toFixed(2)}</td>
+                                </tr>
+                                ${shippingCharges > 0 ? `
+                                <tr>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">Shipping:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">$${shippingCharges.toFixed(2)}</td>
+                                </tr>` : ''}
+                                ${paymentsReceived > 0 ? `
+                                <tr>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">Payments Received:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold;">($${paymentsReceived.toFixed(2)})</td>
+                                </tr>` : ''}
+                                <tr style="background: white;">
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; font-size: 14px;">Total Due:</td>
+                                    <td style="padding: 6px 12px; border: 1px solid #000; text-align: right; font-weight: bold; font-size: 14px;">$${totalAmountDue.toFixed(2)}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- PAYMENT METHOD SECTION -->
+        <tr>
+            <td style="padding: 0 20px;">
+                <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #000;">
+                    <strong>Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}</strong>
+                    ${paymentMethod === 'net10' ? '<br>Payment due within 10 days of invoice date.' : ''}
                 </div>
-            </div>
-            <div class="invoice-meta">
-                <h2 class="invoice-title">${isWebOrder ? 'WEB ORDER' : 'INVOICE'}</h2>
-                <div class="meta-item"><strong>${displayLabel}</strong> ${displayNumber}</div>
-                ${accountNumber ? `<div class="meta-item"><strong>Acct No.:</strong> ${accountNumber}</div>` : ''}
-                <div class="meta-item"><strong>${isWebOrder ? 'Order' : 'Invoice'} Date:</strong> ${invoiceDate}</div>
-                <div class="meta-item"><strong>Terms:</strong> ${terms}</div>
-                <div class="meta-item"><strong>Sales Rep:</strong> ${salesRep}</div>
-            </div>
-        </header>
+            </td>
+        </tr>
 
-        <!-- Customer Information -->
-        <section class="customer-section">
-            <h3 class="bill-to-title">Bill To:</h3>
-            <div class="customer-info">
-                <div><strong>${customerName}</strong></div>
-                ${customerAddress?.line1 ? `<div>${customerAddress.line1}</div>` : ''}
-                ${customerAddress?.cityStateZip ? `<div>${customerAddress.cityStateZip}</div>` : ''}
-                <div>Email: ${customerEmail}</div>
-                <div>Phone: ${customerPhone}</div>
-            </div>
-        </section>
-
-        <!-- Items Table -->
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th class="text-center">Qty Ord</th>
-                    <th class="text-center">Qty Shp</th>
-                    <th>Part Number</th>
-                    <th>Description</th>
-                    <th class="text-right">Unit Net</th>
-                    <th class="text-right">Extended Net</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${lineItemsHTML}
-                ${emptyRowsHTML}
-            </tbody>
-        </table>
-
-        <!-- Summary Section -->
-        <section class="summary-section">
-            <table class="totals-table">
-                <tr>
-                    <td class="total-label">Subtotal:</td>
-                    <td class="total-amount">$${subtotal.toFixed(2)}</td>
-                </tr>
-                ${shippingCharges > 0 ? `
-                <tr>
-                    <td class="total-label">Shipping:</td>
-                    <td class="total-amount">$${shippingCharges.toFixed(2)}</td>
-                </tr>
-                ` : ''}
-                ${promoCodeDiscount > 0 ? `
-                <tr>
-                    <td class="total-label">Discount${promoCodeDescription ? ` (${promoCodeDescription})` : ''}:</td>
-                    <td class="total-amount">-$${promoCodeDiscount.toFixed(2)}</td>
-                </tr>
-                ` : ''}
-                ${paymentsReceived > 0 ? `
-                <tr>
-                    <td class="total-label">Payments Received:</td>
-                    <td class="total-amount">-$${paymentsReceived.toFixed(2)}</td>
-                </tr>
-                ` : ''}
-                ${interestCharges > 0 ? `
-                <tr>
-                    <td class="total-label">Interest Charges:</td>
-                    <td class="total-amount">$${interestCharges.toFixed(2)}</td>
-                </tr>
-                ` : ''}
-                <tr class="grand-total-row">
-                    <td class="total-label">Total Amount Due:</td>
-                    <td class="total-amount">$${totalAmountDue.toFixed(2)}</td>
-                </tr>
-            </table>
-        </section>
-
-        <!-- Payment Information -->
-        <section class="payment-section">
-            <div class="payment-method">Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}</div>
-            ${paymentMethod === 'net10' ? '<div class="payment-terms">Payment due within 10 days of invoice date.</div>' : ''}
-        </section>
-
-        <!-- Pro-Forma Notice -->
-        <section class="proforma-notice">
-            <p class="proforma-text">Note: This is a Pro-Forma Invoice. You will be notified of the Grand Total when Shipping Charges are calculated - Thank You!</p>
-        </section>
-
-        <!-- Footer -->
-        <section class="footer-section">
-            <div class="footer-text">Thank you for your business! Questions about this ${isWebOrder ? 'order' : 'invoice'}?</div>
-            <div class="footer-text">Contact us at ${companyInfo.email} or ${companyInfo.phone}</div>
-        </section>
-    </div>
+        <!-- FOOTER -->
+        <tr>
+            <td style="padding: 0 20px;">
+                <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #333;">
+                    <div>Thank you for your business!</div>
+                </div>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
   `;
@@ -509,6 +331,8 @@ export function generateInvoiceText(invoiceData: InvoiceData, companyInfo: Compa
     customerName,
     customerEmail,
     customerPhone,
+    customerAddress,
+    shippingAddress,
     items,
     subtotal,
     shippingCharges = 0,
@@ -518,50 +342,97 @@ export function generateInvoiceText(invoiceData: InvoiceData, companyInfo: Compa
     paymentMethod
   } = invoiceData;
 
-  // Determine if this is a web order (750000-770000 range)
+  // Determine if this is a web order (750000-770000 range)  
   const orderNum = parseInt(orderNumber.replace(/[^\d]/g, ''));
   const isWebOrder = orderNum >= 750000 && orderNum <= 770000;
-  const displayLabel = isWebOrder ? "Web Order" : "Invoice Number";
   const displayNumber = isWebOrder ? `WB${orderNumber}` : orderNumber;
 
-  return `
-${isWebOrder ? 'WEB ORDER' : 'INVOICE'}
+  // Helper function to format currency consistently
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
+  };
 
-${companyInfo.name}
-MusicSupplies.com
-${companyInfo.address}
-${companyInfo.cityStateZip}
-${companyInfo.phone}
-Reply to: ${companyInfo.email}
+  let invoice = '';
 
-${displayLabel}: ${displayNumber}
-${accountNumber ? `Account Number: ${accountNumber}` : ''}
-${isWebOrder ? 'Order' : 'Invoice'} Date: ${invoiceDate}
-Terms: ${terms}
-Sales Rep: ${salesRep}
+  // Header - Order Details
+  invoice += '=========================================\n';
+  invoice += `Order Details - ${orderNumber}\n`;
+  invoice += '=========================================\n\n';
 
-BILL TO:
-${customerName}
-Email: ${customerEmail}
-Phone: ${customerPhone}
+  // Order Information Section
+  invoice += `Order Date                    Payment Method\n`;
+  invoice += `${invoiceDate}${' '.repeat(20)}${paymentMethod === 'credit' ? 'Credit Card' : 'Net-10'}\n\n`;
+  
+  invoice += `Customer Email                Customer Phone\n`;
+  invoice += `${customerEmail}${' '.repeat(20)}${customerPhone}\n\n`;
+  
+  if (accountNumber) {
+    invoice += `Account Number                Promo Code Used\n`;
+    invoice += `${accountNumber}${' '.repeat(20)}${promoCodeDescription || 'None'}\n\n`;
+  } else if (promoCodeDescription) {
+    invoice += `Promo Code Used\n`;
+    invoice += `${promoCodeDescription}\n\n`;
+  }
 
-ITEMS ORDERED:
-${items.map(item => 
-  `${item.quantity}x ${item.partnumber} - ${item.description || ''} @ $${(item.price || 0).toFixed(2)} = $${((item.price || 0) * item.quantity).toFixed(2)}`
-).join('\n')}
+  // Order Items Section
+  invoice += 'Order Items\n';
+  invoice += '-'.repeat(75) + '\n';
+  invoice += 'PART NUMBER       DESCRIPTION                           QTY    PRICE     TOTAL\n';
+  invoice += '-'.repeat(75) + '\n';
 
-SUMMARY:
-Subtotal: $${subtotal.toFixed(2)}
-${shippingCharges > 0 ? `Shipping: $${shippingCharges.toFixed(2)}` : ''}
-${promoCodeDiscount > 0 ? `Promo Discount${promoCodeDescription ? ` (${promoCodeDescription})` : ''}: -$${promoCodeDiscount.toFixed(2)}` : ''}
-TOTAL AMOUNT DUE: $${totalAmountDue.toFixed(2)}
+  // Regular items
+  items.forEach(item => {
+    const partNum = item.partnumber.padEnd(16, ' ');
+    const desc = (item.description || '').padEnd(36, ' ');
+    const qty = String(item.quantity).padStart(3, ' ');
+    const price = formatCurrency(item.price || 0).padStart(8, ' ');
+    const total = formatCurrency((item.price || 0) * item.quantity).padStart(9, ' ');
+    
+    invoice += `${partNum} ${desc} ${qty} ${price} ${total}\n`;
+  });
 
-Payment Method: ${paymentMethod === 'credit' ? 'Credit Card on File' : 'Net-10 Open Account'}
-${paymentMethod === 'net10' ? 'Payment due within 10 days of invoice date.' : ''}
+  // Add promo code discount line if applicable
+  if (promoCodeDiscount > 0 && promoCodeDescription) {
+    const partNum = promoCodeDescription.padEnd(16, ' ');
+    const desc = `Discount: ${promoCodeDescription}`.padEnd(36, ' ');
+    const qty = '1'.padStart(3, ' ');
+    const price = formatCurrency(-promoCodeDiscount).padStart(8, ' ');
+    const total = formatCurrency(-promoCodeDiscount).padStart(9, ' ');
+    
+    invoice += `${partNum} ${desc} ${qty} ${price} ${total}\n`;
+  }
 
-Thank you for your business!
-Questions? Contact us at ${companyInfo.email} or ${companyInfo.phone}
-  `.trim();
+  invoice += '\n';
+
+  // Totals Section
+  invoice += `Subtotal:${formatCurrency(subtotal).padStart(65, ' ')}\n`;
+  
+  if (shippingCharges > 0) {
+    invoice += `Shipping:${formatCurrency(shippingCharges).padStart(65, ' ')}\n`;
+  }
+  
+  if (promoCodeDiscount > 0) {
+    invoice += `Discount:${formatCurrency(-promoCodeDiscount).padStart(65, ' ')}\n`;
+  }
+  
+  invoice += '-'.repeat(75) + '\n';
+  invoice += `Total:${formatCurrency(totalAmountDue).padStart(68, ' ')}\n`;
+
+  invoice += '\n';
+  invoice += '=========================================\n';
+  
+  // Company Info Footer
+  invoice += `${companyInfo.name}\n`;
+  invoice += 'MusicSupplies.com\n';
+  invoice += `${companyInfo.address}\n`;
+  invoice += `${companyInfo.cityStateZip}\n`;
+  invoice += `${companyInfo.phone}\n`;
+  invoice += `Reply to: ${companyInfo.email}\n`;
+  
+  invoice += '\nThank you for your business!\n';
+  invoice += '=========================================';
+
+  return invoice;
 }
 
 export function createInvoiceDataFromOrder(
@@ -571,7 +442,12 @@ export function createInvoiceDataFromOrder(
   phone: string,
   paymentMethod: 'credit' | 'net10',
   appliedPromoCode?: { discount_amount: number; message?: string; code?: string },
-  customerInfo?: { name?: string; accountNumber?: string }
+  customerInfo?: { 
+    name?: string; 
+    accountNumber?: string;
+    address?: { line1?: string; cityStateZip?: string };
+    shippingAddress?: { name?: string; line1?: string; cityStateZip?: string };
+  }
 ): InvoiceData {
   const subtotal = items.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
   const promoDiscount = appliedPromoCode?.discount_amount || 0;
@@ -586,6 +462,8 @@ export function createInvoiceDataFromOrder(
     customerName: customerInfo?.name || email.split('@')[0], // Use email prefix if no name provided
     customerEmail: email,
     customerPhone: phone,
+    customerAddress: customerInfo?.address,
+    shippingAddress: customerInfo?.shippingAddress,
     items,
     subtotal,
     promoCodeDiscount: promoDiscount,

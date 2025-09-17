@@ -123,8 +123,8 @@ const OrderHistory: React.FC = () => {
           linekey, model, Description, Qty, unitnet, ups, payments
         `) // customerpo removed from select, fields aligned with lcmd_ordhist
         .eq('accountnumber', accountNumberInt)
-        .order('invoicedate', { ascending: false })
-        .order('invoicenumber', { ascending: false });
+        .order('invoicenumber', { ascending: false })
+        .order('invoicedate', { ascending: false });
 
       if (queryError) {
         console.error('[OrderHistory] Query Error fetching lcmd_ordhist:', queryError);
@@ -191,8 +191,15 @@ const OrderHistory: React.FC = () => {
         };
       });
       
-      console.log('[OrderHistory] Processed orders:', processedOrders);
-      setOrders(processedOrders);
+      // Sort orders by invoice date descending (most recent first)
+      const sortedOrders = processedOrders.sort((a, b) => {
+        const dateA = new Date(a.invoiceDate);
+        const dateB = new Date(b.invoiceDate);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      console.log('[OrderHistory] Processed orders:', sortedOrders);
+      setOrders(sortedOrders);
 
     } catch (err: any) {
       console.error('[OrderHistory] Unexpected error in fetchOrderHistoryDetails:', err);
@@ -631,7 +638,7 @@ const OrderHistory: React.FC = () => {
         <img src={LogoImage} alt="Music Supplies Logo" className="h-16 mr-4" />
         <h1 className="text-3xl font-bold text-gray-800 flex-1 text-center">Order History</h1>
       </div>
-      <div className="space-y-8 max-w-4xl mx-auto">
+      <div className="space-y-8 max-w-5xl mx-auto">
         {orders.map((order) => (
           <div key={order.invoiceNumber} className="bg-white shadow-lg rounded-lg p-6 sm:p-8 relative">
             {/* Print button positioned in lower left corner */}

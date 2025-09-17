@@ -1,3 +1,4 @@
+// Music Supplies App - Version 824.848p - Account 99 Admin Backend
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -6,7 +7,9 @@ import { NotificationProvider } from './context/NotificationContext';
 import ActiveDiscountDisplayModal from './components/ActiveDiscountDisplayModal';
 import LoginFixBanner from './components/LoginFixBanner';
 import Login from './components/Login';
+import Login2 from './components/Login2';
 import Dashboard from './pages/Dashboard';
+import SiteStatusOffline from './components/SiteStatusOffline';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import NewAccountApplicationPage from './pages/NewAccountApplicationPage';
 import AdminAccountApplicationsPage from './pages/AdminAccountApplicationsPage';
@@ -23,7 +26,18 @@ import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import update pa
 import SmsConsentPreviewPage from './pages/SmsConsentPreviewPage'; // Import SMS consent preview page
 import ErrorBoundary from './components/ErrorBoundary';
 import SkuImportPage from './pages/SkuImportPage'; // Import SKU Import page for account 99
-import ProspectsPage from './pages/ProspectsPage'; // Import Prospects page
+import Account99Dashboard from './pages/Account99Dashboard'; // Import Account 99 admin dashboard
+import EnhancedChatWidget from './components/EnhancedChatWidget';
+import ChatPage from './pages/ChatPage';
+import AdminKnowledgeBase from './pages/AdminKnowledgeBase'; // Admin knowledge base management
+import ManagerPage from './pages/ManagerPage'; // Manager staff management page
+import ProspectsPage from './pages/ProspectsPage'; // Prospects management page
+import { useLocation, useNavigate } from 'react-router-dom';
+import { VersionCheck } from './components/VersionCheck';
+import CartRestorationModal from './components/CartRestorationModal';
+import PromotionsLoginModal from './components/PromotionsLoginModal';
+import SearchEntityModal from './components/SearchEntityModal';
+import { useCart } from './context/CartContext';
 
 
 interface ProtectedRouteProps {
@@ -52,7 +66,9 @@ const AdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return user?.accountNumber === '999' ? children : <Navigate to="/" replace />; // Redirect non-admins to dashboard
+  // Check for admin account 999
+  const isAdmin = user?.accountNumber === '999';
+  return isAdmin ? children : <Navigate to="/" replace />; // Redirect non-admins to dashboard
 };
 
 // Specific protected route for special admin (user 99)
@@ -67,11 +83,17 @@ const SpecialAdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children })
     return <Navigate to="/login" replace />;
   }
 
+  // Check if user is account 99 specifically or has special admin flag
+  const isAccount99 = user?.accountNumber === '99';
+  const hasAccess = isSpecialAdmin || isAccount99;
+
   // Only log once during development, not on every render
   React.useEffect(() => {
     console.log('SpecialAdminProtectedRoute mounted: ', { 
       accountNumber: user?.accountNumber, 
       isSpecialAdmin, 
+      isAccount99,
+      hasAccess,
       user
     });
   }, []);
@@ -80,23 +102,25 @@ const SpecialAdminProtectedRoute: React.FC<ProtectedRouteProps> = ({ children })
   const [redirectAttempted, setRedirectAttempted] = React.useState(false);
   
   React.useEffect(() => {
-    // Reset redirect flag if user or isSpecialAdmin changes
-    if (user?.accountNumber || isSpecialAdmin !== undefined) {
+    // Reset redirect flag if user or access status changes
+    if (user?.accountNumber || hasAccess !== undefined) {
       setRedirectAttempted(false);
     }
-  }, [user?.accountNumber, isSpecialAdmin]);
+  }, [user?.accountNumber, hasAccess]);
 
-  // If not a special admin and haven't attempted redirect yet
-  if (!isSpecialAdmin && !redirectAttempted) {
+  // If user doesn't have access and haven't attempted redirect yet
+  if (!hasAccess && !redirectAttempted) {
     setRedirectAttempted(true);
     return <Navigate to="/" replace />;
   }
 
-  return isSpecialAdmin ? children : <div>Redirecting...</div>;
+  return hasAccess ? children : <div>Redirecting...</div>;
 };
 
 
 function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { 
     user, // Get user for accountData
     // activeDiscount,  // Removed as part of new discount logic
@@ -106,8 +130,20 @@ function AppContent() {
     handlePasswordModalClose, 
     showDiscountFormModal,
     closeDiscountFormModal,
-    isSpecialAdmin
+    isSpecialAdmin,
+    showPromotionsLoginModal,
+    closePromotionsLoginModal,
+    showSearchEntityModal,
+    closeSearchEntityModal,
+    selectCustomerAccount
   } = useAuth();
+  
+  const { 
+    showCartRestorationModal, 
+    dismissCartRestoration, 
+    emptyEntireCart,
+    restoreCartFromDatabase
+  } = useCart();
   
   // For error handling
   const [dbUpdateError, setDbUpdateError] = useState<boolean>(false);
@@ -118,7 +154,7 @@ function AppContent() {
       try {
         // Run a query to check if the new columns exist
         const { data, error } = await supabase
-          .from('products_supabase')
+          .from('pre_products_supabase')
           .select('partnumber, brand, map')
           .limit(1);
           
@@ -178,13 +214,35 @@ function AppContent() {
   
   return (
     <>
+      {/* Version Check Component - shows version and auto-refreshes */}
+      <VersionCheck />
+      
       {/* Authentication Fix Banner - only shows for admin users */}
       <LoginFixBanner />
       
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/login2" element={<Login2 />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/update-password" element={<UpdatePasswordPage />} />
+        {/* Admin Dashboard via /5150 bypass */}
+        <Route 
+          path="/5150" 
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboard />
+            </AdminProtectedRoute>
+          } 
+        />
+        {/* Admin Dashboard */}
+        <Route 
+          path="/admin" 
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboard />
+            </AdminProtectedRoute>
+          } 
+        />
         {/* Home route with special handling for different account types */}
         <Route 
           path="/" 
@@ -192,11 +250,22 @@ function AppContent() {
             <ProtectedRoute>
               {user?.accountNumber === '999' ? (
                 <AdminDashboard />
-              ) : user?.accountNumber === '99' || isSpecialAdmin ? (
+              ) : user?.accountNumber === '99' ? (
+                <Navigate to="/admin99" replace />
+              ) : isSpecialAdmin ? (
                 <Navigate to="/sku-import" replace />
               ) : (
-                <Dashboard />
+                <Navigate to="/shopping" replace />
               )}
+            </ProtectedRoute>
+          } 
+        />
+        {/* Shopping page - Main product browsing and shopping interface */}
+        <Route 
+          path="/shopping" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
             </ProtectedRoute>
           } 
         />
@@ -220,12 +289,13 @@ function AppContent() {
             </SpecialAdminProtectedRoute>
           }
         />
+        {/* Account 99 Admin Dashboard */}
         <Route 
-          path="/prospects"
+          path="/admin99"
           element={
-            <AdminProtectedRoute>
-              <ProspectsPage />
-            </AdminProtectedRoute>
+            <SpecialAdminProtectedRoute>
+              <Account99Dashboard />
+            </SpecialAdminProtectedRoute>
           }
         />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -238,6 +308,35 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <CustomerAccountPage />
+            </ProtectedRoute>
+          } 
+        />
+        {/* Admin Knowledge Base Management - Account 999 only */}
+        <Route 
+          path="/admin/knowledge-base"
+          element={
+            <AdminProtectedRoute>
+              <AdminKnowledgeBase />
+            </AdminProtectedRoute>
+          }
+        />
+        {/* Chat route - accessible to everyone */}
+        <Route path="/chat" element={<ChatPage />} />
+        {/* Manager Panel - Protected route */}
+        <Route 
+          path="/manager" 
+          element={
+            <ProtectedRoute>
+              <ManagerPage />
+            </ProtectedRoute>
+          } 
+        />
+        {/* Prospects Page - Protected route */}
+        <Route 
+          path="/prospects" 
+          element={
+            <ProtectedRoute>
+              <ProspectsPage />
             </ProtectedRoute>
           } 
         />
@@ -261,24 +360,207 @@ function AppContent() {
           onClose={closeDiscountFormModal}
         />
       )}
+
+      {/* Cart Restoration Modal */}
+      {showCartRestorationModal && (
+        <CartRestorationModal
+          isOpen={showCartRestorationModal}
+          onGoToCart={async () => {
+            console.log('🔄 App: Cart restoration - restoring items and navigating to shopping');
+            // First restore the cart items from database
+            await restoreCartFromDatabase();
+            // Then navigate to shopping page with cart auto-open parameter
+            navigate('/shopping?openCart=true');
+          }}
+          onContinueShopping={() => {
+            console.log('🔄 App: Cart restoration - dismissing modal and continuing');
+            // The modal handles dismissing cart restoration internally
+            dismissCartRestoration();
+          }}
+        />
+      )}
+
+      {/* Promotions Login Modal */}
+      {showPromotionsLoginModal && (
+        <PromotionsLoginModal
+          isOpen={showPromotionsLoginModal}
+          onClose={closePromotionsLoginModal}
+        />
+      )}
+
+      {/* Search Entity Modal for Staff Users */}
+      <SearchEntityModal
+        isOpen={showSearchEntityModal}
+        onClose={closeSearchEntityModal}
+        onSelectAccount={selectCustomerAccount}
+      />
+
     </>
   );
 }
 
 function App() {
+  // CHECK FOR /5150 IMMEDIATELY
+  const isAdminBypass = window.location.pathname.includes('/5150') || 
+                        sessionStorage.getItem('adminBypass') === 'true';
+  
+  const [siteStatus, setSiteStatus] = useState<{ status: string; message: string } | null>(null);
+  const [statusLoading, setStatusLoading] = useState(!isAdminBypass); // Skip loading if bypassed
+  const [bypassCheck, setBypassCheck] = useState(isAdminBypass); // Set bypass immediately
+
+  // Check for bypass conditions on app load
+  useEffect(() => {
+    // If on login page, ALWAYS bypass site status check
+    const currentPath = window.location.pathname;
+    if (currentPath === '/login' || currentPath === '/5150' || currentPath.includes('login')) {
+      console.log('On login page - bypassing site status check');
+      sessionStorage.setItem('adminBypass', 'true');
+      setStatusLoading(false);
+      setBypassCheck(true);
+      return; // Don't check site status on login page
+    }
+    
+    // If already bypassed from login, stay bypassed
+    if (isAdminBypass) {
+      setStatusLoading(false);
+      return;
+    }
+    
+    const checkSiteStatus = async () => {
+      try {
+
+        // THIS CODE NEVER RUNS
+        const { data, error } = await supabase
+          .from('site_status')
+          .select('is_online, message')
+          .eq('id', 1)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Error checking site status:', error);
+          // If we can't check status, allow access (fail open)
+          setStatusLoading(false);
+          return;
+        }
+
+        if (data && data.is_online === false) {
+          // Site is offline ONLY if is_online is explicitly false
+          setSiteStatus({
+            status: 'offline',
+            message: data.message || 'Site is temporarily unavailable for maintenance.'
+          });
+        }
+
+        setStatusLoading(false);
+      } catch (error) {
+        console.error('Site status check failed:', error);
+        // If check fails, allow access (fail open)
+        setStatusLoading(false);
+      }
+    };
+
+    // DISABLED - SITE ALWAYS ONLINE
+    // checkSiteStatus();
+  }, []);
+
+  // NEVER SHOW LOADING OR OFFLINE - GO STRAIGHT TO APP
+  // Normal app flow
   return (
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
           <CartProvider>
             <NotificationProvider>
-              <AppContent />
+              <AppContentWithStatusCheck bypassCheck={bypassCheck} />
+              {/* Enhanced Chat Widget - Available to all users, no login required */}
+              {window.location.pathname !== '/chat' && <EnhancedChatWidget />}
             </NotificationProvider>
           </CartProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );
+}
+
+// Wrapper component for offline status that can access auth context
+function SiteStatusOfflineWrapper({ message }: { message: string }) {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <SiteStatusChecker message={message} />
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+}
+
+// Component that checks if user is account 999 (admin bypass)
+function SiteStatusChecker({ message }: { message: string }) {
+  const { user, isAuthenticated } = useAuth();
+  
+  // If user is already logged in as account 999, bypass offline check
+  if (isAuthenticated && user?.accountNumber === '999') {
+    return (
+      <CartProvider>
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
+      </CartProvider>
+    );
+  }
+  
+  // Show offline page
+  return <SiteStatusOffline message={message} />;
+}
+
+// Modified AppContent to handle bypass
+function AppContentWithStatusCheck({ bypassCheck }: { bypassCheck: boolean }) {
+  const { user } = useAuth();
+  
+  // If bypass was used or user is admin, show normal app
+  if (bypassCheck || (user?.accountNumber === '999')) {
+    return <AppContent />;
+  }
+  
+  // For regular users, do a final status check
+  return <AppContentWithFinalStatusCheck />;
+}
+
+// Final status check for regular users
+function AppContentWithFinalStatusCheck() {
+  const [siteStatus, setSiteStatus] = useState<{ status: string; message: string } | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false); // SITE ALWAYS ONLINE
+  
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_status')
+          .select('status, status_message')
+          .eq('status', 'offline')
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking site status:', error);
+        } else if (data) {
+          setSiteStatus({
+            status: data.status,
+            message: data.status_message || 'Site is temporarily unavailable for maintenance.'
+          });
+        }
+      } catch (error) {
+        console.error('Final site status check failed:', error);
+      } finally {
+        setStatusLoading(false);
+      }
+    };
+    
+    // DISABLED - SITE ALWAYS ONLINE
+    // checkStatus();
+    setStatusLoading(false); // Immediately set to false
+  }, []);
+  
+  // NEVER SHOW LOADING - GO STRAIGHT TO APP
+  return <AppContent />;
 }
 
 export default App;

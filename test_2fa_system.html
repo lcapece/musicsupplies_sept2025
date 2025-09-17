@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test 2FA System for Account 999</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; max-height: 200px; overflow-y: auto; }
+        input { padding: 8px; margin: 5px; font-size: 16px; }
+        .debug-info { 
+            background: #fff3cd; 
+            border: 1px solid #ffeaa7; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            font-size: 12px; 
+            max-height: 150px; 
+            overflow-y: auto; 
+        }
+    </style>
+</head>
+<body>
+    <h1>2FA System Test for Account 999</h1>
+    
+    <div>
+        <h3>Step 1: Generate 2FA Code</h3>
+        <button onclick="generateCode()">Generate 2FA Code for Account 999</button>
+        <div id="generateResult"></div>
+    </div>
+
+    <div>
+        <h3>Step 2: Verify Code</h3>
+        <input type="text" id="codeInput" placeholder="Enter 6-digit code" maxlength="6">
+        <button onclick="verifyCode()">Verify Code</button>
+        <div id="verifyResult"></div>
+    </div>
+
+    <div>
+        <h3>Test Results</h3>
+        <div id="testLog"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ekklokrukxmqlahtonnc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+        }
+
+        async function generateCode() {
+            const resultDiv = document.getElementById('generateResult');
+            resultDiv.innerHTML = '<div class="info">Generating 2FA code...</div>';
+            
+            try {
+                // Step 1: Call the Edge Function to generate and send code
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-2fa-handler/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ account_number: 999 })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ 2FA code generated and SMS sent!</div>
+                                         <div class="debug-info">
+                                         <strong>Debug Info:</strong><br>
+                                         Status: ${response.status}<br>
+                                         SMS Recipients: ${result.sent_to || 'Unknown'}<br>
+                                         Timestamp: ${new Date().toLocaleString()}<br>
+                                         Response: ${JSON.stringify(result, null, 2)}
+                                         </div>`;
+                    log('2FA code generated successfully', 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Failed to generate code</div>
+                                         <div class="debug-info">
+                                         <strong>Error Debug:</strong><br>
+                                         Status: ${response.status}<br>
+                                         Error: ${result.error || 'Unknown error'}<br>
+                                         Details: ${JSON.stringify(result, null, 2)}
+                                         </div>`;
+                    log(`Failed to generate code: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+                log(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function verifyCode() {
+            const code = document.getElementById('codeInput').value;
+            const resultDiv = document.getElementById('verifyResult');
+            
+            if (!code || code.length !== 6) {
+                resultDiv.innerHTML = '<div class="error">Please enter a 6-digit code</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="info">Verifying code...</div>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-2fa-handler/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ account_number: 999, code: code })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.valid) {
+                    resultDiv.innerHTML = `<div class="success">✅ Code verified successfully!</div>
+                                         <pre>${JSON.stringify(result, null, 2)}</pre>`;
+                    log(`Code ${code} verified successfully`, 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Invalid or expired code</div>
+                                         <pre>${JSON.stringify(result, null, 2)}</pre>`;
+                    log(`Code ${code} verification failed`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+                log(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-load page
+        log('2FA Test Page Loaded', 'info');
+        log('Ready to test 2FA system for account 999', 'info');
+    </script>
+</body>
+</html>

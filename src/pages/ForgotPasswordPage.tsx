@@ -3,17 +3,113 @@ import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+// Success Modal Component
+const SuccessModal: React.FC<{ 
+  maskedEmail: string; 
+  onClose: () => void; 
+}> = ({ maskedEmail, onClose }) => {
+  const [countdown, setCountdown] = useState(20);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Password Reset Email Sent</h3>
+          <p className="text-gray-600 mb-4">
+            Password reset link has been e-mailed to {maskedEmail}
+          </p>
+          <p className="text-sm text-gray-500">
+            Auto-closing in {countdown} seconds
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Error Modal Component
+const ErrorModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const [countdown, setCountdown] = useState(20);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Information Not Found</h3>
+          <p className="text-gray-600 mb-4">
+            Sorry, we are having trouble finding some of your information. Please contact helpdesk at 516-221-5596.
+          </p>
+          <p className="text-sm text-gray-500">
+            Auto-closing in {countdown} seconds
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ForgotPasswordPage: React.FC = () => {
+  const [inputType, setInputType] = useState<'email' | 'account'>('email');
   const [email, setEmail] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(20);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState<number>(0);
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(0);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [maskedEmail, setMaskedEmail] = useState('');
   const navigate = useNavigate();
 
-  // Rate limiting: 1 request per 60 seconds per email
+  // Rate limiting: 1 request per 60 seconds
   const RATE_LIMIT_WINDOW = 60 * 1000; // 60 seconds
 
   // Auto-close countdown timer
@@ -35,6 +131,28 @@ const ForgotPasswordPage: React.FC = () => {
     navigate('/');
   };
 
+  // Function to mask email address starting from 3rd character
+  const maskEmail = (email: string): string => {
+    const atIndex = email.indexOf('@');
+    if (atIndex <= 2) return email; // If @ is at position 0, 1, or 2, don't mask
+    
+    const beforeAt = email.substring(0, atIndex);
+    const afterAt = email.substring(atIndex);
+    
+    if (beforeAt.length <= 2) return email; // Don't mask if username is too short
+    
+    const visiblePart = beforeAt.substring(0, 2);
+    const maskedPart = '*'.repeat(beforeAt.length - 2);
+    
+    return visiblePart + maskedPart + afterAt;
+  };
+
+  // Validate account number
+  const isValidAccountNumber = (accountNum: string): boolean => {
+    const num = parseInt(accountNum);
+    return !isNaN(num) && num >= 101 && num <= 9999 && num !== 999;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -44,7 +162,15 @@ const ForgotPasswordPage: React.FC = () => {
     setError('');
     setRateLimitRemaining(0);
 
-    console.log('Sending password reset email for:', email);
+    const currentInput = inputType === 'email' ? email : accountNumber;
+    console.log(`Sending password reset for ${inputType}:`, currentInput);
+
+    // Additional validation for account number - show error modal for invalid numbers
+    if (inputType === 'account' && !isValidAccountNumber(accountNumber)) {
+      setIsLoading(false);
+      setShowErrorModal(true);
+      return;
+    }
     
     // Check rate limiting after setting loading state
     const now = Date.now();
@@ -71,24 +197,58 @@ const ForgotPasswordPage: React.FC = () => {
     }
 
     try {
-      // First, check if user exists in the system
-      const { data: userData, error: userError } = await supabase
-        .from('accounts_lcmd')
-        .select('email_address, acct_name')
-        .eq('email_address', email)
-        .single();
+      let userData: any = null;
+      let lookupError: any = null;
 
-      if (userError || !userData) {
-        setError('No account found with this email address.');
-        console.error('User lookup error:', userError);
+      if (inputType === 'email') {
+        // Look up by email address
+        const { data, error } = await supabase
+          .from('accounts_lcmd')
+          .select('email_address, acct_name, account_number')
+          .eq('email_address', email)
+          .single();
+        
+        userData = data;
+        lookupError = error;
+      } else {
+        // Look up by account number
+        const accountNum = parseInt(accountNumber);
+        const { data, error } = await supabase
+          .from('accounts_lcmd')
+          .select('email_address, acct_name, account_number')
+          .eq('account_number', accountNum)
+          .single();
+        
+        userData = data;
+        lookupError = error;
+      }
+
+      // Handle lookup results
+      if (lookupError || !userData) {
+        console.error('User lookup error:', lookupError);
+        setIsLoading(false);
+        setShowErrorModal(true);
         return;
       }
+
+      // For account number lookup, check if email exists
+      if (inputType === 'account') {
+        if (!userData.email_address || userData.email_address.trim() === '') {
+          console.log('No email address on file for account:', accountNumber);
+          setIsLoading(false);
+          setShowErrorModal(true);
+          return;
+        }
+      }
+
+      // Use the email from the lookup (whether from direct email search or account lookup)
+      const targetEmail = inputType === 'email' ? email : userData.email_address;
 
       // Clean up any existing unused tokens for this email to prevent accumulation
       const { error: cleanupError } = await supabase
         .from('password_reset_tokens')
         .delete()
-        .eq('email', email)
+        .eq('email', targetEmail)
         .eq('used', false);
 
       if (cleanupError) {
@@ -104,7 +264,7 @@ const ForgotPasswordPage: React.FC = () => {
       const { error: tokenError } = await supabase
         .from('password_reset_tokens')
         .insert({
-          email: email,
+          email: targetEmail,
           token: resetToken,
           expires_at: expiresAt.toISOString(),
           used: false
@@ -129,7 +289,7 @@ const ForgotPasswordPage: React.FC = () => {
       
       const { data, error } = await supabase.functions.invoke('send-mailgun-email', {
         body: {
-          to: email,
+          to: targetEmail,
           subject: 'Password Reset - Music Supplies',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -183,9 +343,12 @@ Email: marketing@musicsupplies.com
           setError('Failed to send reset email. Please try again or contact support.');
         }
       } else {
-        setMessage('Password reset email sent. Please check your inbox.');
         setLastRequestTime(now); // Update last request time only on success
-        console.log('Password reset email sent successfully via Mailgun');
+        console.log('Password reset email sent successfully via Mailgun to:', targetEmail);
+        
+        // Show success modal with masked email
+        setMaskedEmail(maskEmail(targetEmail));
+        setShowSuccessModal(true);
       }
     } catch (err) {
       console.error('Forgot password error:', err);
@@ -214,7 +377,7 @@ Email: marketing@musicsupplies.com
           Forgot Your Password?
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Enter your email address below and we'll send you a link to reset your password.
+          Enter either your email address or account number below and we'll send you a link to reset your password.
         </p>
       </div>
 
@@ -237,23 +400,85 @@ Email: marketing@musicsupplies.com
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Input Type Toggle */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
+              <div className="flex justify-center space-x-4 mb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputType('email');
+                    setAccountNumber('');
+                    setError('');
+                    setMessage('');
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                    inputType === 'email'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Email Address
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputType('account');
+                    setEmail('');
+                    setError('');
+                    setMessage('');
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                    inputType === 'account'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Account Number
+                </button>
               </div>
             </div>
+
+            {/* Email Input */}
+            {inputType === 'email' && (
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  Email address
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Account Number Input */}
+            {inputType === 'account' && (
+              <div>
+                <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700">
+                  Account number
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="accountNumber"
+                    name="accountNumber"
+                    type="number"
+                    required
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Enter account number"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <button
@@ -279,6 +504,27 @@ Email: marketing@musicsupplies.com
           {error && <p className="mt-4 text-center text-sm text-red-600">{error}</p>}
         </div>
       </div>
+      
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <SuccessModal 
+          maskedEmail={maskedEmail}
+          onClose={() => {
+            setShowSuccessModal(false);
+            navigate('/');
+          }}
+        />
+      )}
+      
+      {/* Error Modal */}
+      {showErrorModal && (
+        <ErrorModal 
+          onClose={() => {
+            setShowErrorModal(false);
+            navigate('/');
+          }}
+        />
+      )}
     </div>
   );
 };

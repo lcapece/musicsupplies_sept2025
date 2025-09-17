@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA System Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 20px auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 12px 24px; 
+            font-size: 16px; 
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover { background: #45a049; }
+        .result { 
+            background: #f9f9f9; 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error { color: #d32f2f; }
+        .success { color: #388e3c; }
+        .info { color: #1976d2; }
+        .header { color: #333; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>2FA System Test for Account 999</h1>
+        
+        <button onclick="runFullTest()">🚀 Run Complete 2FA Test</button>
+        <button onclick="testGenerate()">🔐 Test Generate Only</button>
+        <button onclick="testVerify()">✅ Test Verify Only</button>
+        <button onclick="clearResults()">🗑️ Clear Results</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ekklokrukxmqlahtonnc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = `[${timestamp}] ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testGenerate() {
+            log('🔍 Testing 2FA Code Generation...', 'header');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-2fa-handler/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'X-Client-Info': 'browser-test'
+                    },
+                    body: JSON.stringify({ account_number: 999 })
+                });
+
+                log(`Response Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                // Log response headers
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                log(`Response Headers: ${JSON.stringify(headers, null, 2)}`, 'info');
+
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    log(`Response Body: ${responseText}`, 'info');
+                } catch (e) {
+                    log(`Could not read response body: ${e.message}`, 'error');
+                    return null;
+                }
+
+                if (response.status === 404) {
+                    log('❌ DIAGNOSIS: Edge function not found or not deployed', 'error');
+                    log('FIX: Deploy the admin-2fa-handler function to Supabase', 'error');
+                    return null;
+                }
+
+                if (!response.ok) {
+                    log('❌ DIAGNOSIS: Edge function returned error', 'error');
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        log(`Error Details: ${JSON.stringify(errorData, null, 2)}`, 'error');
+                    } catch (e) {
+                        log('Could not parse error response as JSON', 'error');
+                    }
+                    return null;
+                }
+
+                try {
+                    const result = JSON.parse(responseText);
+                    log('✅ Generate function works!', 'success');
+                    log(`Result: ${JSON.stringify(result, null, 2)}`, 'success');
+                    return result;
+                } catch (e) {
+                    log('❌ Could not parse successful response as JSON', 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+                log(`Error details: ${error.stack}`, 'error');
+                return null;
+            }
+        }
+
+        async function testVerify(code = '123456') {
+            log('🔍 Testing 2FA Code Verification...', 'header');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-2fa-handler/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ account_number: 999, code: code })
+                });
+
+                log(`Verify Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                const responseText = await response.text();
+                log(`Verify Response: ${responseText}`, 'info');
+
+                if (response.status === 404) {
+                    log('❌ DIAGNOSIS: Verify endpoint not found', 'error');
+                    return false;
+                }
+
+                try {
+                    const result = JSON.parse(responseText);
+                    if (code === '123456') {
+                        // Expected to fail with dummy code
+                        log('✅ Verify endpoint works (correctly rejected dummy code)', 'success');
+                    }
+                    return result;
+                } catch (e) {
+                    log('❌ Could not parse verify response as JSON', 'error');
+                    return false;
+                }
+
+            } catch (error) {
+                log(`❌ Verify network error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function runFullTest() {
+            log('🚀 Starting Complete 2FA System Test', 'header');
+            log('====================================', 'header');
+            
+            // Test 1: Generate
+            const generateResult = await testGenerate();
+            
+            // Test 2: Verify with dummy code
+            await testVerify();
+            
+            // Summary
+            log('📊 TEST SUMMARY', 'header');
+            log('==============', 'header');
+            
+            if (generateResult) {
+                log('✅ Generate function: WORKING', 'success');
+            } else {
+                log('❌ Generate function: BROKEN', 'error');
+            }
+            
+            log('📝 Next Steps:', 'info');
+            log('1. If functions are 404: Deploy edge functions to Supabase', 'info');
+            log('2. If functions work: Test with real phone numbers', 'info');
+            log('3. Check database tables: admin_logins, sms_admins', 'info');
+            log('4. Verify ClickSend API credentials in Supabase secrets', 'info');
+        }
+
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            log('🌐 2FA Browser Test Loaded', 'header');
+            log('Click "Run Complete 2FA Test" to start testing', 'info');
+        });
+    </script>
+</body>
+</html>

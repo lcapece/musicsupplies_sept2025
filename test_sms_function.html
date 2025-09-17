@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test ClickSend SMS Function</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Test SMS Function</h1>
+    <button onclick="testSMS()">Send Test SMS</button>
+    <div id="result"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ekklokrukxmqlahtonnc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+        
+        const { createClient } = supabase;
+        const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testSMS() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Testing SMS...</p>';
+            
+            try {
+                console.log('Calling SMS function...');
+                const response = await client.functions.invoke('send-admin-sms', {
+                    body: {
+                        eventName: '2FA_LOGIN',
+                        message: 'Test message from 2FA system: 123456',
+                        customPhones: ['+15164550980']
+                    }
+                });
+                
+                console.log('SMS Response:', response);
+                
+                if (response.error) {
+                    result.innerHTML = `<p style="color: red;">ERROR: ${JSON.stringify(response.error)}</p>`;
+                } else {
+                    result.innerHTML = `<p style="color: green;">SUCCESS: ${JSON.stringify(response.data)}</p>`;
+                }
+                
+            } catch (e) {
+                console.error('Exception:', e);
+                result.innerHTML = `<p style="color: red;">EXCEPTION: ${e.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

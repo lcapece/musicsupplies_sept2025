@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from 'lucide-react'; // Added ArrowDown, ArrowUp
+import QuantitySelector from './QuantitySelector';
 
 interface ProductTableProps {
   products: Product[];
@@ -15,6 +17,8 @@ interface ProductTableProps {
   showMapPrice?: boolean; // Whether to display the MAP Price column
   fontSize?: 'smaller' | 'standard' | 'larger';
   onFontSizeChange?: (size: 'smaller' | 'standard' | 'larger') => void;
+  enableFiltering?: boolean; // Whether to show filtering controls
+  exactMatches?: Set<string>; // Set of part numbers that are exact matches for highlighting
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({ 
@@ -28,15 +32,140 @@ const ProductTable: React.FC<ProductTableProps> = ({
   showMsrp = true, // Default to true
   showMapPrice = true, // Default to true
   fontSize = 'standard',
-  onFontSizeChange
+  onFontSizeChange,
+  enableFiltering = true, // Default to true
+  exactMatches = new Set() // Default to empty set
 }) => {
-  const { addToCart } = useCart();
+  const { addToCart, addToBackorder, isCartReady } = useCart();
+  const { isDemoMode } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [tableContainerRef, setTableContainerRef] = useState<HTMLDivElement | null>(null);
 
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    partnumber: '',
+    description: '',
+    brand: '',
+    upc: '',
+    priceMin: '',
+    priceMax: '',
+    msrpMin: '',
+    msrpMax: '',
+    mapMin: '',
+    mapMax: '',
+    inventoryMin: '',
+    inventoryMax: '',
+    inStockOnly: false
+  });
+
+  // Filtered products based on current filters
+  const filteredProducts = React.useMemo(() => {
+    if (!enableFiltering) return products;
+
+    return products.filter(product => {
+      // Part number filter
+      if (filters.partnumber && !product.partnumber?.toLowerCase().includes(filters.partnumber.toLowerCase())) {
+        return false;
+      }
+
+      // Description filter
+      if (filters.description && !product.description?.toLowerCase().includes(filters.description.toLowerCase())) {
+        return false;
+      }
+
+      // Brand filter
+      if (filters.brand && !product.brand?.toLowerCase().includes(filters.brand.toLowerCase())) {
+        return false;
+      }
+
+      // UPC filter
+      if (filters.upc && !product.upc?.toLowerCase().includes(filters.upc.toLowerCase())) {
+        return false;
+      }
+
+      // Price range filters
+      if (filters.priceMin && product.price && product.price < parseFloat(filters.priceMin)) {
+        return false;
+      }
+      if (filters.priceMax && product.price && product.price > parseFloat(filters.priceMax)) {
+        return false;
+      }
+
+      // MSRP range filters
+      if (filters.msrpMin && product.webmsrp && product.webmsrp < parseFloat(filters.msrpMin)) {
+        return false;
+      }
+      if (filters.msrpMax && product.webmsrp && product.webmsrp > parseFloat(filters.msrpMax)) {
+        return false;
+      }
+
+      // MAP range filters
+      if (filters.mapMin && product.map && product.map < parseFloat(filters.mapMin)) {
+        return false;
+      }
+      if (filters.mapMax && product.map && product.map > parseFloat(filters.mapMax)) {
+        return false;
+      }
+
+      // Inventory range filters
+      if (filters.inventoryMin && product.inventory && product.inventory < parseInt(filters.inventoryMin)) {
+        return false;
+      }
+      if (filters.inventoryMax && product.inventory && product.inventory > parseInt(filters.inventoryMax)) {
+        return false;
+      }
+
+      // In stock only filter - hide items with zero inventory, out of stock, or call for price
+      if (filters.inStockOnly) {
+        // Hide if inventory is null, zero, or negative
+        if (!product.inventory || product.inventory <= 0) {
+          return false;
+        }
+        // Hide if price is null (call for price items)
+        if (product.price === null) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [products, filters, enableFiltering]);
+
+  // Update filter function
+  const updateFilter = (key: keyof typeof filters, value: string | boolean) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({
+      partnumber: '',
+      description: '',
+      brand: '',
+      upc: '',
+      priceMin: '',
+      priceMax: '',
+      msrpMin: '',
+      msrpMax: '',
+      mapMin: '',
+      mapMax: '',
+      inventoryMin: '',
+      inventoryMax: '',
+      inStockOnly: false
+    });
+    setCurrentPage(1);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
+    if (key === 'inStockOnly') return value === true;
+    return value !== '';
+  });
 
   // Note: Removed dynamic pagination calculation that was interfering with user's selection
   // and preventing proper scrolling through products
@@ -51,10 +180,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setCurrentPage(1);
   }, [itemsPerPage]);
 
-  // Calculate pagination
-  const totalPages = Math.ceil(products.length / itemsPerPage);
+  // Calculate pagination using filtered products
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedProducts = products.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
 
   // Add keyboard navigation for pagination
   React.useEffect(() => {
@@ -96,30 +225,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, totalPages]);
 
-  const [showRetryMessage, setShowRetryMessage] = useState<string | null>(null);
-  const [cartInitialized, setCartInitialized] = useState(false);
-
-  // Monitor cart initialization
-  React.useEffect(() => {
-    // Check if cart context is properly initialized by testing if addToCart function exists
-    if (addToCart && typeof addToCart === 'function') {
-      setCartInitialized(true);
-      console.log('ProductTable: Cart context initialized');
-    } else {
-      console.log('ProductTable: Waiting for cart context initialization...');
-      // Try again after a short delay
-      const checkTimer = setTimeout(() => {
-        if (addToCart && typeof addToCart === 'function') {
-          setCartInitialized(true);
-          console.log('ProductTable: Cart context initialized after delay');
-        }
-      }, 500);
-      return () => clearTimeout(checkTimer);
-    }
-  }, [addToCart]);
-
-  const handleAddToCart = (product: Product) => {
-    console.log('ProductTable: handleAddToCart called for:', product.partnumber);
+  const handleAddToCart = (product: Product, quantity: number = 1) => {
+    console.log('ProductTable: handleAddToCart called for:', product.partnumber, 'quantity:', quantity);
     
     // Basic validation
     if (!product.inventory || product.inventory <= 0) {
@@ -133,39 +240,27 @@ const ProductTable: React.FC<ProductTableProps> = ({
       return;
     }
 
-    // Check if cart is initialized
-    if (!cartInitialized || !addToCart || typeof addToCart !== 'function') {
-      console.log('ProductTable: Cart not initialized, showing retry message');
-      setShowRetryMessage(product.partnumber);
-      
-      // Try to initialize again
-      setTimeout(() => {
-        setShowRetryMessage(null);
-        if (addToCart && typeof addToCart === 'function') {
-          setCartInitialized(true);
-          // Automatically retry the add to cart
-          handleAddToCart(product);
-        }
-      }, 1000);
-      
+    // IMPROVED FIX: Simple validation and immediate execution
+    if (!addToCart || typeof addToCart !== 'function') {
+      console.error('ProductTable: addToCart function not available');
       return;
     }
     
-    console.log('ProductTable: Product has inventory, proceeding to add to cart');
+    console.log('ProductTable: Adding to cart immediately with quantity:', quantity);
     
     // Set loading state IMMEDIATELY
     setAddingToCart(product.partnumber);
     
     try {
-      // Call addToCart with error handling
+      // Call addToCart with quantity - no delays or retry logic
       addToCart({
         partnumber: product.partnumber,
         description: product.description,
         price: product.price,
         inventory: product.inventory
-      });
+      }, quantity);
       
-      console.log('ProductTable: addToCart called successfully');
+      console.log('ProductTable: addToCart called successfully with quantity:', quantity);
       
       // Clear loading state with visual feedback
       setTimeout(() => {
@@ -174,8 +269,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
     } catch (error) {
       console.error('ProductTable: Error adding to cart:', error);
       setAddingToCart(null);
-      setShowRetryMessage(product.partnumber);
-      setTimeout(() => setShowRetryMessage(null), 3000);
     }
   };
 
@@ -189,18 +282,18 @@ const ProductTable: React.FC<ProductTableProps> = ({
     }
   };
 
-  const formatPrice = (price: number | null) => {
-    if (price === null) {
+  const formatPrice = (price: number | null | undefined) => {
+    if (price === null || price === undefined) {
       return <span className="text-gray-500 italic">Call for Price</span>;
     }
-    return `$${price.toFixed(2)}`;
+    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatListPrice = (msrp: number | null | undefined) => {
     if (msrp === null || msrp === undefined) {
       return <span className="text-gray-500">---</span>;
     }
-    return `$${msrp.toFixed(2)}`;
+    return `$${msrp.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatMapPrice = (map: number | null | undefined) => {
@@ -208,11 +301,32 @@ const ProductTable: React.FC<ProductTableProps> = ({
       return <span className="text-gray-500">---</span>;
     }
     try {
-      return `$${map.toFixed(2)}`;
+      return `$${map.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     } catch (error) {
       console.error('Error formatting MAP price:', error, map);
       return <span className="text-gray-500">Error</span>;
     }
+  };
+
+  // Format master carton information according to requirements
+  const formatMasterCartonInfo = (product: Product) => {
+    // If no master carton info available, display ---
+    if (!product.master_carton_quantity || !product.master_carton_price) {
+      return <span className="text-gray-500">---</span>;
+    }
+
+    // If available inventory is less than master carton quantity, display ---
+    if (!product.inventory || product.inventory < product.master_carton_quantity) {
+      return <span className="text-gray-500">---</span>;
+    }
+
+    // Format as "4 @ $55.00"
+    const formattedPrice = `$${product.master_carton_price.toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })}`;
+    
+    return <span className="text-gray-900 font-medium">{product.master_carton_quantity} @ {formattedPrice}</span>;
   };
 
   // Debug pagination
@@ -233,26 +347,26 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setCurrentPage(prev => Math.min(totalPages, prev + 1));
   };
 
-  // Font size mappings
+  // Font size mappings using product table specific classes (25% smaller than standard readable sizes)
   const getFontSizeClasses = (type: 'header' | 'cell' | 'button' | 'pagination') => {
     const sizeMap = {
       smaller: {
-        header: 'text-sm',
-        cell: 'text-lg',
-        button: 'text-sm',
-        pagination: 'text-sm'
+        header: 'font-product-table-smaller',
+        cell: 'font-product-table-smaller',
+        button: 'font-product-table-smaller',
+        pagination: 'font-product-table-smaller'
       },
       standard: {
-        header: 'text-base',
-        cell: 'text-xl',
-        button: 'text-base',
-        pagination: 'text-base'
+        header: 'font-product-table-standard',
+        cell: 'font-product-table-standard',
+        button: 'font-product-table-standard',
+        pagination: 'font-product-table-standard'
       },
       larger: {
-        header: 'text-lg',
-        cell: 'text-2xl',
-        button: 'text-lg',
-        pagination: 'text-lg'
+        header: 'font-product-table-larger',
+        cell: 'font-product-table-larger',
+        button: 'font-product-table-larger',
+        pagination: 'font-product-table-larger'
       }
     };
     return sizeMap[fontSize][type];
@@ -264,8 +378,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
       position === 'top' ? 'border-b' : 'border-t'
     }`}>
       <div className="flex items-center gap-4">
-        <div className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>
-          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, products.length)} of {products.length} products
+        <div className={`${fontSize === 'smaller' ? 'font-professional-smaller' : fontSize === 'larger' ? 'font-professional-larger' : 'font-professional-standard'} text-gray-700`}>
+          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
+          {hasActiveFilters && (
+            <span className="text-blue-600 ml-1">(filtered from {products.length})</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor={`itemsPerPage-${position}`} className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>Show:</label>
@@ -279,46 +396,54 @@ const ProductTable: React.FC<ProductTableProps> = ({
             <option value={20}>20</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
+            <option value={500}>500</option>
+            <option value={1000}>1000</option>
+            <option value={products.length}>All ({products.length})</option>
           </select>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {/* Font Size Toggle - Only show on bottom */}
-        {position === 'bottom' && onFontSizeChange && (
-          <div className="flex items-center gap-1 mr-4 border border-gray-300 rounded-lg overflow-hidden">
-            <button
-              onClick={() => onFontSizeChange('smaller')}
-              className={`px-3 py-1 text-sm font-medium transition-colors ${
-                fontSize === 'smaller'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Smaller text (original size)"
-            >
-              A-
-            </button>
-            <button
-              onClick={() => onFontSizeChange('standard')}
-              className={`px-3 py-1 text-sm font-medium transition-colors border-x border-gray-300 ${
-                fontSize === 'standard'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Standard text (50% larger)"
-            >
-              A
-            </button>
-            <button
-              onClick={() => onFontSizeChange('larger')}
-              className={`px-3 py-1 text-sm font-medium transition-colors ${
-                fontSize === 'larger'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Larger text (100% larger)"
-            >
-              A+
-            </button>
+        {/* Font Size Toggle - Show only on bottom for cleaner top layout */}
+        {onFontSizeChange && position === 'bottom' && (
+          <div className="flex flex-col items-center gap-1 mr-4">
+            <div className="text-xs text-gray-600" style={{ fontSize: '8pt' }}>
+              Adjust Readability
+            </div>
+            <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden" style={{ transform: 'scale(0.8)' }}>
+              <button
+                onClick={() => onFontSizeChange('smaller')}
+                className={`px-3 py-1 text-sm font-medium transition-colors ${
+                  fontSize === 'smaller'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Smaller text (30% smaller than previous smallest)"
+              >
+                A-
+              </button>
+              <button
+                onClick={() => onFontSizeChange('standard')}
+                className={`px-3 py-1 text-sm font-medium transition-colors border-x border-gray-300 ${
+                  fontSize === 'standard'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Standard text"
+              >
+                A
+              </button>
+              <button
+                onClick={() => onFontSizeChange('larger')}
+                className={`px-3 py-1 text-sm font-medium transition-colors ${
+                  fontSize === 'larger'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Larger text"
+              >
+                A+
+              </button>
+            </div>
           </div>
         )}
         <button
@@ -375,11 +500,151 @@ const ProductTable: React.FC<ProductTableProps> = ({
     >
       {products && products.length > 0 ? (
         <>
+          {/* Top Pagination */}
+          <PaginationControls position="top" />
+          
+          {/* Filter Row */}
+          {enableFiltering && (
+            <div className="bg-blue-50 border-b border-gray-200 px-6 py-3 flex-shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} font-medium text-gray-900`}>
+                  Table Filters
+                </h3>
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <span className={`${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} text-blue-600 bg-blue-100 px-2 py-1 rounded`}>
+                      {Object.entries(filters).filter(([key, value]) => key === 'inStockOnly' ? value === true : value !== '').length} active
+                    </span>
+                  )}
+                  <button
+                    onClick={clearAllFilters}
+                    disabled={!hasActiveFilters}
+                    className={`${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} px-3 py-1 rounded transition-colors ${
+                      hasActiveFilters
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {/* Part Number Filter */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Part Number
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.partnumber}
+                    onChange={(e) => updateFilter('partnumber', e.target.value)}
+                    placeholder="Filter by part number..."
+                    className={`w-full px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                  />
+                </div>
+
+                {/* Description Filter */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.description}
+                    onChange={(e) => updateFilter('description', e.target.value)}
+                    placeholder="Filter by description..."
+                    className={`w-full px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                  />
+                </div>
+
+                {/* Brand Filter */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Brand
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.brand}
+                    onChange={(e) => updateFilter('brand', e.target.value)}
+                    placeholder="Filter by brand..."
+                    className={`w-full px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                  />
+                </div>
+
+                {/* Price Range */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Price Range
+                  </label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={filters.priceMin}
+                      onChange={(e) => updateFilter('priceMin', e.target.value)}
+                      placeholder="Min"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                    <input
+                      type="number"
+                      value={filters.priceMax}
+                      onChange={(e) => updateFilter('priceMax', e.target.value)}
+                      placeholder="Max"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                  </div>
+                </div>
+
+                {/* Inventory Range */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Inventory Range
+                  </label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={filters.inventoryMin}
+                      onChange={(e) => updateFilter('inventoryMin', e.target.value)}
+                      placeholder="Min"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                    <input
+                      type="number"
+                      value={filters.inventoryMax}
+                      onChange={(e) => updateFilter('inventoryMax', e.target.value)}
+                      placeholder="Max"
+                      className={`w-1/2 px-2 py-1 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                  </div>
+                </div>
+
+                {/* In Stock Only Checkbox */}
+                <div>
+                  <label className={`block ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} font-medium text-gray-700 mb-1`}>
+                    Stock Filter
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={filters.inStockOnly}
+                      onChange={(e) => updateFilter('inStockOnly', e.target.checked)}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label className={`ml-2 ${fontSize === 'smaller' ? 'text-xs' : fontSize === 'larger' ? 'text-sm' : 'text-xs'} text-gray-700`}>
+                      In Stock Only
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Scrollable table container with fixed height and visible scrollbar */}
           <div 
             className="flex-1 overflow-y-auto overflow-x-auto product-table-scroll"
             style={{ 
-              maxHeight: 'calc(100vh - 400px)', // Constrain height to force scrolling
+              maxHeight: 'calc(100vh - 500px)', // Adjusted for top pagination
               minHeight: '300px' // Minimum height to show scrollbar area
             }}
           >
@@ -424,6 +689,24 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       )}
                     </th>
                   )}
+                  <th 
+                    className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]`}
+                    onClick={() => requestSort('price')}
+                  >
+                    Your Price
+                    {sortConfig.key === 'price' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
+                  </th>
+                  <th 
+                    className={`px-3 py-2 text-center ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
+                    onClick={() => requestSort('master_carton_quantity')}
+                  >
+                    Master Carton
+                    {sortConfig.key === 'master_carton_quantity' && (
+                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
+                    )}
+                  </th>
                   {showMsrp && (
                     <th 
                       className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
@@ -435,15 +718,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       )}
                     </th>
                   )}
-                  <th 
-                    className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-blue-50 w-[8%]`}
-                    onClick={() => requestSort('price')}
-                  >
-                    Your Price
-                    {sortConfig.key === 'price' && (
-                      <span className="ml-1">{sortConfig.direction === 'ascending' ? <ArrowUp size={12} className="inline"/> : <ArrowDown size={12} className="inline"/>}</span>
-                    )}
-                  </th>
                   {showMapPrice && (
                     <th 
                       className={`px-3 py-2 text-right ${getFontSizeClasses('header')} font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100`}
@@ -470,10 +744,17 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedProducts.map((product) => (
+                {paginatedProducts.map((product) => {
+                  // Check if this product is an exact match
+                  const isExactMatch = exactMatches.has(product.partnumber);
+                  
+                  return (
                   <tr 
                     key={product.partnumber} 
-                    className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''} ${selectedProductId === product.partnumber ? 'bg-blue-50' : ''}`}
+                    className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''} ${
+                      selectedProductId === product.partnumber ? 'bg-blue-50' : 
+                      isExactMatch ? 'bg-green-100' : ''
+                    }`}
                     onClick={() => {
                       if (onRowClick) {
                         setSelectedProductId(product.partnumber);
@@ -488,11 +769,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       {product.description}
                     </td>
                     <td className={`px-3 py-2 ${getFontSizeClasses('cell')} text-gray-500`}>
-                      {product && product.brand ? product.brand : '---'}
+                      {product.brand || '---'}
                     </td>
                     {showUpcColumn && (
                       <td className={`px-3 py-2 ${getFontSizeClasses('cell')} text-gray-500`}>
-                        {product && product.upc ? product.upc : '---'}
+                        {product.upc || '---'}
                       </td>
                     )}
                     {showMsrp && (
@@ -500,43 +781,54 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         {formatListPrice(product.webmsrp)}
                       </td>
                     )}
-                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%]`}>
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium bg-blue-50 text-blue-800 font-bold w-[8%] ${isDemoMode ? 'demo-mode-blur' : ''}`}>
                       {formatPrice(product.price)}
+                    </td>
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center font-medium ${isDemoMode ? 'demo-mode-blur' : ''}`}>
+                      {formatMasterCartonInfo(product)}
                     </td>
                     {showMapPrice && (
                       <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-right font-medium`}>
-                        {product && 'map' in product ? formatMapPrice(product.map) : <span className="text-gray-500">---</span>}
+                        {formatMapPrice(product.map)}
                       </td>
                     )}
-                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center`}>
+                    <td className={`px-3 py-2 whitespace-nowrap ${getFontSizeClasses('cell')} text-center ${isDemoMode ? 'demo-mode-blur' : ''}`}>
                       {getInventoryDisplay(product.inventory)}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-center relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCart(product);
-                        }}
-                        className={`inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md ${
-                          product.inventory && product.inventory > 0
-                            ? addingToCart === product.partnumber
-                              ? 'text-white bg-green-600'
-                              : 'text-white bg-blue-600 hover:bg-blue-700'
-                            : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        }`}
-                        disabled={!product.inventory || product.inventory <= 0 || addingToCart === product.partnumber}
-                      >
-                        {addingToCart === product.partnumber ? 'Added!' : 'Add to Cart'}
-                      </button>
-                      {showRetryMessage === product.partnumber && (
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-2 py-1 rounded text-xs whitespace-nowrap z-10">
-                          Please click again
-                          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-yellow-100 border-r border-b border-yellow-400 rotate-45"></div>
-                        </div>
-                      )}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {isDemoMode ? (
+                          <button
+                            disabled
+                            className="px-3 py-1 text-sm font-medium text-gray-400 bg-gray-100 rounded cursor-not-allowed"
+                          >
+                            Disabled
+                          </button>
+                        ) : (
+                          <QuantitySelector
+                            product={product}
+                            onAddToCart={handleAddToCart}
+                            onAddToBackorder={(product, quantity) => {
+                              console.log('ProductTable: Adding to backorder:', product.partnumber, 'quantity:', quantity);
+                              if (addToBackorder) {
+                                addToBackorder({
+                                  partnumber: product.partnumber,
+                                  description: product.description,
+                                  price: product.price,
+                                  inventory: product.inventory
+                                }, quantity);
+                              }
+                            }}
+                            disabled={!isCartReady}
+                            isAdding={addingToCart === product.partnumber}
+                            fontSize={fontSize}
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

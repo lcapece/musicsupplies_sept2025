@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import ContactInfoModal from '../ContactInfoModal';
 
 interface Account {
   account_number: number;
@@ -9,23 +10,22 @@ interface Account {
   state: string;
   zip: string;
   phone: string;
-  requires_password_change: boolean;
+  mobile_phone?: string;
+  email_address?: string;
   has_custom_password: boolean;
 }
 
-interface LogonEntry {
-  account_number: number;
-  password: string;
-}
 
-type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone';
+type SortableColumn = 'account_number' | 'acct_name' | 'city' | 'phone' | 'mobile_phone' | 'email_address' | 'zip';
 
 const AccountsTab: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showTestPasswordModal, setShowTestPasswordModal] = useState(false);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [showForcePasswordModal, setShowForcePasswordModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [totalAccountCount, setTotalAccountCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,28 +44,62 @@ const AccountsTab: React.FC = () => {
   }, [searchTerm]);
 
   const getDefaultPassword = (acctName: string, zip: string) => {
-    if (!acctName || !zip) return '';
-    const firstLetter = acctName.charAt(0).toLowerCase();
+    if (!zip) return '';
     const zipFirst5 = zip.substring(0, 5);
-    return `${firstLetter}${zipFirst5}`;
+    return zipFirst5;
+  };
+
+  const formatPhoneNumber = (phone: string | null | undefined) => {
+    if (!phone) return 'N/A';
+    
+    // Remove all non-numeric characters
+    const numbers = phone.replace(/\D/g, '');
+    
+    // Handle US phone numbers (remove country code "1" if present)
+    let cleanNumbers = numbers;
+    if (numbers.length === 11 && numbers.startsWith('1')) {
+      cleanNumbers = numbers.substring(1);
+    }
+    
+    // Format as (000)000-0000
+    if (cleanNumbers.length === 10) {
+      return `(${cleanNumbers.substring(0, 3)})${cleanNumbers.substring(3, 6)}-${cleanNumbers.substring(6)}`;
+    }
+    
+    // Return original if not 10 digits
+    return phone;
+  };
+
+  const formatZipCode = (zip: string | null | undefined) => {
+    if (!zip) return 'N/A';
+    
+    // Extract only the first 5 characters and pad with leading zeros if needed
+    let zipFirst5 = zip.toString().substring(0, 5);
+    
+    // Pad with leading zeros to ensure 5 digits
+    zipFirst5 = zipFirst5.padStart(5, '0');
+    
+    return zipFirst5;
   };
 
   const fetchAccounts = async () => {
     try {
       setLoading(true);
       
+      // Set admin session context for account 999 access
+      try {
+        await supabase.rpc('set_config', {
+          setting_name: 'app.current_account_number',
+          new_value: '999',
+          is_local: true
+        });
+      } catch (error: any) {
+        console.log('Session context set failed (non-critical):', error);
+      }
+      
       let query = supabase
         .from('accounts_lcmd')
-        .select(`
-          account_number,
-          acct_name,
-          address,
-          city,
-          state,
-          zip,
-          phone,
-          requires_password_change
-        `, { count: 'exact' });
+        .select('account_number,acct_name,address,city,state,zip,phone,mobile_phone,email_address', { count: 'exact' });
 
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -74,7 +108,19 @@ const AccountsTab: React.FC = () => {
           `acct_name.ilike.%${searchLower}%`,
           `city.ilike.%${searchLower}%`,
           `state.ilike.%${searchLower}%`,
+          `email_address.ilike.%${searchLower}%`,
         ];
+        
+        // Check for phone number pattern: exactly 7 or 10 digits, not starting with "1"
+        const digitsOnly = searchTerm.replace(/\D/g, '');
+        const isPhonePattern = (digitsOnly.length === 7 || digitsOnly.length === 10) && !digitsOnly.startsWith('1');
+        
+        if (isPhonePattern) {
+          // Add phone number searches - search for the digits within formatted phone numbers
+          orConditions.push(`phone.ilike.%${digitsOnly}%`);
+          orConditions.push(`mobile_phone.ilike.%${digitsOnly}%`);
+        }
+        
         if (!isNaN(numericSearchTerm)) {
           orConditions.push(`account_number.eq.${numericSearchTerm}`);
         }
@@ -91,8 +137,14 @@ const AccountsTab: React.FC = () => {
       const { data, error, count } = await query;
 
       if (error) {
-        console.error('Error fetching accounts:', error);
+        console.error('Error fetching accounts:', {
+          message: (error as any)?.message,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+          code: (error as any)?.code
+        });
         setAccounts([]);
+        setTotalAccountCount(0);
         return;
       }
 
@@ -100,21 +152,30 @@ const AccountsTab: React.FC = () => {
         setTotalAccountCount(count);
       }
 
-      // Get password entries only for the current page accounts
+      // Get password entries from USER_PASSWORDS table only for the current page accounts
       const accountNumbers = data?.map(a => a.account_number) || [];
-      const { data: passwordData, error: passwordError } = await supabase
-        .from('logon_lcmd')
-        .select('account_number, password')
-        .in('account_number', accountNumbers);
+      let passwordData: any[] = [];
+      if (accountNumbers.length > 0) {
+        const { data: pwdData, error: passwordError } = await supabase
+          .from('user_passwords')
+          .select('account_number, password_hash')
+          .in('account_number', accountNumbers);
 
-      if (passwordError) {
-        console.error('Error fetching password data:', passwordError);
+        if (passwordError) {
+          console.error('Error fetching password data:', {
+            message: (passwordError as any)?.message,
+            details: (passwordError as any)?.details,
+            hint: (passwordError as any)?.hint,
+            code: (passwordError as any)?.code
+          });
+        }
+        passwordData = pwdData || [];
       }
 
-      // Create a map of account passwords
-      const passwordMap: { [key: number]: string } = {};
-      passwordData?.forEach((entry: LogonEntry) => {
-        passwordMap[entry.account_number] = entry.password;
+      // Create a map of account passwords - if record exists, they have a custom password
+      const passwordMap: { [key: number]: boolean } = {};
+      passwordData?.forEach((entry: any) => {
+        passwordMap[entry.account_number] = true; // Just track existence, not the hash
       });
 
       // Check which accounts have custom passwords
@@ -131,28 +192,13 @@ const AccountsTab: React.FC = () => {
             acct_name: account.acct_name,
             zip: account.zip,
             hasEntry: hasEntry,
-            storedPassword: storedPassword,
-            defaultPattern: defaultPattern,
-            passwordsMatch: storedPassword?.toLowerCase() === defaultPattern?.toLowerCase()
+            hasPasswordRecord: storedPassword,
+            defaultPattern: defaultPattern
           });
         }
         
-        // BETTER LOGIC: Check if password exists AND is not the default pattern
-        let hasCustomPassword = false;
-        if (hasEntry && storedPassword) {
-          // If stored password is different from default pattern, it's custom
-          hasCustomPassword = storedPassword.toLowerCase() !== defaultPattern.toLowerCase();
-        }
-        
-        // DEBUG: Log the final decision for account 105
-        if (account.account_number === 105) {
-          console.log('🎯 Account 105 final decision:', {
-            hasCustomPassword: hasCustomPassword,
-            reason: hasEntry ? 
-              (hasCustomPassword ? 'Password differs from default pattern' : 'Password matches default pattern') :
-              'No password entry found'
-          });
-        }
+        // NEW LOGIC: If record exists in user_passwords, they have a custom password
+        const hasCustomPassword = passwordMap[account.account_number] === true;
         
         return {
           ...account,
@@ -179,100 +225,194 @@ const AccountsTab: React.FC = () => {
 
   const handleSetPassword = async (accountNumber: number, newPassword: string) => {
     try {
-      // Get the account details to check if password matches default pattern
-      const account = accounts.find(a => a.account_number === accountNumber);
-      const defaultPattern = account ? getDefaultPassword(account.acct_name, account.zip) : '';
-      const isDefaultPattern = newPassword.toLowerCase() === defaultPattern.toLowerCase();
+      console.log(`🔧 ADMIN: Starting password update for account ${accountNumber}`);
+      
+      // STEP 1: Delete any existing record from USER_PASSWORDS (as per requirement)
+      console.log(`🗑️ ADMIN: Deleting existing password record for account ${accountNumber}`);
+      const { error: deleteError } = await supabase
+        .from('user_passwords')
+        .delete()
+        .eq('account_number', accountNumber);
 
-      // Check if account already has a password entry
-      const { data: existingPassword, error: checkError } = await supabase
-        .from('logon_lcmd')
-        .select('account_number')
-        .eq('account_number', accountNumber)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid error when no rows
+      if (deleteError) {
+        console.error('❌ ADMIN: Error deleting existing password:', deleteError);
+        alert('Error removing existing password: ' + deleteError.message);
+        return;
+      }
+      console.log(`✅ ADMIN: Successfully deleted existing password record for account ${accountNumber}`);
 
-      if (checkError) {
-        console.error('Error checking existing password:', checkError);
-        alert('Error checking existing password');
+      // STEP 2: Hash the new password
+      console.log(`🔐 ADMIN: Hashing new password for account ${accountNumber}`);
+      const { data: hashResult, error: hashError } = await supabase.rpc('hash_password', {
+        plain_password: newPassword
+      });
+
+      if (hashError || !hashResult) {
+        console.error('❌ ADMIN: Error hashing password:', hashError);
+        alert('Error hashing password: ' + (hashError?.message || 'Unknown error'));
+        return;
+      }
+      console.log(`✅ ADMIN: Successfully hashed password for account ${accountNumber}`);
+
+      // STEP 3: Insert new hashed password record
+      console.log(`💾 ADMIN: Inserting new password record for account ${accountNumber}`);
+      const { data: insertData, error: insertError } = await supabase
+        .from('user_passwords')
+        .insert({
+          account_number: accountNumber,
+          password_hash: hashResult,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select();
+
+      if (insertError) {
+        console.error('❌ ADMIN: Error inserting password:', insertError);
+        alert('Error setting password: ' + insertError.message);
         return;
       }
 
-      if (existingPassword) {
-        // Update existing password
-        const { error: updateError } = await supabase
-          .from('logon_lcmd')
-          .update({
-            password: newPassword
-          })
-          .eq('account_number', accountNumber);
+      console.log(`✅ ADMIN: Successfully inserted password record:`, insertData);
 
-        if (updateError) {
-          console.error('Error updating password:', updateError);
-          alert('Error updating password: ' + updateError.message);
-          return;
-        }
-      } else {
-        // Insert new password entry
-        const { error: insertError } = await supabase
-          .from('logon_lcmd')
-          .insert({
-            account_number: accountNumber,
-            password: newPassword
-          });
+      // STEP 4: Verify the record was created
+      console.log(`🔍 ADMIN: Verifying password record was created for account ${accountNumber}`);
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('user_passwords')
+        .select('account_number, password_hash, created_at, updated_at')
+        .eq('account_number', accountNumber)
+        .single();
 
-        if (insertError) {
-          console.error('Error inserting password:', insertError);
-          alert('Error setting password: ' + insertError.message);
-          return;
-        }
+      if (verifyError || !verifyData) {
+        console.error('❌ ADMIN: Error verifying password record:', verifyError);
+        alert('Password may not have been set correctly. Please check and try again.');
+        return;
       }
 
+      console.log(`✅ ADMIN: Password record verification successful:`, verifyData);
+
+      // Close modal and refresh
       setShowPasswordModal(false);
-      fetchAccounts();
+      console.log(`🔄 ADMIN: Refreshing accounts list to reflect changes`);
+      await fetchAccounts();
       
-      // Show appropriate message based on whether password matches default pattern
-      if (isDefaultPattern) {
-        alert('Default password has been set');
-      } else {
-        alert('A new password has been set');
-      }
+      alert(`✅ Password has been set successfully for Account ${accountNumber}!\n\nUser can now log in with this password.\n\nRecord ID: ${verifyData.account_number}\nCreated: ${new Date(verifyData.created_at).toLocaleString()}`);
+      
     } catch (error) {
-      console.error('Error:', error);
-      alert('Error setting password');
+      console.error('💥 ADMIN: Unexpected error in handleSetPassword:', error);
+      alert('Unexpected error setting password: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
   const handleResetPassword = async (accountNumber: number) => {
-    if (window.confirm('This will reset the account to use the default password pattern (first letter + ZIP). Continue?')) {
-      try {
-        // Remove custom password entry
-        const { error: deleteError } = await supabase
-          .from('logon_lcmd')
-          .delete()
-          .eq('account_number', accountNumber);
+    try {
+      // STEP 1: Remove record from USER_PASSWORDS (as per requirement)
+      const { error: deleteError } = await supabase
+        .from('user_passwords')
+        .delete()
+        .eq('account_number', accountNumber);
 
-        if (deleteError) {
-          console.error('Error deleting password:', deleteError);
-          alert('Error resetting password');
-          return;
-        }
-
-        // Update account to require password change (this is on accounts_lcmd table)
-        const { error: updateError } = await supabase
-          .from('accounts_lcmd')
-          .update({ requires_password_change: true })
-          .eq('account_number', accountNumber);
-
-        if (updateError) {
-          console.error('Error updating account:', updateError);
-        }
-
-        fetchAccounts();
-        alert('Password reset successfully. Account will use default password pattern.');
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Error resetting password');
+      if (deleteError) {
+        console.error('Error deleting password:', deleteError);
+        alert('Error resetting password: ' + deleteError.message);
+        return;
       }
+
+      // STEP 2: Clear any auth.users connection
+      const { error: clearUserError } = await supabase
+        .from('accounts_lcmd')
+        .update({ user_id: null })
+        .eq('account_number', accountNumber);
+
+      if (clearUserError) {
+        console.error('Error clearing user connection:', clearUserError);
+        // Don't fail the operation if this fails
+      }
+
+      fetchAccounts();
+      alert('Password reset completed successfully. User can now log in with their ZIP code (once), which will trigger the mandatory password setup modal.');
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error resetting password');
+    }
+  };
+
+  const handleForcePasswordChange = async (accountNumber: number, newPassword: string) => {
+    try {
+      console.log(`🚨 ADMIN FORCE: Starting FORCE password change for account ${accountNumber}`);
+      
+      // STEP 1: Delete any existing record from USER_PASSWORDS
+      console.log(`🗑️ ADMIN FORCE: Deleting existing password record for account ${accountNumber}`);
+      const { error: deleteError } = await supabase
+        .from('user_passwords')
+        .delete()
+        .eq('account_number', accountNumber);
+
+      if (deleteError) {
+        console.error('❌ ADMIN FORCE: Error deleting existing password:', deleteError);
+        alert('Error removing existing password: ' + deleteError.message);
+        return;
+      }
+      console.log(`✅ ADMIN FORCE: Successfully deleted existing password record for account ${accountNumber}`);
+
+      // STEP 2: Hash the new password
+      console.log(`🔐 ADMIN FORCE: Hashing FORCED password for account ${accountNumber}`);
+      const { data: hashResult, error: hashError } = await supabase.rpc('hash_password', {
+        plain_password: newPassword
+      });
+
+      if (hashError || !hashResult) {
+        console.error('❌ ADMIN FORCE: Error hashing FORCED password:', hashError);
+        alert('Error hashing FORCED password: ' + (hashError?.message || 'Unknown error'));
+        return;
+      }
+      console.log(`✅ ADMIN FORCE: Successfully hashed FORCED password for account ${accountNumber}`);
+
+      // STEP 3: Insert new hashed password record
+      console.log(`💾 ADMIN FORCE: Inserting FORCED password record for account ${accountNumber}`);
+      const { data: insertData, error: insertError } = await supabase
+        .from('user_passwords')
+        .insert({
+          account_number: accountNumber,
+          password_hash: hashResult,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select();
+
+      if (insertError) {
+        console.error('❌ ADMIN FORCE: Error inserting FORCED password:', insertError);
+        alert('Error setting FORCED password: ' + insertError.message);
+        return;
+      }
+
+      console.log(`✅ ADMIN FORCE: Successfully inserted FORCED password record:`, insertData);
+
+      // STEP 4: Verify the record was created
+      console.log(`🔍 ADMIN FORCE: Verifying FORCED password record was created for account ${accountNumber}`);
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('user_passwords')
+        .select('account_number, password_hash, created_at, updated_at')
+        .eq('account_number', accountNumber)
+        .single();
+
+      if (verifyError || !verifyData) {
+        console.error('❌ ADMIN FORCE: Error verifying FORCED password record:', verifyError);
+        alert('FORCED password may not have been set correctly. Please check and try again.');
+        return;
+      }
+
+      console.log(`✅ ADMIN FORCE: FORCED password record verification successful:`, verifyData);
+
+      // Close modal and refresh
+      setShowForcePasswordModal(false);
+      console.log(`🔄 ADMIN FORCE: Refreshing accounts list to reflect FORCED changes`);
+      await fetchAccounts();
+      
+      alert(`🚨 EMERGENCY PASSWORD FORCE COMPLETED! 🚨\n\nAccount ${accountNumber} password has been FORCIBLY set!\n\n⚠️ FOR EMERGENCY/TESTING USE ONLY ⚠️\n\nUser can now log in with the forced password.\n\nRecord ID: ${verifyData.account_number}\nForced At: ${new Date(verifyData.created_at).toLocaleString()}`);
+      
+    } catch (error) {
+      console.error('💥 ADMIN FORCE: Unexpected error in handleForcePasswordChange:', error);
+      alert('Unexpected error in FORCE password change: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -285,48 +425,6 @@ const AccountsTab: React.FC = () => {
     return defaultPattern && defaultPattern.slice(-5) === 'xxxxx';
   };
 
-  const testPassword = async (accountNumber: number, testPassword: string) => {
-    try {
-      // Get the account's actual password
-      const { data: passwordData, error } = await supabase
-        .from('logon_lcmd')
-        .select('password')
-        .eq('account_number', accountNumber)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching password:', error);
-        return { success: false, message: 'Error checking password' };
-      }
-
-      // If no password entry exists, check against default pattern
-      if (!passwordData) {
-        const account = accounts.find(a => a.account_number === accountNumber);
-        if (account) {
-          const defaultPattern = getDefaultPassword(account.acct_name, account.zip);
-          const isCorrect = testPassword.toLowerCase() === defaultPattern.toLowerCase();
-          return { 
-            success: true, 
-            isCorrect, 
-            message: isCorrect ? 'CORRECT' : 'INCORRECT'
-          };
-        }
-        return { success: false, message: 'Account not found' };
-      }
-
-      // Check against stored password
-      const isCorrect = testPassword === passwordData.password;
-      return { 
-        success: true, 
-        isCorrect, 
-        message: isCorrect ? 'CORRECT' : 'INCORRECT'
-      };
-
-    } catch (error) {
-      console.error('Error testing password:', error);
-      return { success: false, message: 'Error testing password' };
-    }
-  };
 
   const filteredAccounts = accounts;
 
@@ -334,7 +432,8 @@ const AccountsTab: React.FC = () => {
     account: Account;
     onClose: () => void;
     onSave: (accountNumber: number, password: string) => void;
-  }> = ({ account, onClose, onSave }) => {
+    onResetZip: (accountNumber: number) => void;
+  }> = ({ account, onClose, onSave, onResetZip }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -354,18 +453,23 @@ const AccountsTab: React.FC = () => {
       onSave(account.account_number, password);
     };
 
+    const handleResetZip = () => {
+      onResetZip(account.account_number);
+      onClose();
+    };
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
           <h3 className="text-2xl font-semibold text-gray-900 mb-6">
-            Set Password for Account {account.account_number}
+            Password Management for Account {account.account_number}
           </h3>
           <div className="mb-6">
             <p className="text-lg text-gray-600 mb-3">
               <strong>Account:</strong> {account.acct_name}
             </p>
             <p className="text-lg text-gray-600 mb-6">
-              <strong>Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
+              <strong>Current Zip Code:</strong> {getDefaultPasswordDisplay(account)}
             </p>
           </div>
           <div className="space-y-6">
@@ -394,6 +498,163 @@ const AccountsTab: React.FC = () => {
               />
             </div>
           </div>
+          <div className="flex justify-between mt-8">
+            <button
+              onClick={handleResetZip}
+              className="px-6 py-3 text-lg font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+              title="Remove current password and allow customer to use their ZIP code once to log in"
+            >
+              Reset Zip Default
+            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={onClose}
+                className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="px-6 py-3 text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              >
+                Set Password
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ResetConfirmModal: React.FC<{
+    account: Account;
+    onClose: () => void;
+    onConfirm: (accountNumber: number) => void;
+  }> = ({ account, onClose, onConfirm }) => {
+    const handleConfirm = () => {
+      onConfirm(account.account_number);
+      onClose();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
+          <h3 className="text-2xl font-semibold text-gray-900 mb-6">
+            Reset Password Confirmation
+          </h3>
+          <div className="mb-6">
+            <p className="text-lg text-gray-700 mb-4">
+              Are you sure you want to reset the password for account <strong>{account.account_number}</strong> ({account.acct_name}) who is located in zip code <strong>{formatZipCode(account.zip)}</strong>?
+            </p>
+            <p className="text-md text-gray-600">
+              This will remove the user from the user_passwords table and trigger an automatic first-time password setup when they next log in.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-4">
+            <button
+              onClick={onClose}
+              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              className="px-6 py-3 text-lg font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+            >
+              Yes, Reset Password
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ForcePasswordModal: React.FC<{
+    account: Account;
+    onClose: () => void;
+    onForce: (accountNumber: number, password: string) => void;
+  }> = ({ account, onClose, onForce }) => {
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+
+    const handleSubmit = () => {
+      if (!password.trim()) {
+        alert('Please enter a password to force');
+        return;
+      }
+      if (password !== confirmPassword) {
+        alert('Passwords do not match');
+        return;
+      }
+      
+      // Additional confirmation for force password change
+      if (window.confirm(
+        `🚨 EMERGENCY FORCE PASSWORD CHANGE 🚨\n\n` +
+        `Are you ABSOLUTELY SURE you want to FORCE the password for:\n\n` +
+        `Account: ${account.account_number}\n` +
+        `Company: ${account.acct_name}\n\n` +
+        `⚠️ FOR EMERGENCY AND TESTING PURPOSES ONLY ⚠️\n\n` +
+        `This will immediately set the password without user consent.\n\n` +
+        `Click OK to proceed with FORCE password change.`
+      )) {
+        onForce(account.account_number, password);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8 w-full max-w-2xl border-4 border-orange-500">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-2">🚨</div>
+            <h3 className="text-2xl font-bold text-orange-600 mb-2">
+              EMERGENCY FORCE PASSWORD CHANGE
+            </h3>
+            <div className="bg-orange-100 border border-orange-400 rounded-md p-4 mb-4">
+              <p className="text-lg font-semibold text-orange-800 mb-2">
+                ⚠️ FOR EMERGENCY AND TESTING PURPOSES ONLY ⚠️
+              </p>
+              <p className="text-sm text-orange-700">
+                This will forcibly set a password without user consent or notification.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <p className="text-lg text-gray-600 mb-3">
+              <strong>Account:</strong> {account.account_number} - {account.acct_name}
+            </p>
+            <p className="text-lg text-gray-600 mb-6">
+              <strong>Current Zip Code:</strong> {getDefaultPasswordDisplay(account)}
+            </p>
+          </div>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-lg font-medium text-orange-700 mb-2">
+                Force New Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password to force..."
+                className="w-full border-2 border-orange-300 rounded-md px-4 py-3 text-lg focus:border-orange-500"
+              />
+            </div>
+            <div>
+              <label className="block text-lg font-medium text-orange-700 mb-2">
+                Confirm Forced Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm forced password..."
+                className="w-full border-2 border-orange-300 rounded-md px-4 py-3 text-lg focus:border-orange-500"
+              />
+            </div>
+          </div>
+          
           <div className="flex justify-end space-x-4 mt-8">
             <button
               onClick={onClose}
@@ -403,9 +664,9 @@ const AccountsTab: React.FC = () => {
             </button>
             <button
               onClick={handleSubmit}
-              className="px-6 py-3 text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              className="px-6 py-3 text-lg font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md border-2 border-orange-700"
             >
-              Set Password
+              🚨 FORCE PASSWORD CHANGE
             </button>
           </div>
         </div>
@@ -413,107 +674,6 @@ const AccountsTab: React.FC = () => {
     );
   };
 
-  const TestPasswordModal: React.FC<{
-    account: Account;
-    onClose: () => void;
-  }> = ({ account, onClose }) => {
-    const [testPasswordInput, setTestPasswordInput] = useState('');
-    const [result, setResult] = useState<{message: string; isCorrect?: boolean} | null>(null);
-    const [testing, setTesting] = useState(false);
-
-    const handleTest = async () => {
-      if (!testPasswordInput.trim()) {
-        alert('Please enter a password to test');
-        return;
-      }
-
-      setTesting(true);
-      const testResult = await testPassword(account.account_number, testPasswordInput);
-      setTesting(false);
-
-      if (testResult.success) {
-        setResult({
-          message: testResult.message,
-          isCorrect: testResult.isCorrect
-        });
-      } else {
-        alert(testResult.message);
-      }
-    };
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        handleTest();
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 w-full max-w-2xl">
-          <h3 className="text-2xl font-semibold text-gray-900 mb-6">
-            Test Password for Account {account.account_number}
-          </h3>
-          <div className="mb-6">
-            <p className="text-lg text-gray-600 mb-3">
-              <strong>Account:</strong> {account.acct_name}
-            </p>
-            <p className="text-lg text-gray-600 mb-6">
-              <strong>Default Pattern:</strong> {getDefaultPasswordDisplay(account)}
-            </p>
-          </div>
-          <div className="space-y-6">
-            <div>
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                Enter Password to Test
-              </label>
-              <input
-                type="password"
-                value={testPasswordInput}
-                onChange={(e) => setTestPasswordInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter password to verify..."
-                className="w-full border border-gray-300 rounded-md px-4 py-3 text-lg"
-                disabled={testing}
-              />
-            </div>
-            {result && (
-              <div className={`p-4 rounded-md text-center ${
-                result.isCorrect 
-                  ? 'bg-green-100 text-green-800 border border-green-200' 
-                  : 'bg-red-100 text-red-800 border border-red-200'
-              }`}>
-                <div className="text-3xl font-bold mb-2">
-                  {result.message}
-                </div>
-                <div className="text-lg">
-                  {result.isCorrect ? '✓ Password matches' : '✗ Password does not match'}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end space-x-4 mt-8">
-            <button
-              onClick={onClose}
-              className="px-6 py-3 text-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-            >
-              Close
-            </button>
-            <button
-              onClick={handleTest}
-              disabled={testing}
-              className={`px-6 py-3 text-lg font-medium text-white rounded-md ${
-                testing
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
-              }`}
-            >
-              {testing ? 'Testing...' : 'Test Password'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div>
@@ -528,7 +688,7 @@ const AccountsTab: React.FC = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by account number, company name, city, or state..."
+              placeholder="Search by account number, company name, city, state, email address, or phone number (7 or 10 digits)..."
               className="w-full border border-gray-300 rounded-md px-4 py-3 text-base"
             />
           </div>
@@ -565,25 +725,31 @@ const AccountsTab: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('account_number')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-20" onClick={() => handleSort('account_number')}>
                     Account # {sortColumn === 'account_number' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('acct_name')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-48" onClick={() => handleSort('acct_name')}>
                     Company Name {sortColumn === 'acct_name' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('city')}>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-40" onClick={() => handleSort('city')}>
                     Location {sortColumn === 'city' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('phone')}>
-                    Phone {sortColumn === 'phone' && (sortDirection === 'asc' ? '▲' : '▼')}
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-32" onClick={() => handleSort('phone')}>
+                    Busn Phone {sortColumn === 'phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Password Status
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-32" onClick={() => handleSort('mobile_phone')}>
+                    Mobile Phone {sortColumn === 'mobile_phone' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
-                    Default Pattern
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-48" onClick={() => handleSort('email_address')}>
+                    Email Address {sortColumn === 'email_address' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-8 py-5 text-left text-lg font-bold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider cursor-pointer w-20" onClick={() => handleSort('zip')}>
+                    Zip Code {sortColumn === 'zip' && (sortDirection === 'asc' ? '▲' : '▼')}
+                  </th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-20">
+                    User Pwd?
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider w-48">
                     Actions
                   </th>
                 </tr>
@@ -591,58 +757,61 @@ const AccountsTab: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAccounts.map((account) => (
                   <tr key={account.account_number} className={`${isInactiveAccount(account) ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-gray-50'}`}>
-                    <td className="px-8 py-6 whitespace-nowrap text-lg font-bold text-gray-900">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
                       {account.account_number}
                     </td>
-                    <td className="px-8 py-6 text-lg text-gray-700 max-w-xs truncate font-semibold">
+                    <td className="px-4 py-3 text-sm text-gray-700 truncate">
                       {account.acct_name || 'N/A'}
                     </td>
-                    <td className="px-8 py-6 text-base text-gray-600">
-                      {account.city || 'N/A'}, {account.state || 'N/A'} {account.zip || 'N/A'}
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {account.city || 'N/A'}, {account.state || 'N/A'} {formatZipCode(account.zip)}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600">
-                      {account.phone || 'N/A'}
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                      {formatPhoneNumber(account.phone)}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base">
-                      <div className="space-y-2">
-                        <span className={`inline-flex px-3 py-2 text-sm font-bold rounded-full ${
-                          account.has_custom_password 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {account.has_custom_password ? 'Custom Password' : 'Default Pattern'}
-                        </span>
-                        {account.requires_password_change && (
-                          <div>
-                            <span className="inline-flex px-3 py-2 text-sm font-bold rounded-full bg-orange-100 text-orange-800">
-                              Requires Change
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                      {formatPhoneNumber(account.mobile_phone)}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-600 font-mono font-bold">
-                      {getDefaultPasswordDisplay(account)}
+                    <td className="px-4 py-3 text-sm text-gray-600 truncate">
+                      {account.email_address || 'N/A'}
                     </td>
-                    <td className="px-8 py-6 whitespace-nowrap text-base text-gray-500">
-                      <div className="flex space-x-3">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
+                      {formatZipCode(account.zip)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                      <span className={account.has_custom_password ? 'font-bold text-green-700' : 'text-gray-600'}>
+                        {account.has_custom_password ? 'YES' : 'NO'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex flex-wrap gap-1">
                         <button
                           onClick={() => {
                             setSelectedAccount(account);
-                            setShowPasswordModal(true);
+                            setShowResetConfirmModal(true);
                           }}
-                          className="text-blue-600 hover:text-blue-900 font-semibold text-base"
+                          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium"
                         >
-                          Set Pwd
+                          Reset Password
                         </button>
                         <button
                           onClick={() => {
                             setSelectedAccount(account);
-                            setShowTestPasswordModal(true);
+                            setShowForcePasswordModal(true);
                           }}
-                          className="text-green-600 hover:text-green-900 font-semibold text-base"
+                          className="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-xs font-medium"
+                          title="Force Password Change - For Emergency and Testing Purposes"
                         >
-                          Test Pwd
+                          Force Password
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAccount(account);
+                            setShowContactModal(true);
+                          }}
+                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium"
+                        >
+                          Contact Info
                         </button>
                       </div>
                     </td>
@@ -693,16 +862,48 @@ const AccountsTab: React.FC = () => {
           account={selectedAccount}
           onClose={() => setShowPasswordModal(false)}
           onSave={handleSetPassword}
+          onResetZip={handleResetPassword}
         />
       )}
 
-      {/* Test Password Modal */}
-      {showTestPasswordModal && selectedAccount && (
-        <TestPasswordModal
+      {/* Reset Confirmation Modal */}
+      {showResetConfirmModal && selectedAccount && (
+        <ResetConfirmModal
           account={selectedAccount}
-          onClose={() => setShowTestPasswordModal(false)}
+          onClose={() => setShowResetConfirmModal(false)}
+          onConfirm={handleResetPassword}
         />
       )}
+
+      {/* Force Password Modal */}
+      {showForcePasswordModal && selectedAccount && (
+        <ForcePasswordModal
+          account={selectedAccount}
+          onClose={() => setShowForcePasswordModal(false)}
+          onForce={handleForcePasswordChange}
+        />
+      )}
+
+      {/* Contact Info Modal */}
+      {showContactModal && selectedAccount && (
+        <ContactInfoModal
+          isOpen={showContactModal}
+          onClose={() => {
+            setShowContactModal(false);
+            setSelectedAccount(null);
+          }}
+          accountNumber={selectedAccount.account_number}
+          accountName={selectedAccount.acct_name}
+          initialEmail={selectedAccount.email_address}
+          initialPhone={selectedAccount.phone}
+          initialMobilePhone={selectedAccount.mobile_phone}
+          onSuccess={() => {
+            // Refresh the accounts list to show updated contact info
+            fetchAccounts();
+          }}
+        />
+      )}
+
     </div>
   );
 };

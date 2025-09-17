@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global font family override - Apply Poppins to all elements */
+* {
+  font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
+/* Ensure body and html use Poppins */
+html, body {
+  font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
 /* Prose styling for HTML content in product descriptions */
 .prose {
   color: #374151;
@@ -246,4 +256,118 @@ img[alt*="logo"]::after {
 
 .fixed-header-size.text-2xl {
   font-size: 1.5rem !important; /* 24px - doubled from original 12px */
+}
+
+/* Professional Font Scaling - Increased by 40% for search boxes */
+/* Previous: smaller=9.8px, standard=11.2px, larger=12.6px */
+/* New: smaller=13.72px, standard=15.68px, larger=17.64px (40% increase) */
+.font-professional-smaller {
+  font-size: 0.8575rem !important; /* 13.72px - 40% increase from 9.8px */
+  line-height: 1.6 !important;
+}
+
+.font-professional-standard {
+  font-size: 0.98rem !important; /* 15.68px - 40% increase from 11.2px */
+  line-height: 1.6 !important;
+}
+
+.font-professional-larger {
+  font-size: 1.1025rem !important; /* 17.64px - 40% increase from 12.6px */
+  line-height: 1.6 !important;
+}
+
+/* Product Table Specific Font Classes - Fixed point sizes for readability scaler (ONLY affects product grid) */
+.font-product-table-smaller {
+  font-size: 10pt !important; /* Fixed 10pt for smallest readability */
+  line-height: 1.4 !important;
+  font-weight: 400;
+}
+
+.font-product-table-standard {
+  font-size: 12pt !important; /* Fixed 12pt for medium readability */
+  line-height: 1.4 !important;
+  font-weight: 400;
+}
+
+.font-product-table-larger {
+  font-size: 14pt !important; /* Fixed 14pt for large readability */
+  line-height: 1.4 !important;
+  font-weight: 400;
+}
+
+/* Demo Mode Styles */
+.demo-mode-blur {
+  filter: blur(4px);
+  -webkit-filter: blur(4px);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Disable text selection in demo mode */
+.demo-mode-no-select {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Disable right-click context menu in demo mode */
+.demo-mode-no-context {
+  pointer-events: none;
+}
+
+/* Demo mode disabled button */
+.demo-mode-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* Mobile Preferred red flashing animation - 5 second cycles from red to white */
+@keyframes mobilePreferredFlash {
+  0% {
+    color: #dc2626; /* Deep red */
+    opacity: 1;
+  }
+  25% {
+    color: #f87171; /* Medium red */
+    opacity: 0.8;
+  }
+  50% {
+    color: #fca5a5; /* Light red */
+    opacity: 0.6;
+  }
+  75% {
+    color: #fecaca; /* Very light red */
+    opacity: 0.4;
+  }
+  90% {
+    color: #ffffff; /* White */
+    opacity: 0.2;
+  }
+  100% {
+    color: #dc2626; /* Back to deep red */
+    opacity: 1;
+  }
+}
+
+.mobile-preferred-flash {
+  animation: mobilePreferredFlash 5s ease-in-out infinite;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* (Removed responsive header typography; using fixed sizes again) */
+/* Responsive header typography (fits within 64px header) */
+.header-logo {
+  font-size: clamp(22px, 2.8vw, 36px);
+  line-height: 1;
+}
+
+.header-phone {
+  font-size: clamp(16px, 2vw, 24px);
+  line-height: 1;
 }

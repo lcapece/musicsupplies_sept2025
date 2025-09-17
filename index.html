@@ -4,10 +4,60 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- AGGRESSIVE CACHE PREVENTION -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0, s-maxage=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="-1" />
+    <meta http-equiv="Clear-Site-Data" content="cache" />
+    
+    <!-- REMOVED AUTO REFRESH -->
+    
     <title>MusicSupplies.com</title>
+    
+    <!-- Preconnect to improve performance -->
+    <link rel="preconnect" href="https://ekklokrukxmqlahtonnc.supabase.co" />
+    <link rel="preconnect" href="https://mus86077.s3.amazonaws.com" crossorigin />
+    
+    <!-- Google Fonts - Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Service Worker for advanced cache management -->
+    <script>
+      // EMERGENCY CACHE BUSTER - VERSION RC818.0145
+      const REQUIRED_VERSION = 'RC818.0145';
+      
+      // AGGRESSIVE: Clear ALL caches immediately
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        });
+      }
+      
+      // Unregister ALL service workers
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+          }
+        });
+      }
+      
+      // Store current version but DON'T force reload
+      localStorage.setItem('app_version', REQUIRED_VERSION);
+      
+      // DISABLED - NO AUTO RELOAD
+      
+      // Add timestamp to prevent caching
+      window.appVersion = Date.now();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- ALL AUTO-REFRESH DISABLED -->
   </body>
 </html>

@@ -18,6 +18,8 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showSmsConsentModal, setShowSmsConsentModal] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const { user, fetchUserAccount } = useAuth();
 
   useEffect(() => {
@@ -27,10 +29,10 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
     }
   }, [accountData]);
 
-  const ensureLogonEntry = async (accountNumber: number, defaultPassword: string) => {
-    // Check if logon entry exists
+  const ensurePasswordEntry = async (accountNumber: number) => {
+    // Check if password entry exists in user_passwords table
     const { data: existingEntry, error: checkError } = await supabase
-      .from('logon_lcmd')
+      .from('user_passwords')
       .select('account_number')
       .eq('account_number', accountNumber)
       .single();
@@ -40,19 +42,61 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       throw checkError;
     }
 
-    if (!existingEntry) {
-      // Create the logon entry with default password
-      const { error: insertError } = await supabase
-        .from('logon_lcmd')
-        .insert({
-          account_number: accountNumber,
-          password: defaultPassword
-        });
+    // If no entry exists, we don't need to create one - the insert below will handle it
+    return !existingEntry; // Return true if this is a new password entry
+  };
 
-      if (insertError) {
-        throw insertError;
+  const validateEmailUniqueness = async (emailToCheck: string, currentAccountNumber: number) => {
+    if (!emailToCheck || !emailToCheck.trim()) {
+      setEmailError(null);
+      return true; // Empty email is allowed
+    }
+
+    setIsCheckingEmail(true);
+    setEmailError(null);
+
+    try {
+      const { data: existingAccount, error } = await supabase
+        .from('accounts_lcmd')
+        .select('account_number, acct_name')
+        .eq('email_address', emailToCheck.trim().toLowerCase())
+        .neq('account_number', currentAccountNumber)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking email uniqueness:', error);
+        return true; // Allow submission on database error
       }
-      console.log(`Created logon entry for account ${accountNumber} with default password`);
+
+      if (existingAccount) {
+        setEmailError(`${emailToCheck} is already in use by account ${existingAccount.account_number}`);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Email validation error:', err);
+      return true; // Allow submission on error
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    
+    // Only validate if email is not empty and different from current
+    const currentEmail = accountData?.email_address || accountData?.email || '';
+    if (newEmail.trim() && newEmail.trim() !== currentEmail.trim()) {
+      // Debounce validation
+      setTimeout(async () => {
+        if (newEmail === email) { // Make sure it's still the current value
+        await validateEmailUniqueness(newEmail, accountData?.account_number || accountData?.accountNumber);
+        }
+      }, 500);
+    } else {
+      setEmailError(null);
     }
   };
 
@@ -69,37 +113,82 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
         return;
     }
 
+    if (!/[0-9]/.test(newPassword)) {
+        setError("Password must contain at least one number.");
+        setIsLoading(false);
+        return;
+    }
+    
+
+    // Check for email validation error
+    if (emailError) {
+        setError("Please fix the email address error before submitting.");
+        setIsLoading(false);
+        return;
+    }
+
+    // If email is being checked, wait for validation to complete
+    if (isCheckingEmail) {
+        setError("Please wait for email validation to complete.");
+        setIsLoading(false);
+        return;
+    }
+
     try {
-      if (!user || !accountData) {
-        setError("User or account data not found.");
+      if (!accountData) {
+        setError("Account data not found.");
         setIsLoading(false);
         return;
       }
 
-      const accountNumber = parseInt(accountData.accountNumber);
-      
-      // Step 1: Ensure logon_lcmd entry exists (with current/default password)
-      const currentPassword = accountData.currentPassword || 'p11554'; // Use default if not available
-      await ensureLogonEntry(accountNumber, currentPassword);
+      // Final email validation before submission
+      const currentEmail = accountData?.email_address || accountData?.email || '';
+      if (email.trim() && email.trim() !== currentEmail.trim()) {
+      const isEmailValid = await validateEmailUniqueness(email, accountData?.account_number || accountData?.accountNumber);
+        if (!isEmailValid) {
+          setIsLoading(false);
+          return; // Error message already set by validateEmailUniqueness
+        }
+      }
 
-      // Step 2: Update password directly in logon_lcmd
+      const accountNumber = accountData?.account_number || accountData?.accountNumber;
+      
+      // Step 1: Check if this is a new password entry
+      const isNewPasswordEntry = await ensurePasswordEntry(accountNumber);
+
+      // Step 2: Hash the password properly using the database function
+      const { data: hashedPassword, error: hashError } = await supabase.rpc('hash_password', {
+        plain_password: newPassword
+      });
+
+      if (hashError || !hashedPassword) {
+        console.error('Password hashing error:', hashError);
+        throw new Error('Failed to secure password. Please try again.');
+      }
+
+      // Step 3: Insert or update password in user_passwords table with HASHED password
       const { error: passwordError } = await supabase
-        .from('logon_lcmd')
-        .update({ password: newPassword })
-        .eq('account_number', accountNumber);
+        .from('user_passwords')
+        .upsert({ 
+          account_number: accountNumber,
+          password_hash: hashedPassword, // Now properly hashed with bcrypt
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'account_number'
+        });
 
       if (passwordError) {
         console.error('Password update error:', passwordError);
         throw passwordError;
       }
 
-      // Step 3: Update other account details and clear password change requirement
+      // Step 4: Update account details ONLY (NO requires_password_change column)
       const { data, error: updateError } = await supabase
         .from('accounts_lcmd')
         .update({
           email_address: email || null,
-          mobile_phone: mobilePhone || null,
-          requires_password_change: false
+          mobile_phone: mobilePhone || null
         })
         .eq('account_number', accountNumber)
         .select();
@@ -148,10 +237,10 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
       await supabase
         .from('accounts_lcmd')
         .update(updateData)
-        .eq('account_number', parseInt(accountData.accountNumber));
+        .eq('account_number', accountData?.account_number || accountData?.accountNumber);
       
       // Refresh user account data to reflect changes
-      await fetchUserAccount(accountData.accountNumber);
+      await fetchUserAccount(accountData.account_number);
       onClose(true); // Close the password change modal after SMS consent is handled
     } catch (error) {
       console.error('Error updating SMS consent:', error);
@@ -191,7 +280,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg\" fill="none\" viewBox="0 0 24 24\" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
                     </svg>
                   ) : (
@@ -213,11 +302,20 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ isOpen, onClo
               <input
                 type="email"
                 id="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                  emailError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                onChange={handleEmailChange}
+                
+                disabled={isCheckingEmail}
               />
+              {isCheckingEmail && (
+                <p className="text-sm text-gray-500 mt-1">Checking email availability...</p>
+              )}
+              {emailError && (
+                <p className="text-red-500 text-sm mt-1">{emailError}</p>
+              )}
             </div>
 
             <div className="mb-6">

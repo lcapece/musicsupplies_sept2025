@@ -1,0 +1,62 @@
+# Project-Specific Cline Rules
+
+
+## CRITICAL REMINDER: DO NOT RUN ANY "TESTS" SUCH AS BROWSER USE, ETC THAT REQUIRE INVOKING 'NPM RUN DEV'
+
+## CRITICAL: DO NOT RUN PLAYWRIGHT MCP UNLESS GIVEN PERMISSON IN ADVANCE!
+
+## CRITICAL REMINDER: SUPABASE MCP IS AVAILABLE!
+
+## CRITICAL REMINDER: (AUTO APPROVE) ALWAYS AUTOMATICALLY PRESS THE "ACCEPT" BUTTON FOR SUPERBASE OPERATIONS THAT REQUIRE APPROVAL
+
+
+Before attempting ANY Supabase-related task:
+1. CHECK if there's an MCP tool that can do it directly
+2. USE the MCP tool instead of creating scripts or manual instructions
+3. The Supabase MCP is connected at: github.com/supabase-community/supabase-mcp
+
+Common MCP tools to remember:
+- `deploy_edge_function` - Deploy edge functions WITHOUT Docker
+- `apply_migration` - Apply SQL migrations directly
+- `execute_sql` - Run SQL queries directly
+- `get_logs` - Check service logs
+
+STOP defaulting to CLI commands and batch files when MCP tools are available!
+
+## 🚨 NEVER USE LOCAL SUPABASE! 🚨
+
+**ABSOLUTELY FORBIDDEN:**
+- NEVER run `supabase` CLI commands locally
+- NEVER attempt local database connections (127.0.0.1:54322)
+- NEVER use `supabase migration up` or similar local commands
+- NEVER create batch files that run local Supabase commands
+
+**ALWAYS USE:**
+- Supabase MCP tools for hosted database operations
+- Only work on HOSTED/REMOTE Supabase via MCP
+- If MCP is unavailable, provide SQL scripts for manual execution
+
+**VIOLATION OF THIS RULE IS STRICTLY PROHIBITED!**
+
+## 🚨 NO TIMEZONE CONVERSIONS RULE 🚨
+
+**CRITICAL DATABASE DATE HANDLING:**
+- NEVER use timezone conversions on dates/timestamps from database
+- ALWAYS use simple dates without timezone handling
+- Database dates stored with timezone info should be treated as plain dates
+- Do NOT use `new Date().toISOString()` conversions on existing database dates
+- Do NOT apply timezone offsets or JavaScript Date timezone conversions
+- Use direct string manipulation to extract YYYY-MM-DD format only
+- Example: "2025-09-05 00:00:00+00" becomes "2025-09-05" via string splitting
+
+**VIOLATION OF THIS RULE CAUSES BUSINESS LOSSES!**
+
+## ACV COMMAND RULE
+
+**WHEN USER TYPES "acv" (EXACTLY THOSE 3 CHARACTERS):**
+- Perform git commit and version workflow immediately
+- Stage all changes with `git add .`
+- Create commit with format: "AUTOCOMMIT MMDDYY HH:MM"
+- Create version tag with format: "RC-M.DD.HMM"
+- DO NOT perform any automatic commits after task completions
+- ONLY perform git operations when user explicitly types "acv"

@@ -13,17 +13,19 @@ export interface Product {
   inventory: number | null;
   image?: string; // Add optional image property
   groupedimage?: string; // Grouped image field from products_supabase
-  prdmaincat?: string; // Product main category (level 1)
-  prdsubcat?: string; // Product sub category (level 2)
+  category?: number | null; // Product category (INTEGER foreign key)
   webmsrp?: number | null; // List price (corrected spelling)
   longdescription?: string; // Long description that may contain HTML
   brand?: string; // Manufacturer/brand name
   map?: number | null; // Manufacturer's Advertised Price
   upc?: string; // Universal Product Code
+  master_carton_price?: number | null; // Master carton price
+  master_carton_quantity?: number | null; // Master carton quantity
 }
 
 export interface CartItem extends Product {
   quantity: number;
+  qtyBackordered?: number;
 }
 
 export interface Account {
@@ -53,6 +55,11 @@ export interface User {
   sms_consent_date?: string; // Date when SMS consent was given
   marketing_sms_consent?: boolean; // Tracks express written consent for marketing SMS messages
   is_special_admin?: boolean; // Flag for special admin account (99)
+  // Staff properties from LEFT OUTER JOIN with staff table
+  is_staff?: boolean; // Flag indicating if this account is a staff member
+  staff_username?: string; // Username from staff table
+  privilege_value?: number; // Privilege level from staff table for authorization
+  staff_id?: number; // Staff table ID
 }
 
 export interface ProductGroup {
@@ -83,7 +90,7 @@ export interface PromoCode {
   id: string;
   code: string;
   name: string;
-  type: 'percent_off' | 'dollars_off';
+  type: 'percent_off' | 'dollars_off' | 'free_product' | 'advanced';
   value: number;
   min_order_value: number;
   max_uses: number | null;
@@ -95,6 +102,10 @@ export interface PromoCode {
   updated_at?: string;
   max_uses_per_account?: number | null;
   uses_per_account_tracking?: boolean;
+  legacy_code?: string;
+  allow_concurrent?: boolean;
+  template?: string;
+  template_config?: Record<string, any>;
 }
 
 export interface PromoCodeUsage {
@@ -114,6 +125,8 @@ export interface PromoCodeValidity {
   promo_type?: string;
   promo_value?: number;
   discount_amount?: number;
+  code?: string; // Added for actual promo code (e.g., "SAVE10")
+  product_description?: string; // Added for description from products table
 }
 
 export interface PromoCodeSummary {
@@ -136,4 +149,26 @@ export interface AvailablePromoCode {
   is_best: boolean;
   uses_remaining_for_account?: number | null;
   status?: 'available' | 'expired' | 'expired_global' | 'expired_date' | 'not_active' | 'disabled' | 'min_not_met';
+}
+
+export interface SecurityLevel {
+  id: string;
+  security_level: string;
+  section: string;
+  scope: 'read-only' | 'create' | 'update' | 'delete' | 'all' | 'none';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type PermissionScope = 'read-only' | 'create' | 'update' | 'delete' | 'all' | 'none';
+
+export type SecurityLevelName = 'user' | 'manager' | 'admin' | 'super_admin';
+
+export interface PermissionCheck {
+  hasAccess: boolean;
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  scope: PermissionScope;
 }

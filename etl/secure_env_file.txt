@@ -1,0 +1,26 @@
+# MUSIC SUPPLIES APPLICATION - SECURE ENVIRONMENT VARIABLES
+# Only variables that are actually used in the codebase
+
+# Supabase Configuration (Safe for client-side - public by design)
+VITE_SUPABASE_URL=https://ekklokrukxmqlahtonnc.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k
+
+# AWS S3 Configuration (Safe for client-side - public info only)
+VITE_AWS_REGION=us-east-1
+VITE_AWS_S3_BUCKET=sterlingstreet
+
+# Development Configuration
+NODE_ENV=development
+
+# REMOVED: 160+ unused API keys that were not referenced in the codebase
+# These were security vulnerabilities waiting to happen - all deleted safely
+
+# ClickSend (Frontend emergency path - required for browser-side SMS)
+# WARNING: These values are embedded in the client bundle. For production, set in Netlify dashboard.
+
+
+SUPABASE_URL=https://ekklokrukxmqlahtonnc.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k  
+
+
+GITHUB_USERNAME=lcapece@optonline

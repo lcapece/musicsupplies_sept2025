@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test 2FA Login Debug</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>2FA Login Debug Test</h1>
+    <button onclick="testLogin()">Test Login for 999</button>
+    <div id="output"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ekklokrukxmqlahtonnc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testLogin() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<p>Testing login...</p>';
+            
+            try {
+                // Test debug function first
+                console.log('Testing debug function...');
+                const { data: debugData, error: debugError } = await supabase.rpc('debug_2fa_auth', {
+                    p_identifier: '999',
+                    p_password: '2750GroveAvenue'
+                });
+                
+                if (debugError) {
+                    output.innerHTML += `<p style="color: red;">Debug Error: ${JSON.stringify(debugError)}</p>`;
+                } else {
+                    output.innerHTML += '<h3>Debug Results:</h3>';
+                    debugData.forEach(row => {
+                        output.innerHTML += `<p><strong>${row.step}:</strong> ${row.result} - ${row.details}</p>`;
+                    });
+                }
+                
+                // Test actual authenticate_user
+                console.log('Testing authenticate_user...');
+                const { data: authData, error: authError } = await supabase.rpc('authenticate_user', {
+                    p_identifier: '999',
+                    p_password: '2750GroveAvenue',
+                    p_ip_address: '127.0.0.1',
+                    p_2fa_code: null
+                });
+                
+                output.innerHTML += '<h3>Authenticate User Results:</h3>';
+                if (authError) {
+                    output.innerHTML += `<p style="color: red;">Auth Error: ${JSON.stringify(authError)}</p>`;
+                } else {
+                    output.innerHTML += `<p>Data length: ${authData?.length || 0}</p>`;
+                    if (authData && authData.length > 0) {
+                        const user = authData[0];
+                        output.innerHTML += `<p style="color: green;">SUCCESS! Account: ${user.account_number}</p>`;
+                        output.innerHTML += `<p>Requires 2FA: ${user.requires_2fa}</p>`;
+                        output.innerHTML += `<p>Debug Info: ${user.debug_info}</p>`;
+                        
+                        if (user.requires_2fa) {
+                            output.innerHTML += '<p style="color: blue; font-weight: bold;">🎉 2FA IS WORKING!</p>';
+                        }
+                    } else {
+                        output.innerHTML += `<p style="color: red;">No user data returned</p>`;
+                    }
+                }
+                
+            } catch (e) {
+                output.innerHTML += `<p style="color: red;">Exception: ${e.message}</p>`;
+                console.error('Test error:', e);
+            }
+        }
+    </script>
+</body>
+</html>

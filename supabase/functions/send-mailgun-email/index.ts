@@ -8,8 +8,13 @@ const corsHeaders = {
 interface EmailRequest {
   to: string;
   subject: string;
-  text: string;
+  text?: string;
   html?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string; // base64 encoded content
+    contentType?: string;
+  }>;
 }
 
 serve(async (req) => {
@@ -19,13 +24,13 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, text, html }: EmailRequest = await req.json()
+    const { to, subject, text, html, attachments }: EmailRequest = await req.json()
 
-    // Validate required fields
-    if (!to || !subject || !text) {
+    // Validate required fields (require at least one of text or html)
+    if (!to || !subject || (!text && !html)) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required fields: to, subject, and text are required' 
+          error: 'Missing required fields: "to", "subject", and at least one of "text" or "html" are required' 
         }),
         { 
           status: 400, 
@@ -75,10 +80,44 @@ serve(async (req) => {
     formData.append('from', `Music Supplies <noreply@${MAILGUN_DOMAIN}>`)
     formData.append('to', to)
     formData.append('subject', subject)
-    formData.append('text', text)
+
+    // If no plain text provided, derive a simple fallback from HTML
+    const textFallback = (!text && html)
+      ? html.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+      : (text || '')
+
+    formData.append('text', textFallback)
     
     if (html) {
       formData.append('html', html)
+    }
+
+    // Handle PDF attachments
+    if (attachments && attachments.length > 0) {
+      console.log('Adding attachments:', attachments.length)
+      attachments.forEach((attachment, index) => {
+        try {
+          // Convert base64 to blob for Mailgun
+          const base64Content = attachment.content.replace(/^data:[^;]+;base64,/, '')
+          const binaryContent = atob(base64Content)
+          const uint8Array = new Uint8Array(binaryContent.length)
+          for (let i = 0; i < binaryContent.length; i++) {
+            uint8Array[i] = binaryContent.charCodeAt(i)
+          }
+          const blob = new Blob([uint8Array], { 
+            type: attachment.contentType || 'application/pdf' 
+          })
+          
+          formData.append('attachment', blob, attachment.filename)
+          console.log(`Attached file: ${attachment.filename} (${blob.size} bytes)`)
+        } catch (error) {
+          console.error(`Error processing attachment ${index}:`, error)
+        }
+      })
     }
 
     // Disable click tracking to prevent broken redirect links

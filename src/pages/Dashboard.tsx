@@ -13,9 +13,19 @@ import ImageComingSoon from '../images/coming-soon.png';
 import { useAuth } from '../context/AuthContext'; // Import useAuth
 import PromotionalPopupModal, { PromotionalOffersStatus } from '../components/PromotionalPopupModal';
 import PromoCodePopup from '../components/PromoCodePopup'; // Import the PromoCodePopup component
+import { logKeywordSearch, logNavTreeSearch } from '../utils/eventLogger';
+import { activityTracker } from '../services/activityTracker';
+import { logSearchActivity, getSessionId, buildSearchQuery } from '../utils/performantLogger';
+import DemoModeBanner from '../components/DemoModeBanner';
+import { useNavigate } from 'react-router-dom';
+import { useAutoVersionCheck } from '../hooks/useAutoVersionCheck';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user, isDemoMode, logout } = useAuth(); // Get user and demo mode from AuthContext
+  const navigate = useNavigate();
+  
+  // Silent automatic version checking (backup to Header)
+  useAutoVersionCheck();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Product | null; direction: 'ascending' | 'descending' }>({ key: 'partnumber', direction: 'ascending' });
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | undefined>();
@@ -24,10 +34,11 @@ const Dashboard: React.FC = () => {
   const [selectedMainCategoryName, setSelectedMainCategoryName] = useState<string | undefined>();
   const [selectedSubCategoryName, setSelectedSubCategoryName] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [inStockOnly, setInStockOnly] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(true); // Changed to true for default checked
   const [showImageAndSpecs, setShowImageAndSpecs] = useState(true); // Changed to true for default checked
   const [showMsrp, setShowMsrp] = useState(true); // New state for showing MSRP column
   const [showMapPrice, setShowMapPrice] = useState(true); // New state for showing MAP Price column
+  const [showMasterCartonPrices, setShowMasterCartonPrices] = useState(true); // New state for showing Master Carton Prices, default checked
   const [selectedProductForImage, setSelectedProductForImage] = useState<Product | null>(null);
   const [rtExtendedData, setRtExtendedData] = useState<RtExtended | null>(null); // New state for rt_extended data
   const [currentImageUrl, setCurrentImageUrl] = useState<string>(''); // State for the image URL to display - start empty to prevent flash
@@ -43,11 +54,56 @@ const Dashboard: React.FC = () => {
     additional: '',
     exclude: ''
   });
+  const [exactMatches, setExactMatches] = useState<Set<string>>(new Set()); // Track exact part number matches
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [promoStatusData, setPromoStatusData] = useState<PromotionalOffersStatus | null>(null);
   const [showPromoCodePopup, setShowPromoCodePopup] = useState(false); // State for PromoCodePopup
   const [inventoryRefreshTimestamp, setInventoryRefreshTimestamp] = useState<string | null>(null); // State for inventory refresh timestamp
   const [fontSize, setFontSize] = useState<'smaller' | 'standard' | 'larger'>('standard'); // State for font size
+
+  // Handle demo timeout
+  const handleDemoTimeout = () => {
+    logout();
+    navigate('/');
+  };
+
+  // Disable copy/paste in demo mode
+  useEffect(() => {
+    if (isDemoMode) {
+      const handleCopy = (e: ClipboardEvent) => {
+        e.preventDefault();
+        return false;
+      };
+      
+      const handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+        return false;
+      };
+      
+      const handleSelectStart = (e: Event) => {
+        e.preventDefault();
+        return false;
+      };
+
+      document.addEventListener('copy', handleCopy);
+      document.addEventListener('cut', handleCopy);
+      document.addEventListener('paste', handleCopy);
+      document.addEventListener('contextmenu', handleContextMenu);
+      document.addEventListener('selectstart', handleSelectStart);
+      
+      // Add CSS class to body
+      document.body.classList.add('demo-mode-no-select');
+
+      return () => {
+        document.removeEventListener('copy', handleCopy);
+        document.removeEventListener('cut', handleCopy);
+        document.removeEventListener('paste', handleCopy);
+        document.removeEventListener('contextmenu', handleContextMenu);
+        document.removeEventListener('selectstart', handleSelectStart);
+        document.body.classList.remove('demo-mode-no-select');
+      };
+    }
+  }, [isDemoMode]);
 
   // Load saved font preference on mount
   useEffect(() => {
@@ -60,11 +116,18 @@ const Dashboard: React.FC = () => {
           
           if (!error && data) {
             setFontSize(data as 'smaller' | 'standard' | 'larger');
+          } else {
+            // Explicitly set to standard if no preference found
+            setFontSize('standard');
           }
         } catch (error) {
           console.log('Font preference not loaded (table may not exist yet):', error);
           // Fallback to standard - this is normal until migration is applied
+          setFontSize('standard');
         }
+      } else {
+        // If no user, default to standard
+        setFontSize('standard');
       }
     };
 
@@ -92,7 +155,7 @@ const Dashboard: React.FC = () => {
     fetchProducts();
     fetchInventoryRefreshTimestamp();
     setSelectedProductForImage(null);
-  }, [selectedMainCategory, selectedSubCategory, searchTerms, inStockOnly]);
+  }, [searchTerms, inStockOnly]); // Removed selectedMainCategory, selectedSubCategory to disconnect tree nav from dataset
 
   useEffect(() => {
     const fetchAndShowPromoPopup = async () => {
@@ -187,12 +250,11 @@ const Dashboard: React.FC = () => {
 
       // Helper function to get fallback image from database
       const getFallbackImageFromDatabase = async (): Promise<string | null> => {
-        if (!selectedProductForImage?.brand || !selectedProductForImage?.prdmaincat || !selectedProductForImage?.prdsubcat) {
+        if (!selectedProductForImage?.brand || !selectedProductForImage?.category) {
           console.log('[Dashboard] Missing required fields for fallback:', {
             partnumber: selectedProductForImage?.partnumber,
             brand: selectedProductForImage?.brand,
-            prdmaincat: selectedProductForImage?.prdmaincat,
-            prdsubcat: selectedProductForImage?.prdsubcat
+            category: selectedProductForImage?.category
           });
           return null;
         }
@@ -200,16 +262,14 @@ const Dashboard: React.FC = () => {
         console.log('[Dashboard] Calling fallback function with:', {
           input_partnumber: selectedProductForImage.partnumber,
           input_brand: selectedProductForImage.brand,
-          input_prdmaincat: selectedProductForImage.prdmaincat,
-          input_prdsubcat: selectedProductForImage.prdsubcat
+          input_category: selectedProductForImage.category
         });
 
         try {
-          const { data, error } = await supabase.rpc('get_fallback_image_for_product', {
+          const { data, error } = await supabase.rpc('get_fallback_image_for_product_v2', {
             input_partnumber: selectedProductForImage.partnumber,
             input_brand: selectedProductForImage.brand,
-            input_prdmaincat: selectedProductForImage.prdmaincat,
-            input_prdsubcat: selectedProductForImage.prdsubcat
+            input_category: selectedProductForImage.category
           });
 
           if (error) {
@@ -463,32 +523,46 @@ const Dashboard: React.FC = () => {
       console.log('Category filters being applied:', { mainCategory: selectedMainCategory, subCategory: selectedSubCategory }); // Added for debugging
       let query = supabase.from('products_supabase').select('*, groupedimage');
 
-      // Re-enabling filters after fixing category mapping
-      // Construct filter string manually to ensure exact matching
-      if (selectedMainCategory && selectedSubCategory) {
-        query = query.filter('prdmaincat', 'ilike', selectedMainCategory)
-                     .filter('prdsubcat', 'eq', selectedSubCategory);
-      } else if (selectedMainCategory) {
-        query = query.filter('prdmaincat', 'ilike', selectedMainCategory);
-      }
+      // Category filtering logic will need to be updated once database migration is complete
+      // For now, we'll comment out the old category filtering
+      // if (selectedMainCategory && selectedSubCategory) {
+      //   query = query.filter('category', 'eq', selectedSubCategory);
+      // } else if (selectedMainCategory) {
+      //   query = query.filter('category', 'eq', selectedMainCategory);
+      // }
 
       // Filter out test products - COMMENTED OUT to allow TEST products in search results
       // query = query.not('partnumber', 'ilike', 'TEST-%');
 
-      // Apply search terms by checking partnumber and description
-      if (searchTerms.primary) {
-        query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%`);
-      }
-      if (searchTerms.additional) {
-        // This acts as an AND condition with the primary search due to sequential application
-        query = query.or(`partnumber.ilike.%${searchTerms.additional}%,description.ilike.%${searchTerms.additional}%`);
-      }
-      if (searchTerms.exclude) {
-        // Product must NOT contain the exclude term in partnumber AND must NOT contain it in description.
-        query = query.not('partnumber', 'ilike', `%${searchTerms.exclude}%`);
-        query = query.not('description', 'ilike', `%${searchTerms.exclude}%`);
+      // PHASE 3: Filter out promo codes from product search results - TEMPORARILY DISABLED FOR DEBUGGING
+      // Get list of promo codes to exclude from product search
+      // const { data: promoCodes, error: promoError } = await supabase
+      //   .from('promo_codes')
+      //   .select('code');
+      
+      // if (!promoError && promoCodes && promoCodes.length > 0) {
+      //   // Exclude products whose partnumber matches any promo code
+      //   const promoCodeList = promoCodes.map(promo => promo.code);
+      //   query = query.not('partnumber', 'in', `(${promoCodeList.join(',')})`);
+      //   console.log('Filtered out promo codes from product search:', promoCodeList);
+      // }
+
+      // Apply search terms - handle AND logic properly
+      // When both primary and additional are present, we need to fetch broader set and filter client-side
+      if (searchTerms.primary || searchTerms.additional) {
+        if (searchTerms.primary && searchTerms.additional) {
+          // For AND logic, we first get all products matching primary term
+          query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%,brand.ilike.%${searchTerms.primary}%`);
+        } else if (searchTerms.primary) {
+          // Only primary search term - search partnumber, description, and brand
+          query = query.or(`partnumber.ilike.%${searchTerms.primary}%,description.ilike.%${searchTerms.primary}%,brand.ilike.%${searchTerms.primary}%`);
+        } else if (searchTerms.additional) {
+          // Only additional search term (when primary is empty)
+          query = query.or(`partnumber.ilike.%${searchTerms.additional}%,description.ilike.%${searchTerms.additional}%,brand.ilike.%${searchTerms.additional}%`);
+        }
       }
 
+      // Apply in-stock filter
       if (inStockOnly) {
         query = query.gt('inventory', 0);
       }
@@ -500,10 +574,146 @@ const Dashboard: React.FC = () => {
         return;
       }
 
+      let filteredData = data || [];
+
+      // Apply AND logic client-side for additional term
+      if (searchTerms.primary && searchTerms.additional && filteredData.length > 0) {
+        const additionalLower = searchTerms.additional.toLowerCase();
+        filteredData = filteredData.filter(product => {
+          const partnumberMatch = product.partnumber?.toLowerCase().includes(additionalLower) || false;
+          const descriptionMatch = product.description?.toLowerCase().includes(additionalLower) || false;
+          const brandMatch = product.brand?.toLowerCase().includes(additionalLower) || false;
+          return partnumberMatch || descriptionMatch || brandMatch;
+        });
+        console.log(`Applied AND filter for additional term "${searchTerms.additional}": ${data.length} -> ${filteredData.length} products`);
+      }
+
+      // Apply exclude filter client-side for better control
+      if (searchTerms.exclude && filteredData.length > 0) {
+        const excludeLower = searchTerms.exclude.toLowerCase();
+        filteredData = filteredData.filter(product => {
+          const partnumberHasExclude = product.partnumber?.toLowerCase().includes(excludeLower) || false;
+          const descriptionHasExclude = product.description?.toLowerCase().includes(excludeLower) || false;
+          const brandHasExclude = product.brand?.toLowerCase().includes(excludeLower) || false;
+          // Keep product only if exclude term is NOT in any field
+          return !partnumberHasExclude && !descriptionHasExclude && !brandHasExclude;
+        });
+        console.log(`Applied exclude filter for "${searchTerms.exclude}": ${filteredData.length} products remaining`);
+      }
+
+      // CRITICAL: Exact part number match prioritization
+      let finalData = filteredData;
+      const newExactMatches = new Set<string>();
+      
+      if (searchTerms.primary && filteredData.length > 0) {
+        const primaryLower = searchTerms.primary.toLowerCase();
+        const exactMatchProducts: Product[] = [];
+        const wildcardMatches: Product[] = [];
+        
+        filteredData.forEach(product => {
+          if (product.partnumber?.toLowerCase() === primaryLower) {
+            exactMatchProducts.push(product);
+            newExactMatches.add(product.partnumber); // Track exact matches for highlighting
+          } else {
+            wildcardMatches.push(product);
+          }
+        });
+        
+        // Combine exact matches first, then wildcard matches
+        if (exactMatchProducts.length > 0) {
+          finalData = [...exactMatchProducts, ...wildcardMatches];
+          console.log(`Prioritized ${exactMatchProducts.length} exact part number matches for "${searchTerms.primary}"`);
+        }
+      }
+      
+      // Update exact matches state for highlighting
+      setExactMatches(newExactMatches);
+
       // Log the fetched data
       console.log('Fetched raw product data:', data);
+      console.log('Final filtered data:', finalData);
 
-      setProducts(data || []);
+      setProducts(finalData);
+      try {
+        const resultsCount = Array.isArray(finalData) ? finalData.length : 0;
+        const acctNum = user?.accountNumber ? parseInt(user.accountNumber, 10) : NaN;
+        const email = user?.email || null;
+        // Log keyword search when search terms are used (and categories were cleared in handleSearch)
+        if ((searchTerms.primary || searchTerms.additional || searchTerms.exclude) && user) {
+          logKeywordSearch({
+            accountNumber: isNaN(acctNum) ? null : acctNum,
+            emailAddress: email,
+            query: searchTerms.primary || '',
+            filters: {
+              additional: searchTerms.additional || undefined,
+              exclude: searchTerms.exclude || undefined,
+            },
+            resultsCount,
+          });
+          
+          // Track search activity with new tracking system
+          const searchStartTime = Date.now();
+          activityTracker.trackSearch({
+            searchTerm: [searchTerms.primary, searchTerms.additional].filter(Boolean).join(' '),
+            searchType: 'keyword',
+            resultsCount,
+            searchDurationMs: Date.now() - searchStartTime,
+            filtersApplied: {
+              additional: searchTerms.additional || undefined,
+              exclude: searchTerms.exclude || undefined,
+              inStockOnly: inStockOnly || undefined
+            }
+          });
+          
+          // NEW: High-performance search logging
+          logSearchActivity({
+            account_number: isNaN(acctNum) ? null : acctNum,
+            session_id: getSessionId(),
+            search_term_1: searchTerms.primary || undefined,
+            search_term_2: searchTerms.additional || undefined,
+            exclusion_term: searchTerms.exclude || undefined,
+            search_query_full: buildSearchQuery(searchTerms.primary, searchTerms.additional, searchTerms.exclude),
+            results_count: resultsCount,
+            results_clicked: false, // Will be updated when user clicks on results
+            user_email: email || undefined
+          });
+        }
+        // Log nav tree search when browsing by categories (no search terms)
+        else if ((selectedMainCategoryName || selectedSubCategoryName) && !(searchTerms.primary || searchTerms.additional || searchTerms.exclude)) {
+          const path = [selectedMainCategoryName, selectedSubCategoryName].filter(Boolean) as string[];
+          logNavTreeSearch({
+            accountNumber: isNaN(acctNum) ? null : acctNum,
+            emailAddress: email,
+            categoryPath: path,
+            resultsCount,
+          });
+          
+          // Track category navigation as search activity
+          activityTracker.trackSearch({
+            searchTerm: path.join(' > '),
+            searchType: 'category',
+            resultsCount,
+            filtersApplied: {
+              mainCategory: selectedMainCategoryName,
+              subCategory: selectedSubCategoryName,
+              inStockOnly: inStockOnly || undefined
+            }
+          });
+          
+          // NEW: High-performance search logging for category navigation
+          logSearchActivity({
+            account_number: isNaN(acctNum) ? null : acctNum,
+            session_id: getSessionId(),
+            search_term_1: selectedMainCategoryName || undefined,
+            search_term_2: selectedSubCategoryName || undefined,
+            exclusion_term: undefined, // No exclusion in category navigation
+            search_query_full: path.join(' > '),
+            results_count: resultsCount,
+            results_clicked: false, // Will be updated when user clicks on results
+            user_email: email || undefined
+          });
+        }
+      } catch (_e) {}
       console.log('Products state after setProducts:', data); // Added for debugging
       console.log('Products state after setProducts:', data); // Added for debugging
     } catch (error) {
@@ -515,8 +725,9 @@ const Dashboard: React.FC = () => {
   
   // Updated to match CategorySelection type from CategoryTree.tsx
   const handleCategorySelect = (selection: import('../components/CategoryTree').CategorySelection | null) => {
-    setSearchQuery('');
-    setSearchTerms({ primary: '', additional: '', exclude: '' });
+    // Category selection no longer clears search terms or triggers dataset changes
+    // setSearchQuery('');
+    // setSearchTerms({ primary: '', additional: '', exclude: '' });
     setSelectedProductForImage(null); 
 
     if (selection) {
@@ -547,12 +758,15 @@ const Dashboard: React.FC = () => {
   };
   
   const handleSearch = (primaryQuery: string, additionalQuery: string, excludeQuery: string) => { // Removed showInStock parameter
-    setSearchQuery(primaryQuery);
+    const p = primaryQuery.trim();
+    const a = additionalQuery.trim();
+    const e = excludeQuery.trim();
+    setSearchQuery(p);
     // setInStockOnly is now handled by its own checkbox onChange
     setSearchTerms({
-      primary: primaryQuery,
-      additional: additionalQuery,
-      exclude: excludeQuery
+      primary: p,
+      additional: a,
+      exclude: e
     });
     setSelectedProductForImage(null); // Reset selected product
     setSelectedMainCategory(undefined);
@@ -568,6 +782,7 @@ const Dashboard: React.FC = () => {
   
   return (
     <div className="h-screen bg-gray-100 flex flex-col relative">
+      {isDemoMode && <DemoModeBanner onTimeout={handleDemoTimeout} />}
       <Header onViewChange={handleViewChange} activeView={activeView} />
       
       
@@ -593,7 +808,7 @@ const Dashboard: React.FC = () => {
                   <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md w-full overflow-visible">
                     <div className="flex items-center justify-between flex-wrap gap-4">
                       {/* Left side: Path display */}
-                      <div className={`${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-700`}>
+                      <div className={`${fontSize === 'smaller' ? 'font-professional-smaller' : fontSize === 'larger' ? 'font-professional-larger' : 'font-professional-standard'} text-gray-700`}>
                         {(() => {
                           const path = [];
                           if (selectedMainCategoryName) path.push(selectedMainCategoryName);
@@ -680,6 +895,19 @@ const Dashboard: React.FC = () => {
                                 Show MAP Price
                               </label>
                             </div>
+                            
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id="showMasterCartonPrices"
+                                checked={showMasterCartonPrices}
+                                onChange={(e) => setShowMasterCartonPrices(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <label htmlFor="showMasterCartonPrices" className={`ml-2 block ${fontSize === 'smaller' ? 'text-sm' : fontSize === 'larger' ? 'text-lg' : 'text-base'} text-gray-900`}>
+                                Show Master Carton Prices
+                              </label>
+                            </div>
                           </>
                         )}
                       </div>
@@ -710,6 +938,8 @@ const Dashboard: React.FC = () => {
                           className="h-full"
                           fontSize={fontSize}
                           onFontSizeChange={setFontSize}
+                          enableFiltering={false} // Disable table filters for customer interface
+                          exactMatches={exactMatches} // Pass exact matches for highlighting
                         />
                       </div>
                       {showImageAndSpecs && selectedProductForImage && (
@@ -739,11 +969,19 @@ const Dashboard: React.FC = () => {
                             <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
                               <li>Brand: {selectedProductForImage.brand ?? 'N/A'}</li>
                               <li>UPC: {selectedProductForImage.upc ?? 'N/A'}</li>
-                              <li>Net Price: ${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}</li>
+                              <li>Net Price: {isDemoMode ? (
+                                <span className="font-bold text-red-600">DEMO</span>
+                              ) : (
+                                `$${selectedProductForImage.price?.toFixed(2) ?? 'N/A'}`
+                              )}</li>
                               <li>MSRP: ${selectedProductForImage.webmsrp !== undefined && selectedProductForImage.webmsrp !== null ? selectedProductForImage.webmsrp.toFixed(2) : 'N/A'}</li>
                               <li>MAP: {selectedProductForImage.map !== undefined && selectedProductForImage.map !== null ? 
                                 `$${selectedProductForImage.map.toFixed(2)}` : 'N/A'}</li>
-                              <li>Inventory: {selectedProductForImage.inventory ?? 'N/A'}</li>
+                              <li>Inventory: {isDemoMode ? (
+                                <span className="font-bold text-red-600">DEMO</span>
+                              ) : (
+                                selectedProductForImage.inventory ?? 'N/A'
+                              )}</li>
                             </ul>
                             
                             <div className="mt-3">

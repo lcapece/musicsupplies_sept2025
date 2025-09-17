@@ -4,13 +4,19 @@ import { LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AccountsTab from '../components/admin/AccountsTab';
 import AccountApplicationsTab from '../components/admin/AccountApplicationsTab';
-import WebOrdersTab from '../components/admin/WebOrdersTab';
-import HistoryTab from '../components/admin/HistoryTab';
+import OrderHistoryTab from '../components/admin/OrderHistoryTab';
 import ClickSendTab from '../components/admin/ClickSendTab';
 import PromoCodeManagementTab from '../components/admin/PromoCodeManagementTab';
+import SiteStatusTab from '../components/admin/SiteStatusTab';
+import SmsNotificationTab from '../components/admin/SmsNotificationTab';
 import SmsFailureNotificationModal from '../components/SmsFailureNotificationModal';
+import AdminChatManagementPage from './AdminChatManagementPage';
+import SimplePasswordChanger from '../components/admin/SimplePasswordChanger';
+import AdminPasswordManager from '../components/AdminPasswordManager';
+import AdminPinManager from '../components/admin/AdminPinManager';
+import SystemLogTab from '../components/admin/SystemLogTab';
 
-type TabType = 'accounts' | 'applications' | 'orders' | 'history' | 'sms' | 'clicksend' | 'promocodes';
+type TabType = 'accounts' | 'applications' | 'history' | 'sms' | 'clicksend' | 'promocodes' | 'sitestatus' | 'chat' | 'security' | 'systemlog';
 
 const AdminDashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -22,7 +28,8 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const checkForSmsFailures = async () => {
       // CRITICAL: Only check for SMS failures if this is the admin account (999)
-      if (!hasCheckedForFailures && user?.accountNumber === '999' && isAuthenticated) {
+      const isAdminUser = String(user?.accountNumber) === '999';
+      if (!hasCheckedForFailures && isAdminUser && isAuthenticated) {
         try {
           // Check if there are any unacknowledged SMS failures
           const { data, error } = await supabase.rpc('get_unacknowledged_sms_failures');
@@ -36,7 +43,7 @@ const AdminDashboard: React.FC = () => {
           console.error('Error checking for SMS failures:', error);
           setHasCheckedForFailures(true);
         }
-      } else if (user?.accountNumber !== '999') {
+      } else if (!isAdminUser) {
         // Not admin, mark as checked to prevent any future attempts
         setHasCheckedForFailures(true);
       }
@@ -45,7 +52,10 @@ const AdminDashboard: React.FC = () => {
     checkForSmsFailures();
   }, [user, hasCheckedForFailures, isAuthenticated]);
 
-  if (!isAuthenticated || user?.accountNumber !== '999') {
+  // Check if user is admin (account 999) - handle both string and number types
+  const isAdmin = String(user?.accountNumber) === '999';
+  
+  if (!isAuthenticated || !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-lg shadow-lg">
@@ -59,11 +69,14 @@ const AdminDashboard: React.FC = () => {
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'accounts', label: 'Accounts', icon: '👥' },
     { id: 'applications', label: 'Applications', icon: '📝' },
-    { id: 'orders', label: 'Web Orders', icon: '🛒' },
     { id: 'history', label: 'Order History', icon: '📊' },
+    { id: 'chat', label: 'Chat System', icon: '🤖' },
     { id: 'sms', label: 'SMS Notifications', icon: '📱' },
     { id: 'clicksend', label: 'ClickSend', icon: '📨' },
     { id: 'promocodes', label: 'Promo Codes', icon: '🏷️' },
+    { id: 'sitestatus', label: 'Site Status', icon: '⚠️' },
+    { id: 'security', label: 'Security', icon: '🔐' },
+    { id: 'systemlog', label: 'System Log', icon: '📋' },
   ];
 
   const renderTabContent = () => {
@@ -72,16 +85,46 @@ const AdminDashboard: React.FC = () => {
         return <AccountsTab />;
       case 'applications':
         return <AccountApplicationsTab />;
-      case 'orders':
-        return <WebOrdersTab />;
       case 'history':
-        return <HistoryTab />;
+        return <OrderHistoryTab />;
+      case 'chat':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-gray-900">Chat System Management</h2>
+              <a
+                href="/admin/knowledge-base"
+                className="px-6 py-3 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300"
+              >
+                Manage Knowledge Base →
+              </a>
+            </div>
+            <AdminChatManagementPage />
+          </div>
+        );
       case 'sms':
-        return <div className="text-center py-16 text-2xl text-gray-500">SMS Notifications coming soon...</div>;
+        return <SmsNotificationTab />;
       case 'clicksend':
         return <ClickSendTab />;
       case 'promocodes':
         return <PromoCodeManagementTab />;
+      case 'sitestatus':
+        return <SiteStatusTab />;
+      case 'security':
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Security Settings</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AdminPasswordManager />
+              <AdminPinManager />
+            </div>
+            <div className="mt-8">
+              <SimplePasswordChanger />
+            </div>
+          </div>
+        );
+      case 'systemlog':
+        return <SystemLogTab />;
       default:
         return <AccountsTab />;
     }
@@ -110,12 +153,12 @@ const AdminDashboard: React.FC = () => {
           <div className="border-b border-gray-200">
             {/* Tab Navigation */}
             <div className="px-6 pt-6">
-              <nav className="-mb-px flex space-x-8">
+              <nav className="-mb-px flex space-x-8 overflow-x-auto pb-2">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`py-4 px-2 border-b-4 font-medium text-base whitespace-nowrap ${
+                    className={`py-4 px-2 border-b-4 font-medium text-base whitespace-nowrap flex-shrink-0 ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

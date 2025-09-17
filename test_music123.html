@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Music123 Test</title>
+</head>
+<body>
+    <h1>Testing if Music123 works</h1>
+    <button onclick="testLogin()">Test Music123 Login</button>
+    <div id="result"></div>
+
+    <script>
+        async function testLogin() {
+            const url = 'https://ekklokrukxmqlahtonnc.supabase.co/rest/v1/rpc/authenticate_user_v5';
+            const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVra2xva3J1a3htcWxhaHRvbm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNzMxOTQsImV4cCI6MjA1NTY0OTE5NH0.LFyaAQyBb2l6rxdUAXpDQVZnR4gHDNrVZH0YudbjP3k';
+            
+            const tests = [
+                { id: '999', pass: 'Music123', name: 'Music123 Test' },
+                { id: '999', pass: '2750grove', name: '2750grove Test' },
+                { id: '999', pass: 'music123', name: 'music123 lowercase' }
+            ];
+            
+            let results = '<h2>Results:</h2>';
+            
+            for (const test of tests) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': anonKey,
+                            'Authorization': `Bearer ${anonKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            p_identifier: test.id,
+                            p_password: test.pass,
+                            p_ip_address: 'test'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data && data.length > 0) {
+                        results += `<p style="color:red">❌ DANGER: ${test.name} WORKS! Account: ${data[0].account_number}</p>`;
+                    } else {
+                        results += `<p style="color:green">✅ Good: ${test.name} blocked</p>`;
+                    }
+                } catch (e) {
+                    results += `<p>Error testing ${test.name}: ${e.message}</p>`;
+                }
+            }
+            
+            document.getElementById('result').innerHTML = results;
+        }
+    </script>
+</body>
+</html>

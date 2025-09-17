@@ -87,9 +87,9 @@ const CategoryTreeItem: React.FC<{
         )}
         {/* Icon rendering removed */}
         <span className={`${
-          fontSize === 'smaller' ? 'text-sm' : 
-          fontSize === 'standard' ? 'text-base' : 
-          'text-lg'
+          fontSize === 'smaller' ? 'font-professional-smaller' : 
+          fontSize === 'standard' ? 'font-professional-standard' : 
+          'font-professional-larger'
         } text-left truncate ${level === 2 ? 'text-blue-600' : ''}`}>
           {category.name}
         </span>
